@@ -1,1 +1,42 @@
-// theme_config.dart generated
+import 'package:flutter/material.dart';
+
+class ThemeConfig {
+  // Brand colors
+  static const Color primaryGreen = Color(0xFF0D3528);
+  static const Color secondaryGreen = Color(0xFF4D6443);
+  static const Color coffeeBrown = Color(0xFF4E2D18);
+  static const Color mochaBrown = Color(0xFF8B6341);
+  static const Color white = Color(0xFFFFFFFF);
+  static const Color lightGray = Color(0xFFEEEEEE);
+
+  static ThemeData lightTheme = ThemeData(
+    scaffoldBackgroundColor: white,
+    primaryColor: primaryGreen,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: primaryGreen,
+      primary: primaryGreen,
+      secondary: secondaryGreen,
+      background: white,
+      surface: white,
+      onPrimary: white,
+      onSecondary: white,
+      onSurface: primaryGreen,
+      onBackground: primaryGreen,
+      brightness: Brightness.light,
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: primaryGreen,
+      foregroundColor: white,
+      elevation: 0,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: primaryGreen,
+        foregroundColor: white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
+    fontFamily: 'Roboto',
+  );
+}
