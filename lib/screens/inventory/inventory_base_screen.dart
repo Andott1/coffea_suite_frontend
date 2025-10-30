@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/base_module_screen.dart';
 import 'inventory_dashboard.dart';
 import 'product_list_screen.dart';
-import 'product_edit_screen.dart';
 import 'stock_adjustment_screen.dart';
 
 class InventoryBaseScreen extends StatelessWidget {
@@ -12,25 +11,17 @@ class InventoryBaseScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BaseModuleScreen(
       defaultIndex: 0,
-      tabLabels: const [
-        "Overview",
-        "Product List",
-        "Edit Product",
-        "Stock Adjustments",
-      ],
-      tabIcons: const [
-        Icons.dashboard,
-        Icons.list_alt,
-        Icons.edit,
-        Icons.inventory,
-      ],
-      screens: [
+      tabLabels: const ["Overview", "Products", "Stock Adjustments"],
+      tabIcons: const [Icons.dashboard, Icons.list_alt, Icons.inventory],
+      screens: const [
         InventoryDashboard(),
         ProductListScreen(),
-        ProductEditScreen(),
         StockAdjustmentScreen(),
       ],
+      adminOnly: const [false, false, true], // 👈 Stock Adjustments admin-only
       showUserMode: true,
+      showBackButton: true,
+      useTopBar: true,
     );
   }
 }

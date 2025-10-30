@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
-import 'config/theme_config.dart';
+import 'package:provider/provider.dart';
+import 'config/role_config.dart';
 import 'screens/startup/startup_screen.dart';
-
-// Base system screens
 import 'screens/pos/pos_base_screen.dart';
 import 'screens/admin/admin_base_screen.dart';
 import 'screens/inventory/inventory_base_screen.dart';
 import 'screens/attendance/attendance_base_screen.dart';
+import 'config/theme_config.dart';
 
 void main() {
-  runApp(const CoffeaSuiteApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => RoleConfig.instance,
+      child: const CoffeaSuiteApp(),
+    ),
+  );
 }
 
 class CoffeaSuiteApp extends StatelessWidget {

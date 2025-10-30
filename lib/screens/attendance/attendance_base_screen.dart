@@ -11,22 +11,17 @@ class AttendanceBaseScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BaseModuleScreen(
       defaultIndex: 0,
-      tabLabels: const [
-        "Time In/Out",
-        "Attendance Logs",
-        "Payroll",
-      ],
-      tabIcons: const [
-        Icons.access_time,
-        Icons.list_alt,
-        Icons.payments,
-      ],
-      screens: [
+      tabLabels: const ["Time In/Out", "Logs", "Payroll"],
+      tabIcons: const [Icons.access_time, Icons.list_alt, Icons.payments],
+      screens: const [
         AttendanceScreen(),
         AttendanceLogsScreen(),
         PayrollScreen(),
       ],
-      showUserMode: false, // Attendance kiosk doesn’t need role switching
+      adminOnly: const [false, true, true], // 👈 Logs + Payroll = Admin-only
+      showUserMode: true,
+      showBackButton: true,
+      useTopBar: true,
     );
   }
 }

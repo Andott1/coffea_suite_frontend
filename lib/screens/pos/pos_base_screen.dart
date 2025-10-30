@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/base_module_screen.dart';
-import '../admin/admin_dashboard_screen.dart';
-import '../inventory/inventory_dashboard.dart';
 import 'pos_dashboard.dart';
-import '../admin/analytics_screen.dart';
-import '../admin/settings_screen.dart';
+import 'cashier_screen.dart';
+import 'transaction_history_screen.dart';
 
 class POSBaseScreen extends StatelessWidget {
   const POSBaseScreen({super.key});
@@ -12,28 +10,18 @@ class POSBaseScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BaseModuleScreen(
-      defaultIndex: 1, // Default to "Cashier"
-      tabLabels: const [
-        "Dashboard",
-        "Cashier",
-        "Inventory",
-        "Analytics",
-        "Settings",
-      ],
-      tabIcons: const [
-        Icons.dashboard,
-        Icons.point_of_sale,
-        Icons.inventory_2,
-        Icons.bar_chart,
-        Icons.settings,
-      ],
+      defaultIndex: 1,
+      tabLabels: const ["Dashboard", "Cashier", "History"],
+      tabIcons: const [Icons.dashboard, Icons.point_of_sale, Icons.history],
       screens: const [
-        AdminDashboardScreen(),
         POSDashboard(),
-        InventoryDashboard(),
-        AnalyticsScreen(),
-        SettingsScreen(),
+        CashierScreen(),
+        TransactionHistoryScreen(),
       ],
+      adminOnly: const [true, false, false], // 👈 Dashboard only for Admin
+      showUserMode: true,
+      showBackButton: true,
+      useTopBar: true,
     );
   }
 }

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
 import '../utils/responsive.dart';
+import '../../config/role_config.dart';
+import '../utils/dialog_utils.dart';  
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
   final int activeIndex;
@@ -10,6 +13,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showBackButton;
   final List<String> tabLabels;
   final List<IconData> tabIcons;
+  final VoidCallback? onRoleChanged; // 👈 new callback
 
   const TopBar({
     super.key,
@@ -18,7 +22,8 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.tabLabels,
     required this.tabIcons,
     this.showUserMode = true,
-    this.showBackButton = false,
+    this.showBackButton = true,
+    this.onRoleChanged, // 👈 added to constructor
   });
 
   @override
@@ -90,7 +95,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
             children: [
               const _OnlineIndicator(),
               SizedBox(width: r.wp(2)),
-              if (showUserMode) const _UserModeSwitcher(),
+              if (showUserMode) _UserModeSwitcher(onRoleChanged: onRoleChanged),
             ],
           ),
         ],
@@ -213,21 +218,45 @@ class _OnlineIndicatorState extends State<_OnlineIndicator> {
 // ---------------------------------------------------------------------------
 
 class _UserModeSwitcher extends StatefulWidget {
-  const _UserModeSwitcher();
+  final VoidCallback? onRoleChanged; // 👈 callback to parent
+
+  const _UserModeSwitcher({this.onRoleChanged, super.key});
 
   @override
   State<_UserModeSwitcher> createState() => _UserModeSwitcherState();
 }
 
 class _UserModeSwitcherState extends State<_UserModeSwitcher> {
-  bool isAdmin = true;
+  late bool isAdmin;
+
+  @override
+  void initState() {
+    super.initState();
+    isAdmin = context.read<RoleConfig>().isAdmin;
+  }
+
+  void _toggleRole() {
+    final roleManager = context.read<RoleConfig>();
+    roleManager.toggleRole();
+
+    setState(() {
+      isAdmin = roleManager.isAdmin;
+    });
+
+    widget.onRoleChanged?.call();
+
+    final message = isAdmin
+        ? "☕ Switched to Admin Mode"
+        : "👤 Switched to Employee Mode";
+    DialogUtils.showToast(context, message);
+  }
 
   @override
   Widget build(BuildContext context) {
     final r = Responsive(context);
 
     return GestureDetector(
-      onTap: () => setState(() => isAdmin = !isAdmin),
+      onTap: _toggleRole,
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: r.wp(2),
