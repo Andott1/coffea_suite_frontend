@@ -1,3 +1,4 @@
+/// <<FILE: lib/screens/admin/admin_base_screen.dart>>
 import 'package:flutter/material.dart';
 import '../../core/widgets/base_module_screen.dart';
 import 'analytics_screen.dart';
@@ -9,19 +10,26 @@ class AdminBaseScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BaseModuleScreen(
+    return const BaseModuleScreen(
       defaultIndex: 0,
-      tabLabels: const ["Analytics", "Employees", "Settings"],
-      tabIcons: const [Icons.bar_chart, Icons.people_alt, Icons.settings],
-      screens: const [
+      tabLabels: ["Analytics", "Employees", "Products", "Ingredients", "Settings"],
+      tabIcons: [
+        Icons.bar_chart,
+        Icons.people_alt,
+        Icons.coffee, 
+        Icons.inventory,
+        Icons.settings,
+      ],
+      screens: [
         AnalyticsScreen(),
         EmployeeManagementScreen(),
         SettingsScreen(),
       ],
-      adminOnly: const [true, true, true], // 👈 Admin-only section
+      adminOnly: [true, true, true, true, true],
       showUserMode: true,
       showBackButton: true,
       useTopBar: true,
     );
   }
 }
+/// <<END FILE>>

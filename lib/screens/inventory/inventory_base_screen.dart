@@ -9,16 +9,16 @@ class InventoryBaseScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BaseModuleScreen(
+    return const BaseModuleScreen(
       defaultIndex: 0,
-      tabLabels: const ["Overview", "Products", "Stock Adjustments"],
-      tabIcons: const [Icons.dashboard, Icons.list_alt, Icons.inventory],
-      screens: const [
+      tabLabels: ["Overview", "Products", "Stock Adjustments"],
+      tabIcons: [Icons.dashboard, Icons.list_alt, Icons.inventory],
+      screens: [
         InventoryDashboard(),
         ProductListScreen(),
         StockAdjustmentScreen(),
       ],
-      adminOnly: const [false, false, true], // 👈 Stock Adjustments admin-only
+      adminOnly: [false, false, true], // 👈 Stock Adjustments admin-only
       showUserMode: true,
       showBackButton: true,
       useTopBar: true,

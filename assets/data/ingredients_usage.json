@@ -1,0 +1,110 @@
+[
+  {
+    "productId": "coffee_americano",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "ingredientId": "coffee_beans",
+    "unit": "g",
+    "quantities": {
+      "12oz": 30,
+      "16oz": 60
+    }
+  },
+  {
+    "productId": "coffee_latte",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "ingredientId": "milk",
+    "unit": "mL",
+    "quantities": {
+      "12oz": 170,
+      "16oz": 220
+    }
+  },
+  {
+    "productId": "coffee_latte",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "ingredientId": "coffee_beans",
+    "unit": "g",
+    "quantities": {
+      "12oz": 30,
+      "16oz": 60
+    }
+  },
+  {
+    "productId": "coffee_caramel_macchiato",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "ingredientId": "milk",
+    "unit": "mL",
+    "quantities": {
+      "12oz": 170,
+      "16oz": 220
+    }
+  },
+  {
+    "productId": "coffee_caramel_macchiato",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "ingredientId": "caramel_syrup",
+    "unit": "mL",
+    "quantities": {
+      "12oz": 45,
+      "16oz": 65
+    }
+  },
+  {
+    "productId": "frappe_mocha_java_chips",
+    "category": "Drinks",
+    "subCategory": "Frappe",
+    "ingredientId": "mocha_java_chips",
+    "unit": "g",
+    "quantities": {
+      "16oz": 25,
+      "22oz": 32
+    }
+  },
+  {
+    "productId": "frappe_mocha_java_chips",
+    "category": "Drinks",
+    "subCategory": "Frappe",
+    "ingredientId": "frappe_base",
+    "unit": "g",
+    "quantities": {
+      "16oz": 45,
+      "22oz": 45
+    }
+  },
+  {
+    "productId": "frappe_mocha_java_chips",
+    "category": "Drinks",
+    "subCategory": "Frappe",
+    "ingredientId": "sugar_syrup",
+    "unit": "mL",
+    "quantities": {
+      "16oz": 10,
+      "22oz": 15
+    }
+  },
+  {
+    "productId": "meal_pork_sisig",
+    "category": "Meals",
+    "subCategory": "Ricemeal",
+    "ingredientId": "pork_meat",
+    "unit": "g",
+    "quantities": {
+      "Regular": 250
+    }
+  },
+  {
+    "productId": "dessert_mango_graham",
+    "category": "Desserts",
+    "subCategory": "Chilled Desserts",
+    "ingredientId": "mango_syrup",
+    "unit": "mL",
+    "quantities": {
+      "Cup": 50
+    }
+  }
+]

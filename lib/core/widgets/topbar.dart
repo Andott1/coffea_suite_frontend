@@ -4,7 +4,7 @@ import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
 import '../utils/responsive.dart';
 import '../../config/role_config.dart';
-import '../utils/dialog_utils.dart';  
+import '../utils/dialog_utils.dart';
 
 class TopBar extends StatelessWidget implements PreferredSizeWidget {
   final int activeIndex;
@@ -13,7 +13,7 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
   final bool showBackButton;
   final List<String> tabLabels;
   final List<IconData> tabIcons;
-  final VoidCallback? onRoleChanged; // 👈 new callback
+  final VoidCallback? onRoleChanged;
 
   const TopBar({
     super.key,
@@ -23,80 +23,86 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
     required this.tabIcons,
     this.showUserMode = true,
     this.showBackButton = true,
-    this.onRoleChanged, // 👈 added to constructor
+    this.onRoleChanged,
   });
 
   @override
   Widget build(BuildContext context) {
     final r = Responsive(context);
-    final double statusBarHeight = MediaQuery.of(context).padding.top; // 👈 Dynamic padding for notification bar
+    final double statusBarHeight = MediaQuery.of(context).padding.top;
+    final double topBarHeight = preferredSize.height;
 
     return Container(
-      // Total height = TopBar height + status bar padding
-      height: preferredSize.height + statusBarHeight,
+      height: topBarHeight + statusBarHeight,
       width: double.infinity,
+      padding: EdgeInsets.only(
+        top: statusBarHeight,
+        left: r.wp(2),
+        right: r.wp(2),
+      ),
       decoration: const BoxDecoration(
         color: ThemeConfig.white,
         border: Border(
           bottom: BorderSide(color: ThemeConfig.lightGray, width: 2),
         ),
       ),
-      padding: EdgeInsets.only(
-        top: statusBarHeight, // 👈 This ensures TopBar starts below notif bar
-        left: r.wp(2),
-        right: r.wp(2),
-      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // LEFT: Logo or Back Button
-          Row(
-            children: [
-              if (showBackButton)
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, color: ThemeConfig.primaryGreen),
-                  iconSize: r.scale(24),
-                  onPressed: () => Navigator.pop(context),
-                )
-              else
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: r.hp(0.8)),
-                  child: Image.asset(
-                    'assets/logo/coffea.png',
-                    height: r.hp(5.5),
-                    fit: BoxFit.contain,
-                  ),
-                ),
-            ],
-          ),
-
-          // CENTER: Tabs (if available)
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(tabLabels.length, (index) {
-                final isActive = index == activeIndex;
-                return Padding(
-                  padding: EdgeInsets.symmetric(horizontal: r.wp(0.8)),
-                  child: _NavButton(
-                    label: tabLabels[index],
-                    icon: tabIcons[index],
-                    isActive: isActive,
-                    onTap: () => onNavTap(index),
-                  ),
-                );
-              }),
+          // 🟩 COLUMN 1 — Back button
+          SizedBox(
+            width: r.wp(10), // fixed width column for back button
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: showBackButton
+                  ? IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: ThemeConfig.primaryGreen,
+                      ),
+                      iconSize: r.scale(26),
+                      onPressed: () => Navigator.pop(context),
+                    )
+                  : Image.asset(
+                      'assets/logo/coffea.png',
+                      height: r.hp(5),
+                      fit: BoxFit.contain,
+                    ),
             ),
           ),
 
-          // RIGHT: Online Status + Role
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const _OnlineIndicator(),
-              SizedBox(width: r.wp(2)),
-              if (showUserMode) _UserModeSwitcher(onRoleChanged: onRoleChanged),
-            ],
+          // 🟦 COLUMN 2 — Navigation Tabs (centered)
+          Expanded(
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(tabLabels.length, (index) {
+                  final isActive = index == activeIndex;
+                  return Padding(
+                    padding: EdgeInsets.symmetric(horizontal: r.wp(1)),
+                    child: _NavButton(
+                      label: tabLabels[index],
+                      icon: tabIcons[index],
+                      isActive: isActive,
+                      onTap: () => onNavTap(index),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
+
+          // 🟧 COLUMN 3 — Status + Role Switcher (right side)
+          SizedBox(
+            width: r.wp(18),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const _OnlineIndicator(),
+                SizedBox(width: r.wp(1.5)),
+                if (showUserMode)
+                  _UserModeSwitcher(onRoleChanged: onRoleChanged),
+              ],
+            ),
           ),
         ],
       ),
@@ -107,10 +113,9 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(70);
 }
 
-// ---------------------------------------------------------------------------
+// ======================================================================
 // NAV BUTTON
-// ---------------------------------------------------------------------------
-
+// ======================================================================
 class _NavButton extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -132,14 +137,14 @@ class _NavButton extends StatelessWidget {
 
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(r.scale(8)),
+      borderRadius: BorderRadius.circular(r.scale(6)),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: r.wp(1.2), vertical: r.hp(0.4)),
+        padding: EdgeInsets.symmetric(horizontal: r.wp(0.8), vertical: r.hp(0.4)),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: isActive ? activeColor : inactiveColor, size: r.scale(20)),
-            SizedBox(height: r.hp(0.4)),
+            SizedBox(height: r.hp(0.3)),
             Text(
               label,
               style: FontConfig.body(context).copyWith(
@@ -150,7 +155,7 @@ class _NavButton extends StatelessWidget {
             ),
             if (isActive)
               Container(
-                margin: EdgeInsets.only(top: r.hp(0.4)),
+                margin: EdgeInsets.only(top: r.hp(0.3)),
                 height: r.scale(3),
                 width: r.wp(5),
                 color: activeColor,
@@ -162,10 +167,9 @@ class _NavButton extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
+// ======================================================================
 // ONLINE INDICATOR
-// ---------------------------------------------------------------------------
-
+// ======================================================================
 class _OnlineIndicator extends StatefulWidget {
   const _OnlineIndicator();
 
@@ -185,11 +189,11 @@ class _OnlineIndicatorState extends State<_OnlineIndicator> {
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: r.wp(1.5),
-          vertical: r.hp(0.6),
+          vertical: r.hp(0.5),
         ),
         decoration: BoxDecoration(
           color: ThemeConfig.white,
-          borderRadius: BorderRadius.circular(r.scale(8)),
+          borderRadius: BorderRadius.circular(r.scale(6)),
           border: Border.all(color: ThemeConfig.primaryGreen, width: 2),
         ),
         child: Row(
@@ -213,13 +217,11 @@ class _OnlineIndicatorState extends State<_OnlineIndicator> {
   }
 }
 
-// ---------------------------------------------------------------------------
+// ======================================================================
 // USER MODE SWITCHER
-// ---------------------------------------------------------------------------
-
+// ======================================================================
 class _UserModeSwitcher extends StatefulWidget {
-  final VoidCallback? onRoleChanged; // 👈 callback to parent
-
+  final VoidCallback? onRoleChanged;
   const _UserModeSwitcher({this.onRoleChanged, super.key});
 
   @override
@@ -245,9 +247,8 @@ class _UserModeSwitcherState extends State<_UserModeSwitcher> {
 
     widget.onRoleChanged?.call();
 
-    final message = isAdmin
-        ? "☕ Switched to Admin Mode"
-        : "👤 Switched to Employee Mode";
+    final message =
+        isAdmin ? "Switched to Admin Mode" : "Switched to Employee Mode";
     DialogUtils.showToast(context, message);
   }
 
@@ -259,12 +260,12 @@ class _UserModeSwitcherState extends State<_UserModeSwitcher> {
       onTap: _toggleRole,
       child: Container(
         padding: EdgeInsets.symmetric(
-          horizontal: r.wp(2),
-          vertical: r.hp(0.7),
+          horizontal: r.wp(1.8),
+          vertical: r.hp(0.5),
         ),
         decoration: BoxDecoration(
           color: ThemeConfig.white,
-          borderRadius: BorderRadius.circular(r.scale(8)),
+          borderRadius: BorderRadius.circular(r.scale(6)),
           border: Border.all(color: ThemeConfig.primaryGreen, width: 2),
         ),
         child: Text(

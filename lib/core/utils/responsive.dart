@@ -19,9 +19,18 @@ class Responsive {
     textScale = (scaleWidth + scaleHeight) / 2;
   }
 
+  // Percentage-based helpers
   double wp(double percent) => screenWidth * (percent / 100);
   double hp(double percent) => screenHeight * (percent / 100);
 
+  // Scaling helpers
   double scale(double value) => value * scaleWidth;
   double font(double size) => size * textScale;
+
+  // 👇 NEW — Determine if the device is a tablet
+  bool get isTablet {
+    final shortestSide = MediaQuery.of(context).size.shortestSide;
+    // Common threshold for tablet detection (600px+)
+    return shortestSide >= 600;
+  }
 }
