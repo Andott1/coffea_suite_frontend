@@ -1,3 +1,4 @@
+/// <<FILE: lib/main.dart>>
 import 'package:coffea_suite_frontend/core/services/hive_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -15,8 +16,10 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveService.init();
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => RoleConfig.instance,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<RoleConfig>.value(value: RoleConfig.instance),
+      ],
       child: const CoffeaSuiteApp(),
     ),
   );
@@ -42,3 +45,4 @@ class CoffeaSuiteApp extends StatelessWidget {
     );
   }
 }
+/// <<END FILE>>

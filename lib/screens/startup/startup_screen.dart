@@ -150,7 +150,7 @@ class _StartupScreenState extends State<StartupScreen> {
 
               // ──────── BOTTOM BAR ────────
               Container(
-                height: scaledBarHeight,
+                height: 64,
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(
