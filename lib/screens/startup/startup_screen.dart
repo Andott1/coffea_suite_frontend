@@ -1,8 +1,10 @@
+/// <<FILE: lib/screens/startup/startup_screen.dart>>
 import 'package:flutter/material.dart';
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../config/role_config.dart';
 import '../../core/utils/dialog_utils.dart';
+import '../../core/widgets/master_topbar.dart';
 import 'package:provider/provider.dart';
 
 class StartupScreen extends StatefulWidget {
@@ -36,72 +38,11 @@ class _StartupScreenState extends State<StartupScreen> {
           backgroundColor: ThemeConfig.white,
           body: Column(
             children: [
-              // ──────── NOTIFICATION SPACER (24px) ────────
-              const SizedBox(height: 24),
-
               // ──────── TOP BAR ────────
-              Container(
-                height: scaledBarHeight,
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: ThemeConfig.white,
-                  border: Border(
-                    bottom: BorderSide(
-                      color: ThemeConfig.lightGray,
-                      width: 2,
-                    ),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Coffea System Suite",
-                      style: FontConfig.h1(context).copyWith(
-                        color: ThemeConfig.primaryGreen,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () => _toggleRole(context),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: ThemeConfig.primaryGreen,
-                            width: 2,
-                          ),
-                          color: Colors.white,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              isAdmin
-                                  ? Icons.admin_panel_settings
-                                  : Icons.person,
-                              color: ThemeConfig.primaryGreen,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              isAdmin ? "ADMIN" : "EMPLOYEE",
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: ThemeConfig.primaryGreen,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              MasterTopBar(
+                system: CoffeaSystem.startup,
+                showTabs: false,
+                showBackButton: false,
               ),
 
               // ──────── MIDDLE SECTION ────────
@@ -295,3 +236,4 @@ class _SystemButton extends StatelessWidget {
     );
   }
 }
+/// <<END FILE>>
