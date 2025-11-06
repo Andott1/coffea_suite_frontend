@@ -1,3 +1,4 @@
+/// <<FILE: lib/config/theme_config.dart>>
 import 'package:flutter/material.dart';
 
 class ThemeConfig {
@@ -16,12 +17,10 @@ class ThemeConfig {
       seedColor: primaryGreen,
       primary: primaryGreen,
       secondary: secondaryGreen,
-      background: white,
       surface: white,
       onPrimary: white,
       onSecondary: white,
       onSurface: primaryGreen,
-      onBackground: primaryGreen,
       brightness: Brightness.light,
     ),
     appBarTheme: const AppBarTheme(
@@ -39,4 +38,5 @@ class ThemeConfig {
     ),
     fontFamily: 'Roboto',
   );
-}
+}	
+/// <<END FILE>>
