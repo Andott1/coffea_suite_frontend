@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../config/role_config.dart';
+import 'admin_inventory_tab.dart'; // ✅ NEW import
 
 class AdminBaseScreen extends StatefulWidget {
   const AdminBaseScreen({super.key});
@@ -24,13 +25,7 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
     "Settings",
   ];
 
-  final List<Widget> _screens = const [
-    AdminAnalyticsScreen(),
-    AdminEmployeesScreen(),
-    AdminProductsScreen(),
-    AdminIngredientsScreen(),
-    AdminSettingsScreen(),
-  ];
+  late final List<Widget> _screens;
 
   void _onTabChanged(int index) {
     setState(() => _activeIndex = index);
@@ -39,6 +34,14 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
   @override
   void initState() {
     super.initState();
+
+    _screens = const [
+      AdminAnalyticsScreen(),
+      AdminEmployeesScreen(),
+      AdminProductsScreen(),
+      AdminInventoryTab(), // ✅ replaced placeholder with real tab
+      AdminSettingsScreen(),
+    ];
 
     // Attach role change listener
     _roleManager = RoleConfig.instance;
@@ -79,9 +82,12 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
   }
 }
 
-/// -----------------------------
-/// TAB 1: Analytics
-/// -----------------------------
+//
+// ────────────────────────────────────────────────────────────
+// OTHER EXISTING ADMIN TABS (unchanged except Ingredients)
+// ────────────────────────────────────────────────────────────
+//
+
 class AdminAnalyticsScreen extends StatelessWidget {
   const AdminAnalyticsScreen({super.key});
 
@@ -144,99 +150,40 @@ class _AdminStatCard extends StatelessWidget {
   }
 }
 
-/// -----------------------------
-/// TAB 2: Employee Management
-/// -----------------------------
 class AdminEmployeesScreen extends StatelessWidget {
   const AdminEmployeesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        width: double.infinity,
-        color: Colors.white,
-        child: const Center(
-          child: Text(
-            "Manage Employees Placeholder",
-            style: TextStyle(fontSize: 16),
-          ),
-        ),
-      ),
+    return const Center(
+      child: Text("Manage Employees Placeholder",
+          style: TextStyle(fontSize: 16)),
     );
   }
 }
 
-/// -----------------------------
-/// TAB 3: Product Management
-/// -----------------------------
 class AdminProductsScreen extends StatelessWidget {
   const AdminProductsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        width: double.infinity,
-        color: Colors.white,
-        child: const Center(
-          child: Text(
-            "Manage Products Placeholder",
-            style: TextStyle(fontSize: 16),
-          ),
-        ),
-      ),
+    return const Center(
+      child:
+          Text("Manage Products Placeholder", style: TextStyle(fontSize: 16)),
     );
   }
 }
 
-/// -----------------------------
-/// TAB 4: Ingredient Management
-/// -----------------------------
-class AdminIngredientsScreen extends StatelessWidget {
-  const AdminIngredientsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        width: double.infinity,
-        color: Colors.white,
-        child: const Center(
-          child: Text(
-            "Manage Ingredients Placeholder",
-            style: TextStyle(fontSize: 16),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// -----------------------------
-/// TAB 5: Settings
-/// -----------------------------
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        width: double.infinity,
-        color: Colors.white,
-        child: const Center(
-          child: Text(
-            "System Settings Placeholder",
-            style: TextStyle(fontSize: 16),
-          ),
-        ),
-      ),
+    return const Center(
+      child: Text("System Settings Placeholder",
+          style: TextStyle(fontSize: 16)),
     );
   }
 }
+
 /// <<END FILE>>

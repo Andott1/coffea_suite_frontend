@@ -15,11 +15,11 @@ class IngredientModel extends HiveObject {
   @HiveField(2)
   String category;
 
-  /// Display unit used by admin (e.g., kg, L, pcs)
+  /// Purchase/display unit (e.g., kg, L, pcs)
   @HiveField(3)
   String unit;
 
-  /// Quantity stored internally in base unit (e.g., g, mL, pcs)
+  /// Quantity stored internally in base units (e.g., g, mL, pcs)
   @HiveField(4)
   double quantity;
 
@@ -42,7 +42,12 @@ class IngredientModel extends HiveObject {
   @HiveField(9)
   bool isCustomConversion;
 
-  // ──────────────── PRESETS FOR AUTO-CONVERSION ────────────────
+  // ──────────────── NEW COSTING FIELD ────────────────
+  /// 💰 Cost per purchased unit (e.g., ₱250 per kg)
+  @HiveField(10)
+  double unitCost;
+
+  // ──────────────── AUTO-CONVERSION PRESETS ────────────────
   static const Map<String, Map<String, dynamic>> _autoConversionPresets = {
     'kg': {'base': 'g', 'factor': 1000.0},
     'g': {'base': 'g', 'factor': 1.0},
@@ -63,14 +68,20 @@ class IngredientModel extends HiveObject {
     String? baseUnit,
     double? conversionFactor,
     this.isCustomConversion = false,
+    this.unitCost = 0.0, // 💰 new default
   })  : baseUnit = baseUnit ?? _autoConversionPresets[unit]?['base'] ?? unit,
         conversionFactor =
             conversionFactor ?? _autoConversionPresets[unit]?['factor'] ?? 1.0;
 
   // ──────────────── COMPUTED GETTERS ────────────────
   double get displayQuantity => quantity / conversionFactor;
-
   String get displayString => "${displayQuantity.toStringAsFixed(2)} $unit";
+
+  /// Derived cost per base unit (e.g., ₱250 / 1000g = ₱0.25 per gram)
+  double get costPerBaseUnit => conversionFactor == 0 ? 0 : unitCost / conversionFactor;
+
+  /// Total value of current stock (quantity in purchased units × cost per unit)
+  double get totalValue => displayQuantity * unitCost;
 
   // ──────────────── SERIALIZATION ────────────────
   factory IngredientModel.fromJson(Map<String, dynamic> json) {
@@ -80,16 +91,17 @@ class IngredientModel extends HiveObject {
     return IngredientModel(
       id: json['id'] as String,
       name: json['name'] as String,
-      category: json['category'] as String? ??
-          'Uncategorized', // fallback for safety during imports
+      category: json['category'] ?? 'Uncategorized',
       unit: unit,
       quantity: (json['quantity'] ?? 0).toDouble(),
       reorderLevel: (json['reorderLevel'] ?? 0).toDouble(),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
-      baseUnit: json['baseUnit'] as String? ?? preset?['base'] as String?,
-      conversionFactor:
-          (json['conversionFactor'] ?? preset?['factor'] ?? 1.0).toDouble(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'])
+          : DateTime.now(),
+      baseUnit: json['baseUnit'] ?? preset?['base'] ?? unit,
+      conversionFactor: (json['conversionFactor'] ?? preset?['factor'] ?? 1).toDouble(),
       isCustomConversion: json['isCustomConversion'] ?? false,
+      unitCost: (json['unitCost'] ?? 0).toDouble(),
     );
   }
 
@@ -104,11 +116,11 @@ class IngredientModel extends HiveObject {
         'baseUnit': baseUnit,
         'conversionFactor': conversionFactor,
         'isCustomConversion': isCustomConversion,
+        'unitCost': unitCost,
       };
 
   // ──────────────── UTILITIES ────────────────
-  static bool isKnownUnit(String unit) =>
-      _autoConversionPresets.containsKey(unit);
+  static bool isKnownUnit(String unit) => _autoConversionPresets.containsKey(unit);
 
   /// Factory shortcut for creating auto-converted ingredients
   factory IngredientModel.auto({
@@ -118,6 +130,7 @@ class IngredientModel extends HiveObject {
     required String unit,
     required double quantity,
     double reorderLevel = 0,
+    double unitCost = 0.0,
   }) {
     final preset = _autoConversionPresets[unit];
     return IngredientModel(
@@ -130,6 +143,7 @@ class IngredientModel extends HiveObject {
       updatedAt: DateTime.now(),
       baseUnit: preset?['base'] ?? unit,
       conversionFactor: preset?['factor'] ?? 1.0,
+      unitCost: unitCost,
     );
   }
 }
