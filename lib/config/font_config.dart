@@ -59,7 +59,7 @@ class FontConfig {
     final r = Responsive(context);
     return TextStyle(
       fontSize: r.font(16),
-      color: Colors.grey[800],
+      color: ThemeConfig.midGray,
       fontWeight: FontWeight.w500,
     );
   }
@@ -72,5 +72,13 @@ class FontConfig {
       color: ThemeConfig.white,
     );
   }
-}
 
+  static TextStyle buttonLargeInverse(BuildContext context) {
+    final r = Responsive(context);
+    return TextStyle(
+      fontSize: r.font(20),
+      fontWeight: FontWeight.w600,
+      color: ThemeConfig.primaryGreen,
+    );
+  }
+}

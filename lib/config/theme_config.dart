@@ -9,6 +9,7 @@ class ThemeConfig {
   static const Color mochaBrown = Color(0xFF8B6341);
   static const Color white = Color(0xFFFFFFFF);
   static const Color lightGray = Color(0xFFEEEEEE);
+  static const Color midGray = Color(0xFFBFBFBF);
 
   static ThemeData lightTheme = ThemeData(
     scaffoldBackgroundColor: white,
@@ -34,6 +35,19 @@ class ThemeConfig {
         foregroundColor: white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
+      ),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      hintStyle: TextStyle(
+        color: Colors.grey[600],
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: primaryGreen),
+      ),
+      // 👇 Apply focus color to hint when focused
+      floatingLabelStyle: const TextStyle(
+        color: primaryGreen,
       ),
     ),
     fontFamily: 'Roboto',
