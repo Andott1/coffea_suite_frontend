@@ -1,3 +1,17 @@
+assets/
+│
+├── data/
+│   ├── ingredients_list.json
+│   ├── ingredients_usage.json
+│   └── products_list.json
+│
+├── fonts/
+│
+├── icons/
+│
+└── logo/
+    └── coffea.png
+
 lib/
 │
 ├── config/
@@ -12,6 +26,8 @@ lib/
 │   │   ├── employee_model.dart
 │   │   ├── ingredient_model.dart
 │   │   ├── ingredient_model.g.dart
+│   │   ├── ingredient_usage_model.dart
+│   │   ├── ingredient_usage_model.g.dart
 │   │   ├── order_item_model.dart
 │   │   ├── order_model.dart
 │   │   ├── payroll_model.dart
@@ -38,9 +54,9 @@ lib/
 │   │   ├── dialog_utils.dart
 │   │   ├── format_utils.dart
 │   │   └── responsive.dart
+│   │   └── system_tab_memory.dart
 │   │
 │   └── widgets/
-│       ├── base_module_screen.dart
 │       ├── custom_button.dart
 │       ├── custom_card.dart
 │       ├── modal_dialog.dart
@@ -50,24 +66,20 @@ lib/
 │   ├── admin/
 │   │   ├── admin_base_screen.dart
 │   │   ├── admin_dashboard_screen.dart
-│   │   ├── admin_topbar.dart
+│   │   ├── admin_ingredient_tab.dart
 │   │   ├── analytics_screen.dart
 │   │   ├── employee_management_screen.dart
-│   │   ├── manage_ingredients_screen.dart
-│   │   ├── manage_products_screen.dart
 │   │   └── settings_screen.dart
 │   │
 │   ├── attendance/
 │   │   ├── attendance_base_screen.dart
 │   │   ├── attendance_logs_screen.dart
 │   │   ├── attendance_screen.dart
-│   │   ├── attendance_topbar.dart
 │   │   └── payroll_screen.dart
 │   │
 │   ├── inventory/
 │   │   ├── inventory_base_screen.dart
 │   │   ├── inventory_dashboard.dart
-│   │   ├── inventory_topbar.dart
 │   │   ├── product_edit_screen.dart
 │   │   ├── product_list_screen.dart
 │   │   └── stock_adjustment_screen.dart
@@ -77,13 +89,13 @@ lib/
 │   │   ├── payment_screen.dart
 │   │   ├── pos_base_screen.dart
 │   │   ├── pos_dashboard.dart
-│   │   ├── pos_topbar.dart
 │   │   └── transaction_history_screen.dart
 │   │
 │   └── startup/
 │       └── startup_screen.dart
 │
 ├── scripts/
+│   ├── seed_ingredient_usage.dart
 │   ├── seed_ingredients.dart
 │   └── seed_products.dart
 │
