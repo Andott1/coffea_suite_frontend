@@ -103,7 +103,7 @@ class _ProductGrid extends StatelessWidget {
                 borderRadius: BorderRadius.circular(r.scale(12)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withOpacity(0.08),
                     blurRadius: r.scale(6),
                     offset: Offset(0, r.scale(3)),
                   ),
@@ -159,7 +159,7 @@ class _OrderSummary extends StatelessWidget {
         borderRadius: BorderRadius.circular(r.scale(10)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: r.scale(6),
             offset: Offset(0, r.scale(2)),
           ),
