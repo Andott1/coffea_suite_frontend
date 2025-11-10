@@ -7,6 +7,9 @@ import '../../core/models/ingredient_model.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/utils/format_utils.dart';
 
+import '../../core/services/backup_service.dart';
+import '../../core/widgets/ingredient_backups_dialog.dart';
+
 class AdminIngredientTab extends StatefulWidget {
   const AdminIngredientTab({super.key});
 
@@ -617,6 +620,7 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
     // 🧩 Validate filter values before building dropdowns
     final existingCategories = ingredientBox.values.map((e) => e.category).toSet();
     final existingUnits = ingredientBox.values.map((e) => e.unit).toSet();
+    final isBackupEnabled = ingredientBox.isNotEmpty;
 
     // 🔹 Reset category filter if no longer valid
     if (_selectedCategory != null && !existingCategories.contains(_selectedCategory)) {
@@ -908,56 +912,146 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
                     ),
                     child: Column(
                       children: [
+                        // ─────────────────────── Backup & Restore Buttons Row ───────────────────────
                         Row(
                           children: [
+                            // ─────────── BACKUP BUTTON ───────────
                             Expanded(
-                              child: ElevatedButton(
+                              child: ElevatedButton.icon(
+                                icon: Icon(
+                                  isBackupEnabled ? Icons.save_outlined : Icons.lock_outline,
+                                  color: isBackupEnabled
+                                      ? ThemeConfig.primaryGreen
+                                      : ThemeConfig.midGray,
+                                ),
+                                label: Text(
+                                  "Backup",
+                                  style: FontConfig.buttonLargeInverse(context).copyWith(
+                                    color: isBackupEnabled
+                                        ? ThemeConfig.primaryGreen
+                                        : ThemeConfig.midGray,
+                                  ),
+                                ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: ThemeConfig.white, // white fill
-                                  foregroundColor: ThemeConfig.primaryGreen, // text + icon color
-                                  surfaceTintColor: Colors.transparent, // avoids Material3 tint
+                                  backgroundColor: ThemeConfig.white,
+                                  foregroundColor: ThemeConfig.primaryGreen,
+                                  surfaceTintColor: Colors.transparent,
                                   padding: const EdgeInsets.symmetric(vertical: 12),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    side: const BorderSide(color: ThemeConfig.primaryGreen, width: 2), // green border
+                                    side: BorderSide(
+                                      color: isBackupEnabled
+                                          ? ThemeConfig.primaryGreen
+                                          : ThemeConfig.midGray,
+                                      width: 2,
+                                    ),
                                   ),
                                 ),
-                                onPressed: () => DialogUtils.showToast(context, "Restore placeholder"),
-                                child: Text(
-                                  "Restore",
-                                  style: FontConfig.buttonLargeInverse(context),
-                                ),
+                                onPressed: isBackupEnabled
+                                    ? () async {
+                                        final service = BackupService();
+                                        final filename = await showDialog<String?>(
+                                          context: context,
+                                          builder: (ctx) {
+                                            final controller = TextEditingController();
+                                            return AlertDialog(
+                                              title: const Text('Create Backup'),
+                                              content: TextField(
+                                                controller: controller,
+                                                decoration: const InputDecoration(
+                                                  hintText: 'Enter file name (optional)',
+                                                ),
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () =>
+                                                      Navigator.of(ctx).pop(null),
+                                                  child: const Text('Cancel'),
+                                                ),
+                                                ElevatedButton(
+                                                  onPressed: () => Navigator.of(ctx)
+                                                      .pop(controller.text.trim()),
+                                                  child: const Text('Save'),
+                                                ),
+                                              ],
+                                            );
+                                          },
+                                        );
+
+                                        if (filename != null) {
+                                          try {
+                                            final entry = await service.createBackup(
+                                                fileName: filename);
+                                            DialogUtils.showToast(
+                                              context,
+                                              'Backup created: ${entry.filename}',
+                                            );
+                                          } catch (e) {
+                                            DialogUtils.showToast(
+                                              context,
+                                              'Backup failed: $e',
+                                            );
+                                          }
+                                        }
+                                      }
+                                    : null,
                               ),
                             ),
 
-                            // 🔹 Vertical Separator Line
+                            // Divider between buttons
                             Container(
                               width: 3,
-                              height: 44, // roughly button height
+                              height: 44,
                               margin: const EdgeInsets.symmetric(horizontal: 20),
-                              color: ThemeConfig.lightGray, // subtle line/ subtle line
+                              color: ThemeConfig.lightGray,
                             ),
 
+                            // ─────────── RESTORE BUTTON ───────────
                             Expanded(
-                              child: ElevatedButton(
+                              child: ElevatedButton.icon(
+                                icon: const Icon(Icons.restore, color: ThemeConfig.primaryGreen),
+                                label: Text(
+                                  "Restore",
+                                  style: FontConfig.buttonLargeInverse(context)
+                                      .copyWith(color: ThemeConfig.primaryGreen),
+                                ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: ThemeConfig.white, // white fill
-                                  foregroundColor: ThemeConfig.primaryGreen, // text + icon color
-                                  surfaceTintColor: Colors.transparent, // avoids Material3 tint
+                                  backgroundColor: ThemeConfig.white,
+                                  foregroundColor: ThemeConfig.primaryGreen,
+                                  surfaceTintColor: Colors.transparent,
                                   padding: const EdgeInsets.symmetric(vertical: 12),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(10),
-                                    side: const BorderSide(color: ThemeConfig.primaryGreen, width: 2), // green border
+                                    side: const BorderSide(
+                                      color: ThemeConfig.primaryGreen,
+                                      width: 2,
+                                    ),
                                   ),
                                 ),
-                                onPressed: () => DialogUtils.showToast(context, "Backup placeholder"),
-                                child:
-                                    Text("Backup", style: FontConfig.buttonLargeInverse(context)),
+                                onPressed: () async {
+                                  final service = BackupService();
+                                  final restored = await showDialog<bool?>(
+                                    context: context,
+                                    builder: (_) =>
+                                        IngredientBackupsDialog(backupService: service),
+                                  );
+
+                                  if (restored == true) {
+                                    DialogUtils.showToast(
+                                      context,
+                                      "Restore completed successfully.",
+                                    );
+                                    setState(() {}); // refresh list
+                                  }
+                                },
                               ),
                             ),
                           ],
                         ),
+
                         const SizedBox(height: 20),
+
+                        // ─────────── DELETE ALL BUTTON ───────────
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
@@ -973,13 +1067,15 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
                               DialogUtils.showToast(context, "All ingredients deleted.");
                               setState(() {});
                             },
-                            child: Text("Delete All",
-                                style: FontConfig.buttonLarge(context)),
+                            child: Text(
+                              "Delete All",
+                              style: FontConfig.buttonLarge(context),
+                            ),
                           ),
                         ),
-                        ],
-                      ),
+                      ],
                     ),
+                  )
                   ],
                 ),
               ),

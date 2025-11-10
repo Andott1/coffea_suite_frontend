@@ -1,60 +1,69 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 
+/// =============================================================
+/// Responsive Utility
+/// -------------------------------------------------------------
+///  - Uses Hanzhong T13 (1280x800) as baseline reference.
+///  - Scales all UI and font sizes relative to screen diagonal.
+///  - Ensures consistent readability across resolutions.
+///  - Rounds font sizes to nearest 0.5px for pixel-perfect results.
+/// =============================================================
 class Responsive {
   final BuildContext context;
   late double screenWidth;
   late double screenHeight;
   late double scaleWidth;
   late double scaleHeight;
-  late double textScale;
+  late double scaleFactor;
+
+  // Base diagonal reference: 1280x800
+  static const double _baseWidth = 1280.0;
+  static const double _baseHeight = 800.0;
+  static final double _baseDiagonal =
+      sqrt(_baseWidth * _baseWidth + _baseHeight * _baseHeight);
 
   Responsive(this.context) {
     final size = MediaQuery.of(context).size;
     screenWidth = size.width;
     screenHeight = size.height;
 
-    // Base reference: 1280x800 tablet
-    scaleWidth = screenWidth / 1280;
-    scaleHeight = screenHeight / 800;
-    textScale = _determineTextScale();
+    scaleWidth = screenWidth / _baseWidth;
+    scaleHeight = screenHeight / _baseHeight;
+
+    // Compute diagonal-based scaling factor
+    final diagonal = sqrt(screenWidth * screenWidth + screenHeight * screenHeight);
+    scaleFactor = (diagonal / _baseDiagonal).clamp(0.9, 1.3);
   }
 
   // ────────────────────────────────────────────────
-  // ✅ Dynamic text scaling per device type
-  // ────────────────────────────────────────────────
-  double _determineTextScale() {
-    final shortestSide = MediaQuery.of(context).size.shortestSide;
-
-    if (shortestSide < 600) {
-      // Phones — slightly reduce font scaling
-      return ((scaleWidth + scaleHeight) / 2) * 0.9;
-    } else if (shortestSide < 900) {
-      // Small tablets (7–9 inch)
-      return ((scaleWidth + scaleHeight) / 2) * 1.0;
-    } else {
-      // Large tablets / desktops — keep base or slightly upscale
-      return ((scaleWidth + scaleHeight) / 2) * 1.1;
-    }
-  }
-
-  // ────────────────────────────────────────────────
-  // Helpers
+  // Layout helpers
   // ────────────────────────────────────────────────
   double wp(double percent) => screenWidth * (percent / 100);
   double hp(double percent) => screenHeight * (percent / 100);
 
   double scale(double value) => value * scaleWidth;
 
-  // ✅ Pixel-aligned font sizes
+  // ────────────────────────────────────────────────
+  // Font scaling (pixel-aligned, diagonal-based)
+  // ────────────────────────────────────────────────
   double font(double size) {
-    final scaled = size * textScale;
-    final snapped = (scaled * MediaQuery.of(context).devicePixelRatio).round() /
-        MediaQuery.of(context).devicePixelRatio;
-    return snapped; // Snap to physical device pixels
+    // Keep baseline for Hanzhong T13
+    if (screenWidth.round() == _baseWidth.round() &&
+        screenHeight.round() == _baseHeight.round()) {
+      return size;
+    }
+
+    double scaled = size * scaleFactor;
+
+    // Snap to nearest 0.5 px for crisp rendering
+    double snapped = (scaled * 2).round() / 2;
+    return snapped;
   }
 
-  bool get isTablet {
-    final shortestSide = MediaQuery.of(context).size.shortestSide;
-    return shortestSide >= 600;
-  }
+  // ────────────────────────────────────────────────
+  // Device classification
+  // ────────────────────────────────────────────────
+  bool get isTablet => MediaQuery.of(context).size.shortestSide >= 600;
+  bool get isLargeScreen => screenWidth >= 1920;
 }
