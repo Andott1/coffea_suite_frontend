@@ -34,6 +34,7 @@ migrate_working_dir/
 .packages
 pubspec.lock
 /build/
+.vscode
 
 # Symbolication related
 app.*.symbols
