@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../config/role_config.dart';
 import 'admin_ingredient_tab.dart'; // ✅ NEW import
+import 'admin_product_tab.dart'; // ✅ NEW import
 
 class AdminBaseScreen extends StatefulWidget {
   const AdminBaseScreen({super.key});
@@ -38,7 +39,7 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
     _screens = const [
       AdminAnalyticsScreen(),
       AdminEmployeesScreen(),
-      AdminProductsScreen(),
+      AdminProductTab(),
       AdminIngredientTab(), // ✅ replaced placeholder with real tab
       AdminSettingsScreen(),
     ];
