@@ -163,18 +163,6 @@ class AdminEmployeesScreen extends StatelessWidget {
   }
 }
 
-class AdminProductsScreen extends StatelessWidget {
-  const AdminProductsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child:
-          Text("Manage Products Placeholder", style: TextStyle(fontSize: 16)),
-    );
-  }
-}
-
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
 
