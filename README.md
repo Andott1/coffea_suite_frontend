@@ -1,6 +1,6 @@
 # ☕ COFFEA POS Suite
 
-### A Modular Point-of-Sale and Business Management System for Cafés
+## A Modular Point-of-Sale and Business Management System for Coffea
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.19%2B-blue?logo=flutter)
 ![Hive](https://img.shields.io/badge/Hive-Local%20Storage-yellow)
@@ -133,28 +133,15 @@ main.dart
 
 ---
 
-## 🧩 Reactive Role Management
-
-COFFEA POS uses a custom `RoleConfig` for simple role toggling. It can be upgraded to BLoC.
-
-```dart
-enum UserRole { admin, employee }
-RoleConfig.instance.toggleRole();
-```
-
-All screens reactively rebuild when the role changes.
-
----
-
 ## 🧰 Tech Stack
 
 | Layer                 | Technology            |
 | --------------------- | --------------------- |
-| **Frontend**          | Flutter 3.19+         |
+| **Frontend**          | Flutter 3.32+         |
 | **Database**          | Hive (Offline-first)  |
 | **Networking**        | Dio (API-ready)       |
 | **State**             | Provider (BLoC-ready) |
-| **Backend (Planned)** | Django REST API       |
+| **Backend (Planned)** | Supabase              |
 
 ---
 
@@ -162,8 +149,8 @@ All screens reactively rebuild when the role changes.
 
 | File              | Version | Description                |
 | ----------------- | ------- | -------------------------- |
-| `data_master.txt` | 1.0.0   | Central dataset reference  |
-| `lib_master.txt`  | 1.0.1   | Flutter codebase reference |
+| `data_master.txt` | 1.0.1   | Central dataset reference  |
+| `lib_master.txt`  | 1.0.2h  | Flutter codebase reference |
 
 ---
 
@@ -230,15 +217,19 @@ flutter clean && flutter pub get
 
 ## 🧭 Roadmap
 
-* [ ] Implement BLoC pattern
-* [ ] Add live sync with Django backend
-* [ ] Generate payroll and sales reports
-* [ ] Build cross-platform desktop version
-* [ ] Add multi-user authentication
+* [x] Modular structure for POS, Inventory, Attendance, Admin
+* [x] Data seeding from `data_master.txt`
+* [x] Role-based UI switching
+* [ ] Setup Admin Tools Products Tab
+* [ ] Setup POS System
+* [ ] Setup Inventory Management System
+* [ ] Setup Attendance Monitoring System
 
 ---
 
-## 🧾 License
+## 📜 License Summary (MIT)
+
+The **MIT License** allows anyone to freely use, modify, and distribute this software — even commercially — provided they credit the original author. The software is provided *as is* without any warranty or liability.
 
 ```bash
 MIT License
