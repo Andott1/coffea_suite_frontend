@@ -13,6 +13,8 @@ import '../../core/services/backup_service.dart';
 
 import '../../core/widgets/basic_input_field.dart';
 
+import '../../core/widgets/basic_search_box.dart';
+import '../../core/widgets/basic_toggle_button.dart';
 import '../../core/widgets/container_card.dart';
 import '../../core/widgets/container_card_titled.dart';
 
@@ -26,6 +28,7 @@ import '../../core/widgets/dialog_box_titled.dart';
 import '../../core/widgets/dialog_box_editable.dart';
 
 import '../../core/widgets/basic_button.dart';
+import '../../core/widgets/basic_dropdown_button.dart';
 
 class AdminIngredientTab extends StatefulWidget {
   const AdminIngredientTab({super.key});
@@ -273,94 +276,48 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
   // BUILDERS FOR SEARCH | SORT | FILTER
   // ──────────────────────────────────────────────────────────────
   Widget _buildSearchBar(BuildContext context) {
-    return SizedBox(
-      height: 48,
-      child: TextField(
-        decoration: InputDecoration(
-          hintText: "Search Ingredient",
-          hintStyle:
-              FontConfig.inputLabel(context).copyWith(color: ThemeConfig.midGray),
-          prefixIcon: const Icon(Icons.search, color: ThemeConfig.midGray),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide: const BorderSide(color: ThemeConfig.midGray),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(30),
-            borderSide:
-                const BorderSide(color: ThemeConfig.primaryGreen, width: 2),
-          ),
-          filled: true,
-          fillColor: Colors.white,
-        ),
-        onChanged: (value) {
-          setState(() => _searchQuery = value.trim().toLowerCase());
-        },
-      ),
+    return BasicSearchBox(
+      hintText: "Search ingredient...",
+      onChanged: (value) {
+        setState(() => _searchQuery = value);
+      },
     );
   }
 
   Widget _buildSortDropdown(BuildContext context) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: ThemeConfig.primaryGreen, width: 2),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _selectedSort,
-          icon: const Icon(Icons.arrow_drop_down),
-          items: const [
-            DropdownMenuItem(value: "Name (A–Z)", child: Text("Name (A–Z)")),
-            DropdownMenuItem(value: "Name (Z–A)", child: Text("Name (Z–A)")),
-            DropdownMenuItem(
-                value: "Unit Cost (L–H)", child: Text("Unit Cost (L–H)")),
-            DropdownMenuItem(
-                value: "Unit Cost (H–L)", child: Text("Unit Cost (H–L)")),
-          ],
-          onChanged: (v) => setState(() => _selectedSort = v!),
-        ),
-      ),
+    return BasicDropdownButton<String>(
+      width:200,
+      value: _selectedSort,
+      items: const [
+        "Name (A-Z)",
+        "Name (Z-A)",
+        "Unit Cost (L-H)",
+        "Unit Cost (H-L)",
+      ],
+      onChanged: (value) {
+        setState(() => _selectedSort = value!);
+      },
     );
   }
 
+  int get _activeFiltersCount {
+    int count = 0;
+    if (_selectedCategory != null) count++;
+    if (_selectedUnit != null) count++;
+    return count;
+  }
+
   Widget _buildFilterButton(BuildContext context) {
-    // Count active filters
-    int activeFilters = 0;
-    if (_selectedCategory != null && _selectedCategory!.isNotEmpty) activeFilters++;
-    if (_selectedUnit != null && _selectedUnit!.isNotEmpty) activeFilters++;
-
-    // Dynamic label text
-    final String labelText = _showFilters
-        ? "Hide Filters"
-        : activeFilters > 0
-            ? "Filters ($activeFilters)"
-            : "Filters";
-
-    return ElevatedButton.icon(
-      icon: Icon(
-        _showFilters ? Icons.filter_alt_off : Icons.filter_alt,
-        color: ThemeConfig.primaryGreen,
-      ),
-      label: Text(
-        labelText,
-        style: FontConfig.inputLabel(context).copyWith(color: ThemeConfig.primaryGreen),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.white,
-        foregroundColor: ThemeConfig.primaryGreen,
-        side: const BorderSide(color: ThemeConfig.primaryGreen, width: 2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      ),
+    return BasicToggleButton(
+      expanded: _showFilters,
+      label: "Filter",
+      badgeCount: _activeFiltersCount,
       onPressed: () {
         setState(() => _showFilters = !_showFilters);
       },
     );
   }
+
 
   // ──────────────────────────────────────────────────────────────
   // FILTER ROW (EXPANDS UNDER TOOLBAR)
@@ -753,11 +710,15 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
                         // ─────────────── Search | Sort | Filter Row ───────────────
                         Row(
                           children: [
-                            Expanded(flex: 3, child: _buildSearchBar(context)),
+                            Expanded(flex: 7, child: _buildSearchBar(context)),
+
                             const SizedBox(width: 20),
-                            _buildSortDropdown(context),
+
+                            Expanded(flex: 4, child: _buildSortDropdown(context)),
+
                             const SizedBox(width: 20),
-                            _buildFilterButton(context),
+
+                             Expanded(flex: 2, child: _buildFilterButton(context)),
                           ],
                         ),
 
