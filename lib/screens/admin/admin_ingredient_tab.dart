@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:hive/hive.dart';
 
 import '../../config/theme_config.dart';
@@ -710,15 +709,15 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
                         // ─────────────── Search | Sort | Filter Row ───────────────
                         Row(
                           children: [
-                            Expanded(flex: 7, child: _buildSearchBar(context)),
+                            Expanded(flex: 9, child: _buildSearchBar(context)),
 
                             const SizedBox(width: 20),
 
-                            Expanded(flex: 4, child: _buildSortDropdown(context)),
+                            Expanded(flex: 5, child: _buildSortDropdown(context)),
 
                             const SizedBox(width: 20),
 
-                             Expanded(flex: 2, child: _buildFilterButton(context)),
+                             Expanded(flex: 3, child: _buildFilterButton(context)),
                           ],
                         ),
 

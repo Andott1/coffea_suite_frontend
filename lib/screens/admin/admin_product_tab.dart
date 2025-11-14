@@ -1,17 +1,28 @@
+import 'package:coffea_suite_frontend/core/models/product_model.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+
 import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
-import '../../core/services/hive_service.dart';
-import '../../core/models/product_model.dart';
-import '../../core/models/ingredient_usage_model.dart';
-import '../../core/utils/dialog_utils.dart';
-import '../../core/utils/format_utils.dart';
-import 'package:uuid/uuid.dart';
 
-/// ─────────────────────────────────────────────
-///  ADMIN PRODUCT TAB
-/// ─────────────────────────────────────────────
+import '../../core/services/hive_service.dart';
+import '../../core/utils/dialog_utils.dart';
+
+import '../../core/utils/format_utils.dart';
+import '../../core/widgets/basic_chip_display.dart';
+import '../../core/widgets/basic_dropdown_button.dart';
+import '../../core/widgets/basic_search_box.dart';
+import '../../core/widgets/basic_toggle_button.dart';
+import '../../core/widgets/container_card_titled.dart';
+import '../../core/widgets/container_card.dart';
+import '../../core/widgets/basic_input_field.dart';
+import '../../core/widgets/dialog_box_editable.dart';
+import '../../core/widgets/dialog_box_titled.dart';
+import '../../core/widgets/hybrid_dropdown_field.dart';
+import '../../core/widgets/basic_button.dart';
+import '../../core/widgets/item_card.dart';
+import '../../core/widgets/item_grid_view.dart';
+
 class AdminProductTab extends StatefulWidget {
   const AdminProductTab({super.key});
 
@@ -20,1479 +31,2093 @@ class AdminProductTab extends StatefulWidget {
 }
 
 class _AdminProductTabState extends State<AdminProductTab> {
-  // ──────────────── FORM CONTROLLERS ────────────────
+  //SEARCH, SORT, AND FILTER FIELDS
+  String _searchQuery = '';
+  String _selectedSort = 'Name (A–Z)';
+  String? _selectedCategory;
+  String? _selectedSubCategory;
+
+  // ─────────────────────────────
+  // AVAILABLE SIZES STATE
+  // ─────────────────────────────
+  List<String> _availableSizes = [];   // From seeded/loaded products
+  List<String> _selectedSizes = [];    // User selected sizes for THIS product
+
+  String _pricingType = "size";
+
+  // Required for future Pricing section
+  final Map<String, TextEditingController> _sizePriceCtrls = {};
+
   final _formKey = GlobalKey<FormState>();
+
   final _nameCtrl = TextEditingController();
   final _categoryCtrl = TextEditingController();
   final _subCategoryCtrl = TextEditingController();
 
-  bool _showFilters = false;
-  String _searchQuery = '';
-  String _sortOption = 'Name (A–Z)';
-  String _categoryFilter = 'All';
-  String _subCategoryFilter = 'All';
+  // For selected ingredients:
+  List<String> _selectedIngredients = [];
 
+  // For each ingredient → each size → quantity controller:
+  Map<String, Map<String, TextEditingController>> _ingredientQtyCtrls = {};
 
-  List<PricingEntry> _selectedPricings = [];
-  List<IngredientUsageEntry> _selectedIngredients = [];
-
-  // Hive box reference
   late Box<ProductModel> productBox;
 
   @override
   void initState() {
     super.initState();
-    productBox = HiveService.productBox;
+    productBox = Hive.box<ProductModel>('products');
+    _loadAvailableSizes();
   }
 
-  void _showToast(String message) {
-    DialogUtils.showToast(context, message);
+  
+
+  void _loadAvailableSizes() {
+    final allKeys = productBox.values
+        .expand((p) => p.prices.keys)
+        .where((k) => k != null && k.trim().isNotEmpty)
+        .cast<String>()
+        .toSet()
+        .toList();
+
+    // Define lists
+    const sizeKeys = ["12oz", "16oz", "22oz", "HOT"];
+    const variantKeys = ["Regular", "Single", "Piece", "Cup"];
+
+    // Filter
+    List<String> filtered = _pricingType == "size"
+        ? allKeys.where(sizeKeys.contains).toList()
+        : allKeys.where(variantKeys.contains).toList();
+
+    filtered.sort();
+
+    setState(() {
+      _availableSizes = filtered;
+    });
   }
 
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _categoryCtrl.dispose();
-    _subCategoryCtrl.dispose();
-    super.dispose();
+  void _clearForm() {
+    _nameCtrl.clear();
+    _categoryCtrl.clear();
+    _subCategoryCtrl.clear();
+    
+    // Clear size selections
+    for (final ctrl in _sizePriceCtrls.values) {
+      ctrl.dispose();
+    }
+    _sizePriceCtrls.clear();
+    _selectedSizes.clear();
+    _selectedIngredients.clear();
+
+    DialogUtils.showToast(context, "Form cleared");
+    setState(() {});
   }
 
-  Future<void> _saveProduct() async {
-    // 1️⃣ FORM VALIDATION
+  void _addProduct() async {
+    // ─────────────────────────────
+    // FORM VALIDATION
+    // ─────────────────────────────
     if (!_formKey.currentState!.validate()) {
       DialogUtils.showToast(context, "Please fill all required fields.");
       return;
     }
 
-    if (_selectedPricings.isEmpty) {
-      DialogUtils.showToast(context, "Please add at least one pricing size.");
+    if (_pricingType.isEmpty) {
+      DialogUtils.showToast(context, "Please select a pricing type.");
       return;
     }
 
-    // validate prices
-    final invalidPrices = _selectedPricings
-        .where((e) => e.price == null || e.price! <= 0)
-        .toList();
-    if (invalidPrices.isNotEmpty) {
-      DialogUtils.showToast(
-          context, "All selected sizes must have valid prices.");
+    if (_selectedSizes.isEmpty) {
+      DialogUtils.showToast(context, "Please add at least one ${_pricingType == "size" ? "size" : "variant"}.");
       return;
     }
 
-    // validate ingredient usage if provided
-    for (final ing in _selectedIngredients) {
-      if (ing.unit.isEmpty) {
-        DialogUtils.showToast(
-            context, "Unit missing for ingredient: ${ing.ingredientName}");
+    // Validate pricing inputs
+    for (final size in _selectedSizes) {
+      final txt = _sizePriceCtrls[size]?.text.trim() ?? "";
+      if (txt.isEmpty) {
+        DialogUtils.showToast(context, "Price for '$size' is required.");
+        return;
+      }
+      if (double.tryParse(txt.replaceAll(",", "")) == null) {
+        DialogUtils.showToast(context, "Invalid price for '$size'.");
         return;
       }
     }
 
-    // 2️⃣ BUILD MODELS
-    final uuid = const Uuid();
-    final productId = uuid.v4();
+    // Validate ingredient usage inputs (if any)
+    for (final ing in _selectedIngredients) {
+      for (final size in _selectedSizes) {
+        final txt = _ingredientQtyCtrls[ing]?[size]?.text.trim() ?? "";
+        if (txt.isEmpty) {
+          DialogUtils.showToast(context, "Usage for '$ing' ($size) is required.");
+          return;
+        }
+        if (double.tryParse(txt.replaceAll(",", "")) == null) {
+          DialogUtils.showToast(context, "Invalid usage for '$ing' ($size).");
+          return;
+        }
+      }
+    }
 
-    final pricesMap = {
-      for (final p in _selectedPricings) p.size: p.price!,
-    };
+    // ─────────────────────────────
+    // BUILD PRICES MAP
+    // ─────────────────────────────
+    final Map<String, double> prices = {};
+    for (final size in _selectedSizes) {
+      final value = double.parse(_sizePriceCtrls[size]!
+          .text
+          .replaceAll(",", "")
+          .trim());
+      prices[size] = value;
+    }
 
-    final ingredientUsageMap = {
-      for (final i in _selectedIngredients) i.ingredientId: i.quantities,
-    };
+    // ─────────────────────────────
+    // BUILD INGREDIENT USAGE MAP
+    // ─────────────────────────────
+    final Map<String, Map<String, double>> ingredientUsage = {};
+    for (final ing in _selectedIngredients) {
+      final inner = <String, double>{};
+      for (final size in _selectedSizes) {
+        final value = double.parse(_ingredientQtyCtrls[ing]![size]!
+            .text
+            .replaceAll(",", "")
+            .trim());
+        inner[size] = value;
+      }
+      ingredientUsage[ing] = inner;
+    }
 
-    final now = DateTime.now();
-
-    final product = ProductModel(
-      id: productId,
+    // ─────────────────────────────
+    // CREATE PRODUCT MODEL
+    // ─────────────────────────────
+    final newProduct = ProductModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameCtrl.text.trim(),
       category: _categoryCtrl.text.trim(),
       subCategory: _subCategoryCtrl.text.trim(),
-      pricingType: "size",
-      prices: pricesMap,
-      ingredientUsage: ingredientUsageMap,
+      pricingType: _pricingType,                // <── IMPORTANT FIX
+      prices: prices,
+      ingredientUsage: ingredientUsage,
       available: true,
-      updatedAt: now,
+      updatedAt: DateTime.now(),
     );
 
-    // 3️⃣ SAVE TO HIVE (Product)
-    await HiveService.productBox.put(product.id, product);
+    // ─────────────────────────────
+    // SAVE TO HIVE
+    // ─────────────────────────────
+    await productBox.add(newProduct);
 
-    // 4️⃣ SAVE INGREDIENT USAGES (One per ingredient)
-    for (final i in _selectedIngredients) {
-      final usage = IngredientUsageModel(
-        id: uuid.v4(),
-        productId: product.id,
-        ingredientId: i.ingredientId,
-        category: product.category,
-        subCategory: product.subCategory,
-        unit: i.unit,
-        quantities: i.quantities,
-        createdAt: now,
-        updatedAt: now,
-      );
+    DialogUtils.showToast(context, "Product added successfully!");
 
-      await HiveService.usageBox.put(usage.id, usage);
+    // ─────────────────────────────
+    // CLEAR FORM
+    // ─────────────────────────────
+    _clearForm();
+
+    // Refresh UI
+    setState(() {});
+  }
+
+  void _ensurePriceController(String size) {
+    if (!_sizePriceCtrls.containsKey(size)) {
+      _sizePriceCtrls[size] = TextEditingController();
     }
-
-    // 5️⃣ RESET FORM
-    setState(() {
-      _nameCtrl.clear();
-      _categoryCtrl.clear();
-      _subCategoryCtrl.clear();
-      _selectedPricings.clear();
-      _selectedIngredients.clear();
-    });
-
-    DialogUtils.showToast(context, "✅ Product successfully added!");
   }
 
-
-  // ──────────────────────────────
-  // LEFT PANEL — ADD PRODUCT FORM
-  // ──────────────────────────────
-  Widget _buildLeftPanel(BuildContext context) {
-    return Expanded(
-      flex: 3,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.only(right: 8, bottom: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ──────────────── ADD PRODUCT BOX ────────────────
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: ThemeConfig.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text("Add New Product", style: FontConfig.h3(context)),
-                  const SizedBox(height: 16),
-
-                  // ───── Product Info Section (Phase 1)
-                  ProductInfoSection(
-                    formKey: _formKey,
-                    nameController: _nameCtrl,
-                    categoryController: _categoryCtrl,
-                    subcategoryController: _subCategoryCtrl,
-                  ),
-
-                  // ───── Pricing Section (Phase 2)
-                  PricingSection(
-                    onChanged: (entries) => _selectedPricings = entries,
-                  ),
-
-                  // ───── Ingredient Usage Section (Phase 3)
-                  IngredientUsageSection(
-                    selectedSizes: _selectedPricings.map((e) => e.size).toList(),
-                    onChanged: (entries) => _selectedIngredients = entries,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // ───── FORM ACTION BUTTONS (Clear / Add)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: ThemeConfig.primaryGreen,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: () {
-                            _nameCtrl.clear();
-                            _categoryCtrl.clear();
-                            _subCategoryCtrl.clear();
-                            _selectedPricings.clear();
-                            _selectedIngredients.clear();
-                            _showToast("Cleared all form fields");
-                            setState(() {});
-                          },
-                          child: Text("Clear",
-                              style: FontConfig.buttonLarge(context)),
-                        ),
-                      ),
-                      Container(
-                        width: 3,
-                        height: 44,
-                        margin: const EdgeInsets.symmetric(horizontal: 20),
-                        color: ThemeConfig.lightGray,
-                      ),
-                      Expanded(
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: ThemeConfig.primaryGreen,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          onPressed: _saveProduct,
-                          child: Text("Add",
-                              style: FontConfig.buttonLarge(context)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // ──────────────── BACKUP / RESTORE / DELETE BOX ────────────────
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: ThemeConfig.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.save_outlined,
-                              color: ThemeConfig.primaryGreen),
-                          label: Text("Backup",
-                              style: FontConfig.buttonLarge(context)
-                                  .copyWith(color: ThemeConfig.primaryGreen)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: ThemeConfig.white,
-                            side: const BorderSide(
-                                color: ThemeConfig.primaryGreen, width: 2),
-                          ),
-                          onPressed: () => _showToast("Backup clicked"),
-                        ),
-                      ),
-                      Container(
-                        width: 3,
-                        height: 44,
-                        margin: const EdgeInsets.symmetric(horizontal: 20),
-                        color: ThemeConfig.lightGray,
-                      ),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.restore,
-                              color: ThemeConfig.primaryGreen),
-                          label: Text("Restore",
-                              style: FontConfig.buttonLarge(context)
-                                  .copyWith(color: ThemeConfig.primaryGreen)),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: ThemeConfig.white,
-                            side: const BorderSide(
-                                color: ThemeConfig.primaryGreen, width: 2),
-                          ),
-                          onPressed: () => _showToast("Restore clicked"),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: ThemeConfig.primaryGreen,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () async {
-                        // Clear products and ingredient usages (matching ingredient tab pattern)
-                        await HiveService.productBox.clear();
-                        await HiveService.usageBox.clear();
-
-                        DialogUtils.showToast(context, "All products and ingredient usages deleted.");
-                        setState(() {}); // refresh UI
-                      },
-                      child: Text(
-                        "Delete All",
-                        style: FontConfig.buttonLarge(context),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+  void _ensureIngredientQtyCtrl(String ingName, String size) {
+    if (!_ingredientQtyCtrls.containsKey(ingName)) {
+      _ingredientQtyCtrls[ingName] = {};
+    }
+    if (!_ingredientQtyCtrls[ingName]!.containsKey(size)) {
+      _ingredientQtyCtrls[ingName]![size] = TextEditingController();
+    }
   }
 
-
-  // ──────────────────────────────
-  // RIGHT PANEL — PRODUCT GRID
-  // ──────────────────────────────
-  Widget _buildRightPanel(BuildContext context) {
-    return Expanded(
-      flex: 5,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ───── SEARCH / SORT / FILTER PANEL ─────
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            decoration: BoxDecoration(
-              color: ThemeConfig.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(flex: 3, child: _buildSearchBar(context)),
-                    const SizedBox(width: 20),
-                    _buildSortDropdown(context),
-                    const SizedBox(width: 20),
-                    _buildFilterButton(context),
-                  ],
-                ),
-                AnimatedCrossFade(
-                  firstChild: const SizedBox.shrink(),
-                  secondChild: _buildFilterRow(context),
-                  crossFadeState: _showFilters
-                      ? CrossFadeState.showSecond
-                      : CrossFadeState.showFirst,
-                  duration: const Duration(milliseconds: 250),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 10),
-
-          // ───── PRODUCT GRID ─────
-          Expanded(
-            child: ValueListenableBuilder(
-              valueListenable: productBox.listenable(),
-              builder: (context, Box<ProductModel> box, _) {
-                List<ProductModel> products = box.values.toList();
-
-                // Apply search filter
-                if (_searchQuery.isNotEmpty) {
-                  products = products
-                      .where((p) =>
-                          p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-                      .toList();
-                }
-
-                // Apply category / subcategory filters
-                if (_categoryFilter != 'All') {
-                  products = products
-                      .where((p) => p.category == _categoryFilter)
-                      .toList();
-                }
-                if (_subCategoryFilter != 'All') {
-                  products = products
-                      .where((p) => p.subCategory == _subCategoryFilter)
-                      .toList();
-                }
-
-                // Apply sorting
-                switch (_sortOption) {
-                  case 'Name (A–Z)':
-                    products.sort((a, b) => a.name.compareTo(b.name));
-                    break;
-                  case 'Name (Z–A)':
-                    products.sort((a, b) => b.name.compareTo(a.name));
-                    break;
-                  case 'Price (Low–High)':
-                    products.sort((a, b) =>
-                        (a.prices.values.isEmpty ? 0 : a.prices.values.first)
-                            .compareTo(
-                                b.prices.values.isEmpty ? 0 : b.prices.values.first));
-                    break;
-                  case 'Price (High–Low)':
-                    products.sort((a, b) =>
-                        (b.prices.values.isEmpty ? 0 : b.prices.values.first)
-                            .compareTo(
-                                a.prices.values.isEmpty ? 0 : a.prices.values.first));
-                    break;
-                }
-
-                if (products.isEmpty) {
-                  return const Center(
-                    child: Text(
-                      "No products found.",
-                      style: TextStyle(fontSize: 16, color: Colors.black54),
-                    ),
-                  );
-                }
-
-                return GridView.builder(
-                  padding: const EdgeInsets.only(top: 10),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    childAspectRatio: 370 / 116,
-                  ),
-                  itemCount: products.length,
-                  itemBuilder: (context, i) {
-                    final p = products[i];
-
-                    return GestureDetector(
-                      onTap: () => _showToast("Tapped: ${p.name}"),
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: ThemeConfig.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 6,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            // LEFT COLUMN
-                            SizedBox(
-                              width: 208,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  // Product name
-                                  Text(
-                                    p.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700,
-                                      color: ThemeConfig.primaryGreen,
-                                    ),
-                                  ),
-
-                                  // Category
-                                  Text(
-                                    p.category,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: ThemeConfig.secondaryGreen,
-                                    ),
-                                  ),
-
-                                  // Sizes (as displayQuantity equivalent)
-                                  Text(
-                                    p.prices.isNotEmpty
-                                        ? "Sizes: ${p.prices.keys.join(', ')}"
-                                        : "Sizes: —",
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w400,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-
-                            const Spacer(),
-
-                            // RIGHT COLUMN — Price (as Cost equivalent)
-                            SizedBox(
-                              width: 118,
-                              child: Align(
-                                alignment: Alignment.bottomRight,
-                                child: Text(
-                                  FormatUtils.formatCurrency(
-                                    p.prices.isNotEmpty
-                                        ? p.prices.values.reduce((a, b) => a > b ? a : b)
-                                        : 0,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w700,
-                                    color: ThemeConfig.primaryGreen,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ──────────────────────────────
-  // SEARCH BAR
-  // ──────────────────────────────
-  Widget _buildSearchBar(BuildContext context) {
-    return TextField(
-      decoration: InputDecoration(
-        hintText: 'Search product...',
-        prefixIcon: const Icon(Icons.search, color: ThemeConfig.primaryGreen),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide:
-              const BorderSide(color: ThemeConfig.primaryGreen, width: 1.5),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide:
-              const BorderSide(color: ThemeConfig.primaryGreen, width: 2),
-        ),
-      ),
-      onChanged: (val) => setState(() => _searchQuery = val.trim()),
-    );
-  }
-
-  // ──────────────────────────────
-  // SORT DROPDOWN
-  // ──────────────────────────────
-  Widget _buildSortDropdown(BuildContext context) {
-    const options = [
-      'Name (A–Z)',
-      'Name (Z–A)',
-      'Price (Low–High)',
-      'Price (High–Low)',
-    ];
-
-    return DropdownButton<String>(
-      value: _sortOption,
-      items: options
-          .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-          .toList(),
-      onChanged: (val) {
-        if (val != null) setState(() => _sortOption = val);
-      },
-    );
-  }
-
-  // ──────────────────────────────
-  // FILTER BUTTON
-  // ──────────────────────────────
-  Widget _buildFilterButton(BuildContext context) {
-    return ElevatedButton.icon(
-      onPressed: () => setState(() => _showFilters = !_showFilters),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: ThemeConfig.primaryGreen,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-      icon: const Icon(Icons.filter_alt_outlined, color: Colors.white),
-      label: Text(
-        _showFilters ? "Hide Filters" : "Show Filters",
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  // ──────────────────────────────
-  // FILTER ROW
-  // ──────────────────────────────
-  Widget _buildFilterRow(BuildContext context) {
-    // pull unique categories & subcategories from Hive
-    final allProducts = HiveService.productBox.values.toList();
-    final categories =
-        ['All', ...{for (var p in allProducts) p.category}..removeWhere((e) => e.isEmpty)];
-    final subcategories =
-        ['All', ...{for (var p in allProducts) p.subCategory}..removeWhere((e) => e.isEmpty)];
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Row(
-        children: [
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: _categoryFilter,
-              decoration: const InputDecoration(labelText: "Category"),
-              items: categories
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                  .toList(),
-              onChanged: (v) => setState(() {
-                _categoryFilter = v!;
-              }),
-            ),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: DropdownButtonFormField<String>(
-              value: _subCategoryFilter,
-              decoration: const InputDecoration(labelText: "Subcategory"),
-              items: subcategories
-                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                  .toList(),
-              onChanged: (v) => setState(() {
-                _subCategoryFilter = v!;
-              }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  // ──────────────────────────────
-  // MAIN BUILD
-  // ──────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ThemeConfig.lightGray,
+      resizeToAvoidBottomInset: true,
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLeftPanel(context),
+            // ────────────────────────────────────────────
+            // LEFT PANEL
+            // ────────────────────────────────────────────
+            Expanded(
+              flex: 3,
+              child: SingleChildScrollView(
+                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                  right: 8,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ───────────────────────
+                    // ADD NEW PRODUCT
+                    // ───────────────────────
+                    ContainerCardTitled(
+                      title: "Add New Product",
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            BasicInputField(
+                              label: "Product Name",
+                              controller: _nameCtrl,
+                            ),
+                            const SizedBox(height: 14),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: HybridDropdownField(
+                                    label: "Category",
+                                    controller: _categoryCtrl,
+                                    options: productBox.values
+                                        .map((p) => p.category)
+                                        .where((c) => c != null && c.toString().isNotEmpty)
+                                        .cast<String>()
+                                        .toSet()
+                                        .toList(),
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: HybridDropdownField(
+                                    label: "Subcategory",
+                                    controller: _subCategoryCtrl,
+                                    options: productBox.values
+                                        .map((p) => p.subCategory)
+                                        .where((c) => c != null && c.toString().isNotEmpty)
+                                        .cast<String>()
+                                        .toSet()
+                                        .toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 14),
+
+                            // ─────────────────────────────
+                            // AVAILABLE SIZES HEADER
+                            // ─────────────────────────────
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Available Sizes",
+                                  style: FontConfig.h3(context),
+                                ),
+                                Row(  
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
+                                      onPressed: _showEditSizesDialog,
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.add, color: ThemeConfig.primaryGreen),
+                                      onPressed: _showAddSizeDialog,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+
+
+                            // ─────────────────────────────
+                            // SIZE CHIPS DISPLAY
+                            // ─────────────────────────────
+                            _selectedSizes.isEmpty
+                                ? Text(
+                                    "No sizes selected.",
+                                    style: FontConfig.body(context).copyWith(color: ThemeConfig.midGray),
+                                  )
+                                : Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    
+                                    children: _selectedSizes.map((size) {
+                                      return BasicChipDisplay(label: size);
+                                    }).toList(),
+                                  ),
+
+                            const SizedBox(height: 14),
+
+                            // ─────────────────────────────
+                            // PRICING HEADER
+                            // ─────────────────────────────
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Pricing",
+                                  style: FontConfig.h3(context),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            // ─────────────────────────────
+                            // PRICING TYPE
+                            // ─────────────────────────────
+                            Text(
+                              "Pricing Type",
+                              style: FontConfig.h3(context),
+                            ),
+                            const SizedBox(height: 6),
+
+                            BasicDropdownButton<String>(
+                              width: 220,
+                              value: _pricingType,
+                              items: const ["size", "variant"],
+                              onChanged: (value) {
+                                if (value == null) return;
+                                setState(() {
+                                  _pricingType = value;
+
+                                  // Reset selections when switching pricing type
+                                  _selectedSizes.clear();
+
+                                  // Clear price controllers
+                                  for (final c in _sizePriceCtrls.values) {
+                                    c.dispose();
+                                  }
+                                  _sizePriceCtrls.clear();
+                                });
+                              },
+                            ),
+
+                            const SizedBox(height: 20),
+
+                            // ─────────────────────────────
+                            // PRICING FORM LIST
+                            // ─────────────────────────────
+                            _selectedSizes.isEmpty
+                                ? Text(
+                                    "Add at least one size to set pricing.",
+                                    style: FontConfig.body(context).copyWith(color: ThemeConfig.midGray),
+                                  )
+                                : Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: _selectedSizes.map((size) {
+                                      // Ensure controller exists for each size
+                                      _ensurePriceController(size);
+
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 14),
+                                        child: Row(
+                                          children: [
+                                            // Size Label (left)
+                                            SizedBox(
+                                              width: 80,
+                                              child: Text(
+                                                "$size:",
+                                                style: FontConfig.body(context).copyWith(
+                                                  fontSize: 20,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: ThemeConfig.secondaryGreen,
+                                                ),
+                                              ),
+                                            ),
+
+                                            // Price input (right)
+                                            Expanded(
+                                              child: BasicInputField(
+                                                label: "₱ Price",
+                                                controller: _sizePriceCtrls[size]!,
+                                                inputType: TextInputType.number,
+                                                isCurrency: true,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+
+                            const SizedBox(height: 20),
+
+                            // ─────────────────────────────
+                            // INGREDIENT USAGE HEADER
+                            // ─────────────────────────────
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Ingredient Usage",
+                                  style: FontConfig.h3(context),
+                                ),
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
+                                      onPressed: _showEditIngredientsDialog,
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.add, color: ThemeConfig.primaryGreen),
+                                      onPressed: _showAddIngredientDialog,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            // ─────────────────────────────
+                            // SELECTED INGREDIENT CHIPS
+                            // ─────────────────────────────
+                            _selectedIngredients.isEmpty
+                                ? Text(
+                                    "No ingredients added.",
+                                    style: FontConfig.body(context).copyWith(color: ThemeConfig.midGray),
+                                  )
+                                : Wrap(
+                                    spacing: 4,
+                                    runSpacing: 4,
+                                    children: _selectedIngredients
+                                        .map((ing) => BasicChipDisplay(label: ing))
+                                        .toList(),
+                                  ),
+
+                            const SizedBox(height: 16),
+
+                            // ─────────────────────────────
+                            // INGREDIENT USAGE FORM
+                            // ─────────────────────────────
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: _selectedIngredients.map((ingredientName) {
+                                // Ingredient info
+                                final ingModel = HiveService.ingredientBox.values
+                                    .firstWhere((i) => i.name == ingredientName);
+
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 18),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: ThemeConfig.lightGray),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Ingredient Title
+                                      Text(
+                                        ingredientName,
+                                        style: FontConfig.h3(context).copyWith(
+                                          color: ThemeConfig.primaryGreen,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 10),
+
+                                      // SIZE-QUANTITY INPUTS
+                                      Column(
+                                        children: _selectedSizes.map((size) {
+                                          // Ensure controller exists
+                                          _ensureIngredientQtyCtrl(ingredientName, size);
+
+                                          return Padding(
+                                            padding: const EdgeInsets.only(bottom: 12),
+                                            child: Row(
+                                              children: [
+                                                SizedBox(
+                                                  width: 80,
+                                                  child: Text(
+                                                    "$size:",
+                                                    style: FontConfig.body(context).copyWith(
+                                                      fontWeight: FontWeight.w600,
+                                                      color: ThemeConfig.secondaryGreen,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+
+                                                Expanded(
+                                                  child: BasicInputField(
+                                                    label: "Qty (${ingModel.baseUnit})",
+                                                    controller:
+                                                        _ingredientQtyCtrls[ingredientName]![size]!,
+                                                    inputType: TextInputType.number,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+
+                            Row(
+                              children: [
+                                // CLEAR BUTTON
+                                Expanded(
+                                  child: BasicButton(
+                                    label: "Clear",
+                                    type: AppButtonType.secondary,
+                                    onPressed: _clearForm,
+                                  ),
+                                ),
+
+                                // Divider
+                                Container(
+                                  width: 3,
+                                  height: 44,
+                                  margin: const EdgeInsets.symmetric(horizontal: 20),
+                                  color: ThemeConfig.lightGray,
+                                ),
+
+                                // ADD BUTTON
+                                Expanded(
+                                  child: BasicButton(
+                                    label: "Add",
+                                    type: AppButtonType.primary,
+                                    onPressed: _addProduct,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ───────────────────────
+                    // BACKUP / RESTORE / DELETE BOX
+                    // ───────────────────────
+                    ContainerCard(
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              // BACKUP BUTTON (placeholder)
+                              Expanded(
+                                child: BasicButton(
+                                  label: "Backup",
+                                  type: AppButtonType.secondary,
+                                  icon: Icons.save_outlined,
+                                  onPressed: () {
+                                    DialogUtils.showToast(
+                                        context, "Backup (placeholder)");
+                                  },
+                                ),
+                              ),
+
+                              // Divider
+                              Container(
+                                width: 3,
+                                height: 44,
+                                margin: const EdgeInsets.symmetric(horizontal: 20),
+                                color: ThemeConfig.lightGray,
+                              ),
+
+                              // RESTORE BUTTON (placeholder)
+                              Expanded(
+                                child: BasicButton(
+                                  label: "Restore",
+                                  type: AppButtonType.secondary,
+                                  icon: Icons.restore,
+                                  onPressed: () {
+                                    DialogUtils.showToast(
+                                        context, "Restore (placeholder)");
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // DELETE ALL (FULL WIDTH)
+                          BasicButton(
+                            label: "Delete All",
+                            type: AppButtonType.danger,
+                            onPressed: () async {
+                              await productBox.clear();
+                              DialogUtils.showToast(
+                                  context, "All products deleted");
+                              setState(() {});
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
             const SizedBox(width: 20),
-            _buildRightPanel(context),
+
+            // ────────────────────────────────────────────
+            // RIGHT PANEL (placeholder for now)
+            // ────────────────────────────────────────────
+            Expanded(
+              flex: 5,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ──────────────── Search + Sort + Filter Container ────────────────
+                  ContainerCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ─────────────── Search | Sort | Filter Row ───────────────
+                        Row(
+                          children: [
+                            Expanded(flex: 9, child: _buildSearchBar(context)),
+
+                            const SizedBox(width: 20),
+
+                            Expanded(flex: 5, child: _buildSortDropdown(context)),
+
+                            const SizedBox(width: 20),
+
+                             Expanded(flex: 3, child: _buildFilterButton(context)),
+                          ],
+                        ),
+
+                        // ─────────────── Expandable Filter Row ───────────────
+                        AnimatedCrossFade(
+                          firstChild: const SizedBox.shrink(),
+                          secondChild: _buildFilterRow(context),
+                          crossFadeState: _showFilters
+                              ? CrossFadeState.showSecond
+                              : CrossFadeState.showFirst,
+                          duration: const Duration(milliseconds: 250),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ──────────────── PRODUCT GRID ────────────────
+                  Expanded(
+                    child: Builder(
+                      builder: (context) {
+                        final products = _getFilteredProducts();
+
+                        return ItemGridView<ProductModel>(
+                          items: products,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
+                          minItemWidth: 360, // Responsive behavior target width
+                          childAspectRatio: 370 / 150, // Keep same proportions
+                          physics: const AlwaysScrollableScrollPhysics(),
+
+                          // Build each product card
+                          itemBuilder: (context, prod) {
+                            return ItemCard(
+                              onTap: () => _showProductDetails(prod),
+
+                              child: Row(
+                                children: [
+                                  // ─────────────────────────────
+                                  // LEFT SIDE INFORMATION
+                                  // ─────────────────────────────
+                                  Expanded(
+                                    flex: 6,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        // PRODUCT NAME
+                                        Text(
+                                          prod.name,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w700,
+                                            color: ThemeConfig.primaryGreen,
+                                          ),
+                                        ),
+
+                                        // CATEGORY
+                                        Text(
+                                          prod.category,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: ThemeConfig.secondaryGreen,
+                                          ),
+                                        ),
+
+                                        // SUBCATEGORY
+                                        Text(
+                                          prod.subCategory,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: ThemeConfig.secondaryGreen,
+                                          ),
+                                        ),
+
+                                        // AVAILABLE SIZES (FROM PRICE MAP KEYS)
+                                        Text(
+                                          "Sizes: ${prod.prices.keys.join(' · ')}",
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w400,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // ─────────────────────────────
+                                  // RIGHT SIDE (HIGHEST PRICE)
+                                  // ─────────────────────────────
+                                  Expanded(
+                                    flex: 4,
+                                    child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Text(
+                                        FormatUtils.formatCurrency(
+                                          (prod.prices.values.isEmpty)
+                                              ? 0
+                                              : prod.prices.values.reduce((a, b) => a > b ? a : b),
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                          color: ThemeConfig.primaryGreen,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-}
 
-/// ─────────────────────────────────────────────
-///  PRODUCT INFO SECTION (Phase 1 Implementation)
-/// ─────────────────────────────────────────────
-class ProductInfoSection extends StatefulWidget {
-  final GlobalKey<FormState> formKey;
-  final TextEditingController nameController;
-  final TextEditingController categoryController;
-  final TextEditingController subcategoryController;
+  Future<void> _showAddIngredientDialog() async {
+    final ingredientBox = HiveService.ingredientBox;
+    final ingredientNames = ingredientBox.values
+        .map((i) => i.name)
+        .toSet()
+        .toList();
 
-  const ProductInfoSection({
-    super.key,
-    required this.formKey,
-    required this.nameController,
-    required this.categoryController,
-    required this.subcategoryController,
-  });
+    String? selectedIngredient;
+    final dropdownCtrl = TextEditingController();
 
-  @override
-  State<ProductInfoSection> createState() => _ProductInfoSectionState();
-}
-
-class _ProductInfoSectionState extends State<ProductInfoSection> {
-  List<String> _categories = [];
-  List<String> _subcategories = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _loadOptionsFromHive();
-  }
-
-  void _loadOptionsFromHive() {
-    final products = HiveService.productBox.values.toList();
-    setState(() {
-      _categories = products
-          .map((p) => p.category)
-          .where((e) => e.isNotEmpty)
-          .toSet()
-          .toList();
-      _subcategories = products
-          .map((p) => p.subCategory)
-          .where((e) => e.isNotEmpty)
-          .toSet()
-          .toList();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Form(
-      key: widget.formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // PRODUCT NAME
-          TextFormField(
-            controller: widget.nameController,
-            decoration: InputDecoration(
-              labelText: "Product Name",
-              labelStyle: FontConfig.inputLabel(context),
-              filled: true,
-              fillColor: Colors.white,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                    color: ThemeConfig.midGray, width: 2),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(
-                    color: ThemeConfig.primaryGreen, width: 2),
-              ),
-            ),
-            validator: (val) =>
-                val == null || val.trim().isEmpty ? "Product name is required" : null,
-          ),
-          const SizedBox(height: 12),
-
-          // CATEGORY + SUBCATEGORY
-          Row(
+    final result = await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return DialogBoxTitled(
+          title: "Add Ingredient",
+          width: 380,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close,
+                  size: 22, color: ThemeConfig.primaryGreen),
+              onPressed: () => Navigator.pop(context, null),
+            )
+          ],
+          child: Column(
             children: [
-              Expanded(
-                child: _HybridDropdownTextField(
-                  label: "Category",
-                  controller: widget.categoryController,
-                  options: _categories,
-                  required: true,
-                ),
+              HybridDropdownField(
+                label: "Ingredient",
+                controller: dropdownCtrl,
+                options: ingredientNames,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _HybridDropdownTextField(
-                  label: "Subcategory",
-                  controller: widget.subcategoryController,
-                  options: _subcategories,
-                  required: true,
-                ),
-              ),
+              const SizedBox(height: 16),
+              BasicButton(
+                label: "Add",
+                type: AppButtonType.primary,
+                onPressed: () {
+                  final ing = dropdownCtrl.text.trim();
+                  if (ing.isEmpty) {
+                    DialogUtils.showToast(
+                        context, "Ingredient cannot be empty.");
+                    return;
+                  }
+                  Navigator.pop(context, ing);
+                },
+              )
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
-  }
-}
 
-/// ─────────────────────────────────────────────
-///  REUSABLE HYBRID DROPDOWN + TEXT FIELD
-/// ─────────────────────────────────────────────
-class _HybridDropdownTextField extends StatefulWidget {
-  final String label;
-  final TextEditingController controller;
-  final List<String> options;
-  final bool required;
-
-  const _HybridDropdownTextField({
-    required this.label,
-    required this.controller,
-    required this.options,
-    this.required = false,
-  });
-
-  @override
-  State<_HybridDropdownTextField> createState() =>
-      _HybridDropdownTextFieldState();
-}
-
-class _HybridDropdownTextFieldState extends State<_HybridDropdownTextField> {
-  void _showOptionsDialog() async {
-    if (widget.options.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'No existing ${widget.label.toLowerCase()}s found. You can type one manually.'),
-        ),
-      );
+    if (result == null || result.isEmpty) return;
+    if (_selectedIngredients.contains(result)) {
+      DialogUtils.showToast(context, "Ingredient already added.");
       return;
     }
 
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => ListView(
-        children: widget.options.map((option) {
-          return ListTile(
-            title: Text(option),
-            onTap: () => Navigator.pop(context, option),
-          );
-        }).toList(),
-      ),
-    );
-
-    if (selected != null) {
-      setState(() => widget.controller.text = selected);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: widget.controller,
-      decoration: InputDecoration(
-        labelText: widget.label,
-        labelStyle: FontConfig.inputLabel(context),
-        suffixIcon: IconButton(
-          icon: const Icon(Icons.arrow_drop_down, color: ThemeConfig.primaryGreen),
-          onPressed: _showOptionsDialog,
-        ),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: ThemeConfig.midGray, width: 2),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: ThemeConfig.primaryGreen, width: 2),
-        ),
-      ),
-      validator: widget.required
-          ? (val) =>
-              val == null || val.trim().isEmpty ? "${widget.label} is required" : null
-          : null,
-    );
-  }
-}
-
-/// ─────────────────────────────────────────────
-///  PHASE 2 — PRICING SECTION
-/// ─────────────────────────────────────────────
-class PricingSection extends StatefulWidget {
-  final ValueChanged<List<PricingEntry>> onChanged;
-  const PricingSection({super.key, required this.onChanged});
-
-  @override
-  State<PricingSection> createState() => _PricingSectionState();
-}
-
-class _PricingSectionState extends State<PricingSection> {
-  List<String> _availableSizes = [];
-  List<PricingEntry> _selectedPricings = [];
-  String? _activeSize;
-
-  final _priceController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSizesFromHive();
-  }
-
-  void _loadSizesFromHive() {
-    // Pull all existing sizes dynamically from Hive products
-    final products = HiveService.productBox.values.toList();
-    final sizeSet = <String>{};
-    for (final p in products) {
-      sizeSet.addAll(p.prices.keys);
-    }
-    setState(() => _availableSizes = sizeSet.toList()..sort());
-  }
-
-  // Opens dialog to select sizes
-  Future<void> _showSizeDialog({bool editing = false}) async {
-    final selected = Set<String>.from(_selectedPricings.map((e) => e.size));
-
-    final result = await showDialog<List<String>>(
-      context: context,
-      builder: (context) {
-        final tempSelection = Set<String>.from(selected);
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: const Text('Select Sizes'),
-              content: SizedBox(
-                width: 300,
-                height: 280,
-                child: ListView(
-                  children: _availableSizes.map((s) {
-                    final isSelected = tempSelection.contains(s);
-                    return CheckboxListTile(
-                      value: isSelected,
-                      title: Text(s),
-                      onChanged: (v) {
-                        setStateDialog(() {
-                          if (v == true) {
-                            tempSelection.add(s);
-                          } else {
-                            tempSelection.remove(s);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ThemeConfig.primaryGreen,
-                  ),
-                  onPressed: () => Navigator.pop(context, tempSelection.toList()),
-                  child: const Text('Confirm'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-
-    // ✅ When user confirms
-    if (result != null) {
-      setState(() {
-        _selectedPricings = result.map((s) {
-          final existing = _selectedPricings.firstWhere(
-            (e) => e.size == s,
-            orElse: () => PricingEntry(s),
-          );
-          return existing;
-        }).toList();
-
-        // Default active tab
-        if (_selectedPricings.isNotEmpty) {
-          _activeSize ??= _selectedPricings.first.size;
-        }
-      });
-
-      widget.onChanged(_selectedPricings);
-    }
-  }
-
-  // Handle price input change
-  void _onPriceChanged(String value) {
-    if (_activeSize == null) return;
-    final idx = _selectedPricings.indexWhere((e) => e.size == _activeSize);
-    if (idx != -1) {
-      final price = double.tryParse(value);
-      _selectedPricings[idx].price = price;
-      widget.onChanged(_selectedPricings);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
-      decoration: BoxDecoration(
-        color: ThemeConfig.white,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header row
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Pricing",
-                style: FontConfig.h3(context),
-              ),
-              Row(
-                children: [
-                  IconButton(
-                    tooltip: "Edit selected sizes",
-                    onPressed: _selectedPricings.isEmpty
-                        ? null
-                        : () => _showSizeDialog(editing: true),
-                    icon: const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
-                  ),
-                  IconButton(
-                    tooltip: "Add new sizes",
-                    onPressed: _showSizeDialog,
-                    icon: const Icon(Icons.add_circle_outline,
-                        color: ThemeConfig.primaryGreen),
-                  ),
-                ],
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 10),
-
-          // Tabs for selected sizes
-          if (_selectedPricings.isNotEmpty)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _selectedPricings.map((entry) {
-                  final isActive = entry.size == _activeSize;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _activeSize = entry.size;
-                          _priceController.text =
-                              entry.price?.toString() ?? '';
-                        });
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isActive
-                              ? ThemeConfig.primaryGreen
-                              : Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: ThemeConfig.primaryGreen,
-                            width: 1.8,
-                          ),
-                        ),
-                        child: Text(
-                          entry.size,
-                          style: TextStyle(
-                            color: isActive
-                                ? Colors.white
-                                : ThemeConfig.primaryGreen,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            )
-          else
-            const Text(
-              "No sizes selected yet.",
-              style: TextStyle(color: ThemeConfig.midGray),
-            ),
-
-          const SizedBox(height: 16),
-
-          // Price field for active tab
-          if (_activeSize != null)
-            TextFormField(
-              controller: _priceController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: "Price for $_activeSize",
-                labelStyle: FontConfig.inputLabel(context),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide:
-                      const BorderSide(color: ThemeConfig.midGray, width: 2),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                      color: ThemeConfig.primaryGreen, width: 2),
-                ),
-              ),
-              onChanged: _onPriceChanged,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Helper model for selected pricing entries
-class PricingEntry {
-  final String size;
-  double? price;
-  PricingEntry(this.size, [this.price]);
-}
-
-/// ─────────────────────────────────────────────
-///  PHASE 3 — INGREDIENT USAGE SECTION
-/// ─────────────────────────────────────────────
-class IngredientUsageSection extends StatefulWidget {
-  final List<String> selectedSizes;
-  final ValueChanged<List<IngredientUsageEntry>> onChanged;
-  
-
-  const IngredientUsageSection({
-    super.key,
-    required this.selectedSizes,
-    required this.onChanged,
-  });
-
-  @override
-  State<IngredientUsageSection> createState() => _IngredientUsageSectionState();
-}
-
-class _IngredientUsageSectionState extends State<IngredientUsageSection> {
-  List<IngredientUsageEntry> _selectedIngredients = [];
-  List<Map<String, String>> _availableIngredients = [];
-  String? _activeIngredientId;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadIngredientsFromHive();
-  }
-
-  @override
-  void didUpdateWidget(covariant IngredientUsageSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-
-    // Detect pricing size changes
-    if (oldWidget.selectedSizes.join(',') != widget.selectedSizes.join(',')) {
-      bool changed = false;
-
-      for (var ing in _selectedIngredients) {
-        // Remove outdated sizes
-        final removed = ing.quantities.keys
-            .where((s) => !widget.selectedSizes.contains(s))
-            .toList();
-        for (final r in removed) {
-          ing.quantities.remove(r);
-          changed = true;
-        }
-
-        // Add new sizes (with default 0 quantity)
-        for (final s in widget.selectedSizes) {
-          if (!ing.quantities.containsKey(s)) {
-            ing.quantities[s] = 0;
-            changed = true;
-          }
-        }
-      }
-
-      if (changed) {
-        // ✅ Delay the rebuild until after widget tree updates
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() {});
-        });
-      }
-    }
-  }
-
-
-  void _loadIngredientsFromHive() {
-    final ingredients = HiveService.ingredientBox.values.toList();
     setState(() {
-      _availableIngredients = ingredients
-          .map((i) => {
-                'id': i.id,
-                'name': i.name,
-                'baseUnit': i.baseUnit,
-              })
-          .toList();
+      _selectedIngredients.add(result);
     });
   }
 
-  Future<void> _showIngredientDialog({bool editing = false}) async {
-    final selectedIds = _selectedIngredients.map((e) => e.ingredientId).toSet();
+  Future<void> _showEditIngredientsDialog() async {
+    final temp = List<String>.from(_selectedIngredients);
 
-    final result = await showDialog<List<String>>(
+    await showDialog(
       context: context,
-      builder: (context) {
-        final tempSelected = Set<String>.from(selectedIds);
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: const Text('Select Ingredients'),
-              content: SizedBox(
-                width: 300,
-                height: 300,
-                child: ListView(
-                  children: _availableIngredients.map((i) {
-                    final id = i['id']!;
-                    final isSelected = tempSelected.contains(id);
-                    return CheckboxListTile(
-                      value: isSelected,
-                      title: Text(i['name'] ?? ''),
-                      onChanged: (v) {
-                        setStateDialog(() {
-                          if (v == true) {
-                            tempSelected.add(id);
-                          } else {
-                            tempSelected.remove(id);
-                          }
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, null),
-                  child: const Text('Cancel'),
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: ThemeConfig.primaryGreen,
-                  ),
-                  onPressed: () =>
-                      Navigator.pop(context, tempSelected.toList()),
-                  child: const Text('Confirm'),
-                ),
-              ],
-            );
-          },
+      barrierDismissible: false,
+      builder: (_) {
+        return DialogBoxTitled(
+          title: "Edit Ingredients",
+          width: 420,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close,
+                  size: 22, color: ThemeConfig.primaryGreen),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+          child: StatefulBuilder(
+            builder: (context, setInner) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (temp.isEmpty)
+                    Text("No ingredients selected.",
+                        style: FontConfig.body(context)
+                            .copyWith(color: ThemeConfig.midGray))
+                  else
+                    Column(
+                      children: temp.map((ing) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              ing,
+                              style: FontConfig.body(context).copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: ThemeConfig.secondaryGreen),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline,
+                                  color: Colors.redAccent),
+                              onPressed: () {
+                                setInner(() => temp.remove(ing));
+                              },
+                            )
+                          ],
+                        );
+                      }).toList(),
+                    ),
+
+                  const SizedBox(height: 20),
+
+                  BasicButton(
+                    label: "Save",
+                    type: AppButtonType.primary,
+                    onPressed: () {
+                      setState(() {
+                        // Dispose controllers for removed ingredients
+                        final removed = _selectedIngredients
+                            .where((i) => !temp.contains(i))
+                            .toList();
+
+                        for (final ing in removed) {
+                          _ingredientQtyCtrls[ing]
+                              ?.values
+                              .forEach((c) => c.dispose());
+                          _ingredientQtyCtrls.remove(ing);
+                        }
+
+                        _selectedIngredients = temp;
+                      });
+
+                      Navigator.pop(context);
+                    },
+                  )
+                ],
+              );
+            },
+          ),
         );
       },
     );
-
-    if (result != null) {
-      setState(() {
-        _selectedIngredients = result.map((id) {
-          final existing = _selectedIngredients.firstWhere(
-            (e) => e.ingredientId == id,
-            orElse: () {
-              final ing = _availableIngredients.firstWhere((i) => i['id'] == id);
-              return IngredientUsageEntry(
-                ingredientId: ing['id']!,
-                ingredientName: ing['name']!,
-                unit: ing['baseUnit'] ?? '',
-                quantities: {
-                  for (var s in widget.selectedSizes) s: 0,
-                },
-              );
-            },
-          );
-          return existing;
-        }).toList();
-
-        if (_selectedIngredients.isNotEmpty && _activeIngredientId == null) {
-          _activeIngredientId = _selectedIngredients.first.ingredientId;
-        }
-      });
-
-      widget.onChanged(_selectedIngredients);
-    }
   }
 
-  void _onQuantityChanged(String ingredientId, String size, String value) {
-    final idx =
-        _selectedIngredients.indexWhere((i) => i.ingredientId == ingredientId);
-    if (idx == -1) return;
-    final qty = double.tryParse(value) ?? 0;
-    _selectedIngredients[idx].quantities[size] = qty;
-    widget.onChanged(_selectedIngredients);
-  }
-
-  void _onUnitChanged(String ingredientId, String newUnit) {
-    final idx =
-        _selectedIngredients.indexWhere((i) => i.ingredientId == ingredientId);
-    if (idx == -1) return;
-    _selectedIngredients[idx].unit = newUnit;
-    widget.onChanged(_selectedIngredients);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
-      decoration: BoxDecoration(
-        color: ThemeConfig.white,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text("Ingredient Usage", style: FontConfig.h3(context)),
-              Row(
+  void _showProductDetails(ProductModel product) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return DialogBoxTitled(
+          title: product.name,
+          width: 520,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close, size: 24, color: ThemeConfig.primaryGreen),
+              splashRadius: 18,
+              onPressed: () => Navigator.pop(context),
+            )
+          ],
+          child: SizedBox(
+            height: 480, // scrollable container height
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(right: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    tooltip: "Edit ingredients",
-                    onPressed: _selectedIngredients.isEmpty
-                        ? null
-                        : () => _showIngredientDialog(editing: true),
-                    icon:
-                        const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
-                  ),
-                  IconButton(
-                    tooltip: "Add ingredients",
-                    onPressed: _showIngredientDialog,
-                    icon: const Icon(Icons.add_circle_outline,
-                        color: ThemeConfig.primaryGreen),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
 
-          if (_selectedIngredients.isEmpty)
-            const Text("No ingredients added yet.",
-                style: TextStyle(color: ThemeConfig.midGray))
-          else
-            Column(
-              children: [
-                // Ingredient tabs
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: _selectedIngredients.map((entry) {
-                      final isActive = entry.ingredientId == _activeIngredientId;
+                  // ──────────────────────────────
+                  // BASIC INFO
+                  // ──────────────────────────────
+                  _detailRow("Category", product.category),
+                  _detailRow("Subcategory", product.subCategory),
+                  _detailRow("Pricing Type", product.pricingType),
+
+                  const SizedBox(height: 20),
+
+                  // ──────────────────────────────
+                  // PRICES SECTION
+                  // ──────────────────────────────
+                  Text(
+                    "Prices",
+                    style: FontConfig.h2(context).copyWith(
+                      color: ThemeConfig.primaryGreen,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: product.prices.entries.map((entry) {
                       return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() => _activeIngredientId =
-                                entry.ingredientId);
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: isActive
-                                  ? ThemeConfig.primaryGreen
-                                  : Colors.white,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: ThemeConfig.primaryGreen,
-                                width: 1.8,
-                              ),
-                            ),
-                            child: Text(
-                              entry.ingredientName,
-                              style: TextStyle(
-                                color: isActive
-                                    ? Colors.white
-                                    : ThemeConfig.primaryGreen,
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              "${entry.key}:",
+                              style: FontConfig.body(context).copyWith(
                                 fontWeight: FontWeight.w600,
+                                color: ThemeConfig.secondaryGreen,
                               ),
                             ),
-                          ),
+                            Text(
+                              FormatUtils.formatCurrency(entry.value),
+                              style: FontConfig.body(context).copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: ThemeConfig.primaryGreen,
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     }).toList(),
                   ),
-                ),
 
-                const SizedBox(height: 14),
+                  const SizedBox(height: 20),
 
-                // Active ingredient editor
-                if (_activeIngredientId != null)
-                  _buildIngredientEditor(_activeIngredientId!),
-              ],
+                  // ──────────────────────────────
+                  // INGREDIENT USAGE SECTION
+                  // ──────────────────────────────
+                  Text(
+                    "Ingredient Usage",
+                    style: FontConfig.h2(context).copyWith(
+                      color: ThemeConfig.primaryGreen,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  if (product.ingredientUsage.isEmpty)
+                    Text(
+                      "No ingredient usage defined.",
+                      style: FontConfig.body(context).copyWith(
+                        color: ThemeConfig.midGray,
+                      ),
+                    )
+                  else
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: product.ingredientUsage.entries.map((entry) {
+                        final ingredientName = entry.key;
+                        final sizeMap = entry.value;
+
+                        // find ingredient unit
+                        final ingModel = HiveService.ingredientBox.values.firstWhere(
+                          (i) => i.name == ingredientName,
+                          orElse: () => HiveService.ingredientBox.values.first,
+                        );
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: ThemeConfig.lightGray),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                ingredientName,
+                                style: FontConfig.h3(context).copyWith(
+                                  color: ThemeConfig.secondaryGreen,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              Column(
+                                children: sizeMap.entries.map((sz) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 6),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          "${sz.key}:",
+                                          style: FontConfig.body(context).copyWith(
+                                            fontWeight: FontWeight.w600,
+                                            color: ThemeConfig.secondaryGreen,
+                                          ),
+                                        ),
+                                        Text(
+                                          "${sz.value} ${ingModel.baseUnit}",
+                                          style: FontConfig.body(context).copyWith(
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              )
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                  const SizedBox(height: 30),
+
+                  // ──────────────────────────────
+                  // ACTION BUTTONS
+                  // ──────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: BasicButton(
+                          label: "Edit",
+                          type: AppButtonType.secondary,
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showEditDialog(product);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 24),
+                      Expanded(
+                        child: BasicButton(
+                          label: "Delete",
+                          type: AppButtonType.danger,
+                          onPressed: () async {
+                            await product.delete();
+                            DialogUtils.showToast(context, "${product.name} deleted.");
+                            Navigator.pop(context);
+                            setState(() {});
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _detailRow(String title, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title,
+              style: FontConfig.h2(context).copyWith(
+              fontWeight: FontWeight.w500,
+              color: ThemeConfig.primaryGreen,
+            )),
+          Text(value,
+              style: FontConfig.body(context).copyWith(
+              fontWeight: FontWeight.w400,
+              color: ThemeConfig.secondaryGreen,
+            )),
         ],
       ),
     );
   }
 
-  Widget _buildIngredientEditor(String ingredientId) {
-    final entry = _selectedIngredients
-        .firstWhere((e) => e.ingredientId == ingredientId);
+  Future<void> _showAddSizeDialog() async {
+    final controller = TextEditingController();
 
-    final availableUnits = _availableIngredients
-        .where((i) => i['id'] == ingredientId)
-        .map((i) => i['baseUnit'])
-        .whereType<String>()
-        .toSet()
-        .toList();
+    // Only allow valid entries for current type
+    const sizeKeys = ["12oz", "16oz", "22oz", "HOT"];
+    const variantKeys = ["Regular", "Single", "Piece", "Cup"];
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Unit dropdown
-        Row(
-          children: [
-            const Text(
-              "Unit:",
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(width: 8),
-            DropdownButton<String>(
-              value: entry.unit.isEmpty ? null : entry.unit,
-              hint: const Text("Select unit"),
-              items: availableUnits
-                  .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                  .toList(),
-              onChanged: (v) {
-                if (v != null) _onUnitChanged(ingredientId, v);
-              },
+    final allowed = _pricingType == "size" ? sizeKeys : variantKeys;
+
+    final result = await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return DialogBoxTitled(
+          title: "Add ${_pricingType == "size" ? "Size" : "Variant"}",
+          width: 380,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close, color: ThemeConfig.primaryGreen),
+              onPressed: () => Navigator.pop(context, null),
             ),
           ],
-        ),
-        const SizedBox(height: 10),
-
-        // Per-size usage fields
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: widget.selectedSizes.map((size) {
-            return SizedBox(
-              width: 110,
-              child: TextFormField(
-                initialValue:
-                    entry.quantities[size]?.toString() ?? '',
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: "$size",
-                  labelStyle: FontConfig.inputLabel(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                ),
-                onChanged: (v) =>
-                    _onQuantityChanged(ingredientId, size, v),
+          child: Column(
+            children: [
+              BasicInputField(
+                label: _pricingType == "size" ? "Size (e.g. 12oz)" : "Variant",
+                controller: controller,
               ),
-            );
-          }).toList(),
-        ),
-      ],
+              const SizedBox(height: 16),
+              BasicButton(
+                label: "Add",
+                type: AppButtonType.primary,
+                onPressed: () {
+                  final value = controller.text.trim();
+                  if (value.isEmpty) {
+                    DialogUtils.showToast(context, "Cannot be empty.");
+                    return;
+                  }
+                  if (!allowed.contains(value)) {
+                    DialogUtils.showToast(context,
+                        "Invalid: '$value' is not allowed for $_pricingType pricing.");
+                    return;
+                  }
+                  Navigator.pop(context, value);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (result == null || result.isEmpty) return;
+
+    if (_selectedSizes.contains(result)) {
+      DialogUtils.showToast(context, "Already added.");
+      return;
+    }
+
+    setState(() {
+      _selectedSizes.add(result);
+    });
+  }
+
+  Future<void> _showEditSizesDialog() async {
+    // Work on a temporary list so changes are not applied until saved
+    final temp = List<String>.from(_selectedSizes);
+    final sizeKeys = ["12oz", "16oz", "22oz", "HOT"];
+    final variantKeys = ["Regular", "Single", "Piece", "Cup"];
+    final allowed = _pricingType == "size" ? sizeKeys : variantKeys;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return DialogBoxTitled(
+          title: "Edit Available Sizes",
+          width: 420,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close, size: 22, color: ThemeConfig.primaryGreen),
+              padding: EdgeInsets.zero,
+              splashRadius: 18,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+          child: StatefulBuilder(
+            builder: (context, setInner) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ───────────────────────────────
+                  // CURRENTLY SELECTED SIZES
+                  // ───────────────────────────────
+                  Text(
+                    "Selected Sizes",
+                    style: FontConfig.h2(context).copyWith(
+                      color: ThemeConfig.primaryGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 10),
+
+                  temp.isEmpty
+                      ? Text(
+                          "No sizes selected.",
+                          style: FontConfig.body(context)
+                              .copyWith(color: ThemeConfig.midGray),
+                        )
+                      : Column(
+                          children: temp.map((size) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: ThemeConfig.midGray,
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(size,
+                                      style: FontConfig.body(context).copyWith(
+                                        color: ThemeConfig.secondaryGreen,
+                                        fontWeight: FontWeight.w500,
+                                      )),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline,
+                                        color: Colors.redAccent),
+                                    splashRadius: 18,
+                                    onPressed: () {
+                                      setInner(() => temp.remove(size));
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+
+                  const SizedBox(height: 20),
+
+                  // ───────────────────────────────
+                  // ADD FROM KNOWN SIZES
+                  // ───────────────────────────────
+                  if (_availableSizes.isNotEmpty) ...[
+                    Text(
+                      "Add From Existing Sizes",
+                      style: FontConfig.h2(context).copyWith(
+                        color: ThemeConfig.primaryGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    Wrap(
+                      spacing: 5,
+                      runSpacing: 10,
+                      children: allowed
+                          .where((s) => !temp.contains(s))
+                          .map((s) => ActionChip(
+                                label: Text(s),
+                                onPressed: () => setInner(() => temp.add(s)),
+                              ))
+                          .toList(),
+                    ),
+                  ],
+
+                  const SizedBox(height: 26),
+
+                  // ───────────────────────────────
+                  // SAVE BUTTON
+                  // ───────────────────────────────
+                  Row(
+                    children: [
+                      Expanded(
+                        child: BasicButton(
+                          label: "Save",
+                          type: AppButtonType.primary,
+                          onPressed: () {
+                            setState(() {
+                              // Remove controllers for removed sizes
+                              final removed = _selectedSizes
+                                  .where((s) => !temp.contains(s))
+                                  .toList();
+                              for (final r in removed) {
+                                _sizePriceCtrls[r]?.dispose();
+                                _sizePriceCtrls.remove(r);
+                              }
+
+                              _selectedSizes = temp;
+
+                              // No need for active tab now (tab system removed)
+                            });
+
+                            Navigator.pop(context);
+                          },
+                        ),
+                      )
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
     );
   }
-}
 
-/// UI helper model
-class IngredientUsageEntry {
-  String ingredientId;
-  String ingredientName;
-  String unit;
-  Map<String, double> quantities;
-  IngredientUsageEntry({
-    required this.ingredientId,
-    required this.ingredientName,
-    required this.unit,
-    required this.quantities,
-  });
+  Future<void> _showAddSizeDialogForEdit(
+    List<String> editSizes,
+    String pricingType,
+    Map<String, TextEditingController> editPriceCtrls,
+    Map<String, Map<String, TextEditingController>> editIngredientCtrls,
+  ) async {
+    final controller = TextEditingController();
+
+    // Allowed keys
+    const sizeKeys = ["12oz", "16oz", "22oz", "HOT"];
+    const variantKeys = ["Regular", "Single", "Piece", "Cup"];
+    final allowed = pricingType == "size" ? sizeKeys : variantKeys;
+
+    final result = await showDialog<String?>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return DialogBoxTitled(
+          title: "Add ${pricingType == "size" ? "Size" : "Variant"}",
+          width: 380,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close, color: ThemeConfig.primaryGreen),
+              onPressed: () => Navigator.pop(context, null),
+            ),
+          ],
+          child: Column(
+            children: [
+              BasicInputField(
+                label: pricingType == "size" ? "Size (e.g. 12oz)" : "Variant",
+                controller: controller,
+              ),
+              const SizedBox(height: 16),
+              BasicButton(
+                label: "Add",
+                type: AppButtonType.primary,
+                onPressed: () {
+                  final value = controller.text.trim();
+                  if (value.isEmpty) {
+                    DialogUtils.showToast(context, "Cannot be empty.");
+                    return;
+                  }
+                  if (!allowed.contains(value)) {
+                    DialogUtils.showToast(context,
+                        "Invalid: '$value' is not allowed for $pricingType pricing.");
+                    return;
+                  }
+                  Navigator.pop(context, value);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (result == null || result.isEmpty) return;
+
+    if (editSizes.contains(result)) {
+      DialogUtils.showToast(context, "Already added.");
+      return;
+    }
+
+    // Add size + controllers for price + ingredient usage
+    setState(() {
+      editSizes.add(result);
+      editPriceCtrls[result] = TextEditingController();
+
+      for (final ing in editIngredientCtrls.keys) {
+        editIngredientCtrls[ing]![result] = TextEditingController();
+      }
+    });
+  }
+
+  Future<void> _showEditSizesDialogForEdit(
+    List<String> editSizes,
+    String pricingType,
+    Map<String, TextEditingController> editPriceCtrls,
+    Map<String, Map<String, TextEditingController>> editIngredientCtrls,
+  ) async {
+
+    final temp = List<String>.from(editSizes);
+
+    const sizeKeys = ["12oz", "16oz", "22oz", "HOT"];
+    const variantKeys = ["Regular", "Single", "Piece", "Cup"];
+    final allowed = pricingType == "size" ? sizeKeys : variantKeys;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return DialogBoxTitled(
+          title: "Edit ${pricingType == "size" ? "Sizes" : "Variants"}",
+          width: 420,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close, size: 22, color: ThemeConfig.primaryGreen),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+          child: StatefulBuilder(
+            builder: (context, setInner) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Selected list
+                  Text(
+                    "Selected ${pricingType == "size" ? "Sizes" : "Variants"}",
+                    style: FontConfig.h2(context).copyWith(
+                      color: ThemeConfig.primaryGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  temp.isEmpty
+                      ? Text(
+                          "No entries.",
+                          style: FontConfig.body(context).copyWith(color: ThemeConfig.midGray),
+                        )
+                      : Column(
+                          children: temp.map((value) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: ThemeConfig.midGray,
+                                    width: 1,
+                                  ),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    value,
+                                    style: FontConfig.body(context).copyWith(
+                                      fontWeight: FontWeight.w500,
+                                      color: ThemeConfig.secondaryGreen,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                    onPressed: () {
+                                      setInner(() => temp.remove(value));
+                                    },
+                                  )
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+
+                  const SizedBox(height: 14),
+
+                  // Add from allowed list
+                  Text(
+                    "Add Existing",
+                    style: FontConfig.h2(context).copyWith(
+                      color: ThemeConfig.primaryGreen,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 10,
+                    children: allowed
+                        .where((s) => !temp.contains(s))
+                        .map((s) {
+                          return ActionChip(
+                            label: Text(s),
+                            onPressed: () {
+                              setInner(() => temp.add(s));
+                            },
+                          );
+                        }).toList(),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  BasicButton(
+                    label: "Save",
+                    type: AppButtonType.primary,
+                    onPressed: () {
+                      // Remove controllers for removed sizes
+                      final removed = editSizes.where((s) => !temp.contains(s)).toList();
+                      for (final r in removed) {
+                        editPriceCtrls[r]?.dispose();
+                        editPriceCtrls.remove(r);
+
+                        for (final ing in editIngredientCtrls.keys) {
+                          editIngredientCtrls[ing]?[r]?.dispose();
+                          editIngredientCtrls[ing]?.remove(r);
+                        }
+                      }
+
+                      setState(() {
+                        editSizes
+                          ..clear()
+                          ..addAll(temp);
+                      });
+
+                      Navigator.pop(context);
+                    },
+                  ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _showEditDialog(ProductModel product) {
+    // Controllers prefilled with existing data
+    final formKey = GlobalKey<FormState>();
+
+    final editName = TextEditingController(text: product.name);
+    final editCategory = TextEditingController(text: product.category);
+    final editSubCategory = TextEditingController(text: product.subCategory);
+
+    // Pricing type
+    String pricingType = product.pricingType;
+
+    // Sizes / variants
+    List<String> editSizes = product.prices.keys.toList();
+
+    // Price controllers
+    final Map<String, TextEditingController> editPriceCtrls = {};
+    for (final size in editSizes) {
+      editPriceCtrls[size] =
+          TextEditingController(text: product.prices[size]?.toString());
+    }
+
+    // Ingredient Usage controllers
+    Map<String, Map<String, TextEditingController>> editIngredientCtrls = {};
+    for (final ing in product.ingredientUsage.keys) {
+      editIngredientCtrls[ing] = {};
+      for (final size in editSizes) {
+        final qty = product.ingredientUsage[ing]?[size] ?? 0;
+        editIngredientCtrls[ing]![size] =
+            TextEditingController(text: qty.toString());
+      }
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        return DialogBoxTitled(
+          title: "Edit Product",
+          width: 520,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.close, size: 24, color: ThemeConfig.primaryGreen),
+              splashRadius: 18,
+              onPressed: () => Navigator.pop(context),
+            ),
+          ],
+          child: SizedBox(
+            height: 520,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(right: 6),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ─────────────────────────
+                    // BASIC INFO
+                    // ─────────────────────────
+                    BasicInputField(
+                      label: "Product Name",
+                      controller: editName,
+                    ),
+                    const SizedBox(height: 14),
+
+                    HybridDropdownField(
+                      label: "Category",
+                      controller: editCategory,
+                      options: productBox.values
+                          .map((p) => p.category)
+                          .where((c) => c.isNotEmpty)
+                          .toSet()
+                          .toList(),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    HybridDropdownField(
+                      label: "Subcategory",
+                      controller: editSubCategory,
+                      options: productBox.values
+                          .map((p) => p.subCategory)
+                          .where((c) => c.isNotEmpty)
+                          .toSet()
+                          .toList(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ─────────────────────────
+                    // PRICING TYPE
+                    // ─────────────────────────
+                    Text("Pricing Type", style: FontConfig.h3(context)),
+                    const SizedBox(height: 6),
+
+                    BasicDropdownButton<String>(
+                      width: 200,
+                      value: pricingType,
+                      items: const ["size", "variant"],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() {});
+                        pricingType = value;
+
+                        // Reset sizes when switching type
+                        editSizes.clear();
+                        editPriceCtrls.clear();
+                        editIngredientCtrls.clear();
+                      },
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ─────────────────────────
+                    // SIZES / VARIANTS
+                    // ─────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Available ${pricingType == "size" ? "Sizes" : "Variants"}",
+                            style: FontConfig.h3(context)),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
+                              onPressed: () =>
+                                  _showEditSizesDialogForEdit(editSizes, pricingType, editPriceCtrls, editIngredientCtrls),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.add, color: ThemeConfig.primaryGreen),
+                              onPressed: () =>
+                                  _showAddSizeDialogForEdit(editSizes, pricingType, editPriceCtrls, editIngredientCtrls),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+
+                    editSizes.isEmpty
+                        ? Text(
+                            "No entries.",
+                            style: FontConfig.body(context).copyWith(color: ThemeConfig.midGray),
+                          )
+                        : Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: editSizes.map((s) => BasicChipDisplay(label: s)).toList(),
+                          ),
+
+                    const SizedBox(height: 20),
+
+                    // ─────────────────────────
+                    // PRICES
+                    // ─────────────────────────
+                    Text("Prices", style: FontConfig.h3(context)),
+                    const SizedBox(height: 10),
+
+                    Column(
+                      children: editSizes.map((size) {
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 80,
+                                child: Text(
+                                  "$size:",
+                                  style: FontConfig.body(context).copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: ThemeConfig.secondaryGreen,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: BasicInputField(
+                                  label: "₱ Price",
+                                  controller: editPriceCtrls[size]!,
+                                  inputType: TextInputType.number,
+                                  isCurrency: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // ─────────────────────────
+                    // INGREDIENT USAGE
+                    // ─────────────────────────
+                    Text("Ingredient Usage", style: FontConfig.h3(context)),
+                    const SizedBox(height: 10),
+
+                    Column(
+                      children: editIngredientCtrls.keys.map((ing) {
+                        final unit = HiveService.ingredientBox.values
+                            .firstWhere((i) => i.name == ing)
+                            .baseUnit;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: ThemeConfig.lightGray),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                ing,
+                                style: FontConfig.h3(context).copyWith(
+                                  color: ThemeConfig.secondaryGreen,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+
+                              const SizedBox(height: 10),
+
+                              Column(
+                                children: editSizes.map((size) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Row(
+                                      children: [
+                                        SizedBox(
+                                          width: 80,
+                                          child: Text(
+                                            "$size:",
+                                            style: FontConfig.body(context).copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              color: ThemeConfig.secondaryGreen,
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: BasicInputField(
+                                            label: "Qty ($unit)",
+                                            controller: editIngredientCtrls[ing]![size]!,
+                                            inputType: TextInputType.number,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // ─────────────────────────
+                    // SAVE BUTTON
+                    // ─────────────────────────
+                    BasicButton(
+                      label: "Save Changes",
+                      type: AppButtonType.primary,
+                      onPressed: () async {
+                        if (!formKey.currentState!.validate()) {
+                          DialogUtils.showToast(context, "Please fill all fields.");
+                          return;
+                        }
+
+                        if (editSizes.isEmpty) {
+                          DialogUtils.showToast(context, "Add at least one size/variant.");
+                          return;
+                        }
+
+                        // Build pricing map
+                        final newPrices = <String, double>{};
+                        for (final size in editSizes) {
+                          final txt = editPriceCtrls[size]!.text.replaceAll(",", "");
+                          final parsed = double.tryParse(txt);
+                          if (parsed == null) {
+                            DialogUtils.showToast(context, "Invalid price for $size.");
+                            return;
+                          }
+                          newPrices[size] = parsed;
+                        }
+
+                        // Build ingredient usage
+                        final newUsage = <String, Map<String, double>>{};
+                        for (final ing in editIngredientCtrls.keys) {
+                          newUsage[ing] = {};
+                          for (final size in editSizes) {
+                            final txt = editIngredientCtrls[ing]![size]!.text.replaceAll(",", "");
+                            final parsed = double.tryParse(txt);
+                            if (parsed == null) {
+                              DialogUtils.showToast(context, "Invalid qty for $ing ($size).");
+                              return;
+                            }
+                            newUsage[ing]![size] = parsed;
+                          }
+                        }
+
+                        // Apply updates
+                        product
+                          ..name = editName.text.trim()
+                          ..category = editCategory.text.trim()
+                          ..subCategory = editSubCategory.text.trim()
+                          ..pricingType = pricingType
+                          ..prices = newPrices
+                          ..ingredientUsage = newUsage
+                          ..updatedAt = DateTime.now();
+
+                        await product.save();
+
+                        DialogUtils.showToast(context, "Product updated.");
+                        Navigator.pop(context);
+                        setState(() {});
+                      },
+                    ),
+
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+
+  // ──────────────── FILTERING & SORTING FUNCTION ────────────────
+  List<ProductModel> _getFilteredProducts() {
+    List<ProductModel> list = productBox.values.toList();
+
+    // 🔍 Apply Search
+    if (_searchQuery.isNotEmpty) {
+      list = list.where((prod) => prod.name.toLowerCase().contains(_searchQuery)).toList();
+    }
+
+    // 🧩 Apply Filters
+    if (_selectedCategory != null) {
+      list = list.where((prod) => prod.category == _selectedCategory).toList();
+    }
+    if (_selectedSubCategory != null) {
+      list = list.where((prod) => prod.subCategory == _selectedSubCategory).toList();
+    }
+
+    // ↕️ Apply Sorting
+    switch (_selectedSort) {
+      case 'Name (A–Z)':
+        list.sort((a, b) => a.name.compareTo(b.name));
+        break;
+      case 'Name (Z–A)':
+        list.sort((a, b) => b.name.compareTo(a.name));
+        break;
+    }
+
+    return list;
+  }
+
+  bool _showFilters = false;
+  String _filterType = "Category";
+
+  // ──────────────────────────────────────────────────────────────
+  // HELPER BUILDERS SECTION (REFACTOR LATER AS IT SCALES)
+  // ──────────────────────────────────────────────────────────────
+  Widget _buildSearchBar(BuildContext context) {
+    return BasicSearchBox(
+      hintText: "Search Product...",
+      onChanged: (value) {
+        setState(() => _searchQuery = value);
+      },
+    );
+  }
+
+  Widget _buildSortDropdown(BuildContext context) {
+    return BasicDropdownButton<String>(
+      width:200,
+      value: _selectedSort,
+      items: const [
+        "Name (A-Z)",
+        "Name (Z-A)",
+      ],
+      onChanged: (value) {
+        setState(() => _selectedSort = value!);
+      },
+    );
+  }
+
+  int get _activeFiltersCount {
+    int count = 0;
+    if (_selectedCategory != null) count++;
+    if (_selectedSubCategory != null) count++;
+    return count;
+  }
+
+  Widget _buildFilterButton(BuildContext context) {
+    return BasicToggleButton(
+      expanded: _showFilters,
+      label: "Filter",
+      badgeCount: _activeFiltersCount,
+      onPressed: () {
+        setState(() => _showFilters = !_showFilters);
+      },
+    );
+  }
+
+  Widget _buildFilterRow(BuildContext context) {
+    final categories = productBox.values.map((e) => e.category).toSet().toList();
+    final subCategories = productBox.values.map((e) => e.subCategory).toSet().toList();
+    final List<String> options = _filterType == "Category" ? categories : subCategories;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 🔹 Label
+          Text(
+            "Filter by: ",
+            style: FontConfig.inputLabel(context).copyWith(color: ThemeConfig.primaryGreen),
+          ),
+          const SizedBox(width: 10),
+
+          // 🔹 Filter Type Dropdown
+          DropdownButton<String>(
+            value: _filterType,
+            borderRadius: BorderRadius.circular(12),
+            items: const [
+              DropdownMenuItem(value: "Category", child: Text("Category")),
+              DropdownMenuItem(value: "SubCategory", child: Text("Sub Category")),
+            ],
+            onChanged: (v) => setState(() => _filterType = v!),
+          ),
+
+          const SizedBox(width: 10),
+          
+          const Text(":"),
+
+          const SizedBox(width: 10),
+
+          // 🔹 Scrollable Options Row
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: options.map((opt) {
+                  final isActive = _filterType == "Category"
+                      ? _selectedCategory == opt
+                      : _selectedSubCategory == opt;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: FilterChip(
+                      label: Text(opt),
+                      selected: isActive,
+                      backgroundColor: Colors.white,
+                      selectedColor: ThemeConfig.primaryGreen.withOpacity(0.05),
+                      labelStyle: TextStyle(
+                        color: isActive
+                            ? ThemeConfig.primaryGreen
+                            : ThemeConfig.midGray,
+                        fontWeight:  isActive
+                            ? FontWeight.w500
+                            : FontWeight.w400,
+                      ),
+                      side: BorderSide(
+                        color: isActive
+                            ? ThemeConfig.primaryGreen
+                            : ThemeConfig.midGray,
+                        width: isActive ? 2 : 1, // 👈 border width adjustment here
+                      ),
+                      onSelected: (v) {
+                        setState(() {
+                          if (_filterType == "Category") {
+                            _selectedCategory = v ? opt : null;
+                          } else {
+                            _selectedSubCategory = v ? opt : null;
+                          }
+                        });
+                      },
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
