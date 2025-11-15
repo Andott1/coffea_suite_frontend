@@ -25,13 +25,13 @@ class _AdminProductTabState extends State<AdminProductTab> {
   final _nameCtrl = TextEditingController();
   final _categoryCtrl = TextEditingController();
   final _subCategoryCtrl = TextEditingController();
+  final TextEditingController _imageUrlCtrl = TextEditingController();
 
   bool _showFilters = false;
   String _searchQuery = '';
   String _sortOption = 'Name (A–Z)';
   String _categoryFilter = 'All';
   String _subCategoryFilter = 'All';
-
 
   List<PricingEntry> _selectedPricings = [];
   List<IngredientUsageEntry> _selectedIngredients = [];
@@ -75,7 +75,9 @@ class _AdminProductTabState extends State<AdminProductTab> {
         .toList();
     if (invalidPrices.isNotEmpty) {
       DialogUtils.showToast(
-          context, "All selected sizes must have valid prices.");
+        context,
+        "All selected sizes must have valid prices.",
+      );
       return;
     }
 
@@ -83,7 +85,9 @@ class _AdminProductTabState extends State<AdminProductTab> {
     for (final ing in _selectedIngredients) {
       if (ing.unit.isEmpty) {
         DialogUtils.showToast(
-            context, "Unit missing for ingredient: ${ing.ingredientName}");
+          context,
+          "Unit missing for ingredient: ${ing.ingredientName}",
+        );
         return;
       }
     }
@@ -92,9 +96,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
     final uuid = const Uuid();
     final productId = uuid.v4();
 
-    final pricesMap = {
-      for (final p in _selectedPricings) p.size: p.price!,
-    };
+    final pricesMap = {for (final p in _selectedPricings) p.size: p.price!};
 
     final ingredientUsageMap = {
       for (final i in _selectedIngredients) i.ingredientId: i.quantities,
@@ -112,6 +114,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
       ingredientUsage: ingredientUsageMap,
       available: true,
       updatedAt: now,
+      imageUrl: _imageUrlCtrl.text.trim(), // <-- new required field
     );
 
     // 3️⃣ SAVE TO HIVE (Product)
@@ -145,7 +148,6 @@ class _AdminProductTabState extends State<AdminProductTab> {
 
     DialogUtils.showToast(context, "✅ Product successfully added!");
   }
-
 
   // ──────────────────────────────
   // LEFT PANEL — ADD PRODUCT FORM
@@ -193,7 +195,9 @@ class _AdminProductTabState extends State<AdminProductTab> {
 
                   // ───── Ingredient Usage Section (Phase 3)
                   IngredientUsageSection(
-                    selectedSizes: _selectedPricings.map((e) => e.size).toList(),
+                    selectedSizes: _selectedPricings
+                        .map((e) => e.size)
+                        .toList(),
                     onChanged: (entries) => _selectedIngredients = entries,
                   ),
 
@@ -220,8 +224,10 @@ class _AdminProductTabState extends State<AdminProductTab> {
                             _showToast("Cleared all form fields");
                             setState(() {});
                           },
-                          child: Text("Clear",
-                              style: FontConfig.buttonLarge(context)),
+                          child: Text(
+                            "Clear",
+                            style: FontConfig.buttonLarge(context),
+                          ),
                         ),
                       ),
                       Container(
@@ -240,8 +246,10 @@ class _AdminProductTabState extends State<AdminProductTab> {
                             ),
                           ),
                           onPressed: _saveProduct,
-                          child: Text("Add",
-                              style: FontConfig.buttonLarge(context)),
+                          child: Text(
+                            "Add",
+                            style: FontConfig.buttonLarge(context),
+                          ),
                         ),
                       ),
                     ],
@@ -272,15 +280,22 @@ class _AdminProductTabState extends State<AdminProductTab> {
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          icon: const Icon(Icons.save_outlined,
-                              color: ThemeConfig.primaryGreen),
-                          label: Text("Backup",
-                              style: FontConfig.buttonLarge(context)
-                                  .copyWith(color: ThemeConfig.primaryGreen)),
+                          icon: const Icon(
+                            Icons.save_outlined,
+                            color: ThemeConfig.primaryGreen,
+                          ),
+                          label: Text(
+                            "Backup",
+                            style: FontConfig.buttonLarge(
+                              context,
+                            ).copyWith(color: ThemeConfig.primaryGreen),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: ThemeConfig.white,
                             side: const BorderSide(
-                                color: ThemeConfig.primaryGreen, width: 2),
+                              color: ThemeConfig.primaryGreen,
+                              width: 2,
+                            ),
                           ),
                           onPressed: () => _showToast("Backup clicked"),
                         ),
@@ -293,15 +308,22 @@ class _AdminProductTabState extends State<AdminProductTab> {
                       ),
                       Expanded(
                         child: ElevatedButton.icon(
-                          icon: const Icon(Icons.restore,
-                              color: ThemeConfig.primaryGreen),
-                          label: Text("Restore",
-                              style: FontConfig.buttonLarge(context)
-                                  .copyWith(color: ThemeConfig.primaryGreen)),
+                          icon: const Icon(
+                            Icons.restore,
+                            color: ThemeConfig.primaryGreen,
+                          ),
+                          label: Text(
+                            "Restore",
+                            style: FontConfig.buttonLarge(
+                              context,
+                            ).copyWith(color: ThemeConfig.primaryGreen),
+                          ),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: ThemeConfig.white,
                             side: const BorderSide(
-                                color: ThemeConfig.primaryGreen, width: 2),
+                              color: ThemeConfig.primaryGreen,
+                              width: 2,
+                            ),
                           ),
                           onPressed: () => _showToast("Restore clicked"),
                         ),
@@ -326,7 +348,10 @@ class _AdminProductTabState extends State<AdminProductTab> {
                         await HiveService.productBox.clear();
                         await HiveService.usageBox.clear();
 
-                        DialogUtils.showToast(context, "All products and ingredient usages deleted.");
+                        DialogUtils.showToast(
+                          context,
+                          "All products and ingredient usages deleted.",
+                        );
                         setState(() {}); // refresh UI
                       },
                       child: Text(
@@ -343,7 +368,6 @@ class _AdminProductTabState extends State<AdminProductTab> {
       ),
     );
   }
-
 
   // ──────────────────────────────
   // RIGHT PANEL — PRODUCT GRID
@@ -404,8 +428,11 @@ class _AdminProductTabState extends State<AdminProductTab> {
                 // Apply search filter
                 if (_searchQuery.isNotEmpty) {
                   products = products
-                      .where((p) =>
-                          p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+                      .where(
+                        (p) => p.name.toLowerCase().contains(
+                          _searchQuery.toLowerCase(),
+                        ),
+                      )
                       .toList();
                 }
 
@@ -430,16 +457,26 @@ class _AdminProductTabState extends State<AdminProductTab> {
                     products.sort((a, b) => b.name.compareTo(a.name));
                     break;
                   case 'Price (Low–High)':
-                    products.sort((a, b) =>
-                        (a.prices.values.isEmpty ? 0 : a.prices.values.first)
-                            .compareTo(
-                                b.prices.values.isEmpty ? 0 : b.prices.values.first));
+                    products.sort(
+                      (a, b) =>
+                          (a.prices.values.isEmpty ? 0 : a.prices.values.first)
+                              .compareTo(
+                                b.prices.values.isEmpty
+                                    ? 0
+                                    : b.prices.values.first,
+                              ),
+                    );
                     break;
                   case 'Price (High–Low)':
-                    products.sort((a, b) =>
-                        (b.prices.values.isEmpty ? 0 : b.prices.values.first)
-                            .compareTo(
-                                a.prices.values.isEmpty ? 0 : a.prices.values.first));
+                    products.sort(
+                      (a, b) =>
+                          (b.prices.values.isEmpty ? 0 : b.prices.values.first)
+                              .compareTo(
+                                a.prices.values.isEmpty
+                                    ? 0
+                                    : a.prices.values.first,
+                              ),
+                    );
                     break;
                 }
 
@@ -454,8 +491,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
 
                 return GridView.builder(
                   padding: const EdgeInsets.only(top: 10),
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
@@ -540,7 +576,9 @@ class _AdminProductTabState extends State<AdminProductTab> {
                                 child: Text(
                                   FormatUtils.formatCurrency(
                                     p.prices.isNotEmpty
-                                        ? p.prices.values.reduce((a, b) => a > b ? a : b)
+                                        ? p.prices.values.reduce(
+                                            (a, b) => a > b ? a : b,
+                                          )
                                         : 0,
                                   ),
                                   maxLines: 1,
@@ -555,7 +593,6 @@ class _AdminProductTabState extends State<AdminProductTab> {
                             ),
                           ],
                         ),
-
                       ),
                     );
                   },
@@ -578,17 +615,20 @@ class _AdminProductTabState extends State<AdminProductTab> {
         prefixIcon: const Icon(Icons.search, color: ThemeConfig.primaryGreen),
         filled: true,
         fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide:
-              const BorderSide(color: ThemeConfig.primaryGreen, width: 1.5),
+          borderSide: const BorderSide(
+            color: ThemeConfig.primaryGreen,
+            width: 1.5,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide:
-              const BorderSide(color: ThemeConfig.primaryGreen, width: 2),
+          borderSide: const BorderSide(
+            color: ThemeConfig.primaryGreen,
+            width: 2,
+          ),
         ),
       ),
       onChanged: (val) => setState(() => _searchQuery = val.trim()),
@@ -631,7 +671,10 @@ class _AdminProductTabState extends State<AdminProductTab> {
       icon: const Icon(Icons.filter_alt_outlined, color: Colors.white),
       label: Text(
         _showFilters ? "Hide Filters" : "Show Filters",
-        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -642,10 +685,15 @@ class _AdminProductTabState extends State<AdminProductTab> {
   Widget _buildFilterRow(BuildContext context) {
     // pull unique categories & subcategories from Hive
     final allProducts = HiveService.productBox.values.toList();
-    final categories =
-        ['All', ...{for (var p in allProducts) p.category}..removeWhere((e) => e.isEmpty)];
-    final subcategories =
-        ['All', ...{for (var p in allProducts) p.subCategory}..removeWhere((e) => e.isEmpty)];
+    final categories = [
+      'All',
+      ...{for (var p in allProducts) p.category}..removeWhere((e) => e.isEmpty),
+    ];
+    final subcategories = [
+      'All',
+      ...{for (var p in allProducts) p.subCategory}
+        ..removeWhere((e) => e.isEmpty),
+    ];
 
     return Padding(
       padding: const EdgeInsets.only(top: 16),
@@ -680,7 +728,6 @@ class _AdminProductTabState extends State<AdminProductTab> {
       ),
     );
   }
-
 
   // ──────────────────────────────
   // MAIN BUILD
@@ -769,16 +816,21 @@ class _ProductInfoSectionState extends State<ProductInfoSection> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(
-                    color: ThemeConfig.midGray, width: 2),
+                  color: ThemeConfig.midGray,
+                  width: 2,
+                ),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
                 borderSide: const BorderSide(
-                    color: ThemeConfig.primaryGreen, width: 2),
+                  color: ThemeConfig.primaryGreen,
+                  width: 2,
+                ),
               ),
             ),
-            validator: (val) =>
-                val == null || val.trim().isEmpty ? "Product name is required" : null,
+            validator: (val) => val == null || val.trim().isEmpty
+                ? "Product name is required"
+                : null,
           ),
           const SizedBox(height: 12),
 
@@ -837,7 +889,8 @@ class _HybridDropdownTextFieldState extends State<_HybridDropdownTextField> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-              'No existing ${widget.label.toLowerCase()}s found. You can type one manually.'),
+            'No existing ${widget.label.toLowerCase()}s found. You can type one manually.',
+          ),
         ),
       );
       return;
@@ -871,7 +924,10 @@ class _HybridDropdownTextFieldState extends State<_HybridDropdownTextField> {
         labelText: widget.label,
         labelStyle: FontConfig.inputLabel(context),
         suffixIcon: IconButton(
-          icon: const Icon(Icons.arrow_drop_down, color: ThemeConfig.primaryGreen),
+          icon: const Icon(
+            Icons.arrow_drop_down,
+            color: ThemeConfig.primaryGreen,
+          ),
           onPressed: _showOptionsDialog,
         ),
         filled: true,
@@ -882,12 +938,16 @@ class _HybridDropdownTextFieldState extends State<_HybridDropdownTextField> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: ThemeConfig.primaryGreen, width: 2),
+          borderSide: const BorderSide(
+            color: ThemeConfig.primaryGreen,
+            width: 2,
+          ),
         ),
       ),
       validator: widget.required
-          ? (val) =>
-              val == null || val.trim().isEmpty ? "${widget.label} is required" : null
+          ? (val) => val == null || val.trim().isEmpty
+                ? "${widget.label} is required"
+                : null
           : null,
     );
   }
@@ -970,7 +1030,8 @@ class _PricingSectionState extends State<PricingSection> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: ThemeConfig.primaryGreen,
                   ),
-                  onPressed: () => Navigator.pop(context, tempSelection.toList()),
+                  onPressed: () =>
+                      Navigator.pop(context, tempSelection.toList()),
                   child: const Text('Confirm'),
                 ),
               ],
@@ -1016,9 +1077,7 @@ class _PricingSectionState extends State<PricingSection> {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(top: 20),
-      decoration: BoxDecoration(
-        color: ThemeConfig.white,
-      ),
+      decoration: BoxDecoration(color: ThemeConfig.white),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1026,10 +1085,7 @@ class _PricingSectionState extends State<PricingSection> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Pricing",
-                style: FontConfig.h3(context),
-              ),
+              Text("Pricing", style: FontConfig.h3(context)),
               Row(
                 children: [
                   IconButton(
@@ -1037,13 +1093,18 @@ class _PricingSectionState extends State<PricingSection> {
                     onPressed: _selectedPricings.isEmpty
                         ? null
                         : () => _showSizeDialog(editing: true),
-                    icon: const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
+                    icon: const Icon(
+                      Icons.edit,
+                      color: ThemeConfig.primaryGreen,
+                    ),
                   ),
                   IconButton(
                     tooltip: "Add new sizes",
                     onPressed: _showSizeDialog,
-                    icon: const Icon(Icons.add_circle_outline,
-                        color: ThemeConfig.primaryGreen),
+                    icon: const Icon(
+                      Icons.add_circle_outline,
+                      color: ThemeConfig.primaryGreen,
+                    ),
                   ),
                 ],
               ),
@@ -1065,13 +1126,14 @@ class _PricingSectionState extends State<PricingSection> {
                       onTap: () {
                         setState(() {
                           _activeSize = entry.size;
-                          _priceController.text =
-                              entry.price?.toString() ?? '';
+                          _priceController.text = entry.price?.toString() ?? '';
                         });
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 8),
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
                           color: isActive
                               ? ThemeConfig.primaryGreen
@@ -1115,13 +1177,17 @@ class _PricingSectionState extends State<PricingSection> {
                 labelStyle: FontConfig.inputLabel(context),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide:
-                      const BorderSide(color: ThemeConfig.midGray, width: 2),
+                  borderSide: const BorderSide(
+                    color: ThemeConfig.midGray,
+                    width: 2,
+                  ),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
                   borderSide: const BorderSide(
-                      color: ThemeConfig.primaryGreen, width: 2),
+                    color: ThemeConfig.primaryGreen,
+                    width: 2,
+                  ),
                 ),
               ),
               onChanged: _onPriceChanged,
@@ -1145,7 +1211,6 @@ class PricingEntry {
 class IngredientUsageSection extends StatefulWidget {
   final List<String> selectedSizes;
   final ValueChanged<List<IngredientUsageEntry>> onChanged;
-  
 
   const IngredientUsageSection({
     super.key,
@@ -1204,16 +1269,11 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
     }
   }
 
-
   void _loadIngredientsFromHive() {
     final ingredients = HiveService.ingredientBox.values.toList();
     setState(() {
       _availableIngredients = ingredients
-          .map((i) => {
-                'id': i.id,
-                'name': i.name,
-                'baseUnit': i.baseUnit,
-              })
+          .map((i) => {'id': i.id, 'name': i.name, 'baseUnit': i.baseUnit})
           .toList();
     });
   }
@@ -1278,14 +1338,14 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
           final existing = _selectedIngredients.firstWhere(
             (e) => e.ingredientId == id,
             orElse: () {
-              final ing = _availableIngredients.firstWhere((i) => i['id'] == id);
+              final ing = _availableIngredients.firstWhere(
+                (i) => i['id'] == id,
+              );
               return IngredientUsageEntry(
                 ingredientId: ing['id']!,
                 ingredientName: ing['name']!,
                 unit: ing['baseUnit'] ?? '',
-                quantities: {
-                  for (var s in widget.selectedSizes) s: 0,
-                },
+                quantities: {for (var s in widget.selectedSizes) s: 0},
               );
             },
           );
@@ -1302,8 +1362,9 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
   }
 
   void _onQuantityChanged(String ingredientId, String size, String value) {
-    final idx =
-        _selectedIngredients.indexWhere((i) => i.ingredientId == ingredientId);
+    final idx = _selectedIngredients.indexWhere(
+      (i) => i.ingredientId == ingredientId,
+    );
     if (idx == -1) return;
     final qty = double.tryParse(value) ?? 0;
     _selectedIngredients[idx].quantities[size] = qty;
@@ -1311,8 +1372,9 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
   }
 
   void _onUnitChanged(String ingredientId, String newUnit) {
-    final idx =
-        _selectedIngredients.indexWhere((i) => i.ingredientId == ingredientId);
+    final idx = _selectedIngredients.indexWhere(
+      (i) => i.ingredientId == ingredientId,
+    );
     if (idx == -1) return;
     _selectedIngredients[idx].unit = newUnit;
     widget.onChanged(_selectedIngredients);
@@ -1322,9 +1384,7 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(top: 20),
-      decoration: BoxDecoration(
-        color: ThemeConfig.white,
-      ),
+      decoration: BoxDecoration(color: ThemeConfig.white),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1340,14 +1400,18 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
                     onPressed: _selectedIngredients.isEmpty
                         ? null
                         : () => _showIngredientDialog(editing: true),
-                    icon:
-                        const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
+                    icon: const Icon(
+                      Icons.edit,
+                      color: ThemeConfig.primaryGreen,
+                    ),
                   ),
                   IconButton(
                     tooltip: "Add ingredients",
                     onPressed: _showIngredientDialog,
-                    icon: const Icon(Icons.add_circle_outline,
-                        color: ThemeConfig.primaryGreen),
+                    icon: const Icon(
+                      Icons.add_circle_outline,
+                      color: ThemeConfig.primaryGreen,
+                    ),
                   ),
                 ],
               ),
@@ -1356,8 +1420,10 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
           const SizedBox(height: 10),
 
           if (_selectedIngredients.isEmpty)
-            const Text("No ingredients added yet.",
-                style: TextStyle(color: ThemeConfig.midGray))
+            const Text(
+              "No ingredients added yet.",
+              style: TextStyle(color: ThemeConfig.midGray),
+            )
           else
             Column(
               children: [
@@ -1366,17 +1432,21 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: _selectedIngredients.map((entry) {
-                      final isActive = entry.ingredientId == _activeIngredientId;
+                      final isActive =
+                          entry.ingredientId == _activeIngredientId;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: GestureDetector(
                           onTap: () {
-                            setState(() => _activeIngredientId =
-                                entry.ingredientId);
+                            setState(
+                              () => _activeIngredientId = entry.ingredientId,
+                            );
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 8),
+                              horizontal: 14,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: isActive
                                   ? ThemeConfig.primaryGreen
@@ -1416,8 +1486,9 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
   }
 
   Widget _buildIngredientEditor(String ingredientId) {
-    final entry = _selectedIngredients
-        .firstWhere((e) => e.ingredientId == ingredientId);
+    final entry = _selectedIngredients.firstWhere(
+      (e) => e.ingredientId == ingredientId,
+    );
 
     final availableUnits = _availableIngredients
         .where((i) => i['id'] == ingredientId)
@@ -1432,10 +1503,7 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
         // Unit dropdown
         Row(
           children: [
-            const Text(
-              "Unit:",
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
+            const Text("Unit:", style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(width: 8),
             DropdownButton<String>(
               value: entry.unit.isEmpty ? null : entry.unit,
@@ -1459,21 +1527,22 @@ class _IngredientUsageSectionState extends State<IngredientUsageSection> {
             return SizedBox(
               width: 110,
               child: TextFormField(
-                initialValue:
-                    entry.quantities[size]?.toString() ?? '',
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                initialValue: entry.quantities[size]?.toString() ?? '',
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
                   labelText: "$size",
                   labelStyle: FontConfig.inputLabel(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                 ),
-                onChanged: (v) =>
-                    _onQuantityChanged(ingredientId, size, v),
+                onChanged: (v) => _onQuantityChanged(ingredientId, size, v),
               ),
             );
           }).toList(),

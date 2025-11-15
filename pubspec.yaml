@@ -30,6 +30,9 @@ dependencies:
   provider: ^6.1.5+1
   intl: ^0.20.2
 
+  # --- Font ---
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -45,3 +48,36 @@ flutter:
     - assets/data/ingredients_list.json
     - assets/data/products_list.json
     - assets/data/ingredients_usage.json
+    - assets/images/Americano.png
+    - assets/images/Blueberry.png
+    - assets/images/Caramel_Machiato.png
+    - assets/images/Coffee_Jelly.png
+    - assets/images/Dirty_Matcha.png
+    - assets/images/Dulce_de_Leche.png
+    - assets/images/Flat_White.png
+    - assets/images/Greeny_Apple.png
+    - assets/images/Hazelnut_Latte.png
+    - assets/images/Honey_Peach.png
+    - assets/images/Latte.png
+    - assets/images/Mango_Twist.png
+    - assets/images/Matcha.png
+    - assets/images/Milky_Matcha.png
+    - assets/images/Milky_Strawberry.png
+    - assets/images/Mocha_JavaChips.png
+    - assets/images/Mocha_Latte.png
+    - assets/images/Signature_Cocoa.png
+    - assets/images/Spanish_Latte.png
+    - assets/images/Strawberry_Lime.png
+    - assets/images/Strawberry_Matcha.png
+    - assets/images/Strawberry.png
+    - assets/images/Vanilla_Latte.png
+    - assets/images/White_Mocha_Latte.png
+    - assets/images/Sisig.png
+    - assets/images/Baby_Back_Ribs.png
+    - assets/images/Chicken_and_Fries.png
+    - assets/images/Cheesy_Burger.png
+    - assets/images/Cookies.png
+    - assets/images/Slice_of_Cake.png
+    - assets/images/Cup_of_Coffee.png
+    - assets/images/meals.png
+    - assets/images/p-and-d.png

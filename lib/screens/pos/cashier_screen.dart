@@ -1,7 +1,16 @@
+// lib/screens/cashier_screen.dart
 import 'package:flutter/material.dart';
-import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../core/utils/responsive.dart';
+import '../../core/models/product_model.dart';
+import '../../core/widgets/item_grid_view.dart';
+import '../../core/utils/product_loader.dart';
+import '../../core/widgets/order_panel.dart';
+import '../../core/widgets/customization_dialog.dart';
+import '../../core/models/order_item_model.dart';
+import '../../core/widgets/item_card.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 
 class CashierScreen extends StatefulWidget {
   const CashierScreen({super.key});
@@ -11,27 +20,118 @@ class CashierScreen extends StatefulWidget {
 }
 
 class _CashierScreenState extends State<CashierScreen> {
-  // Temporary data for visualization
-  final List<Map<String, dynamic>> _products = List.generate(
-    12,
-    (index) => {
-      'name': 'Product ${index + 1}',
-      'price': 100 + index * 5,
-      'image': 'assets/logo/coffea.png',
-    },
-  );
+  List<ProductModel> _products = [];
+  bool _loading = true;
 
-  final List<Map<String, dynamic>> _cart = [];
+  String? _selectedCategory;
+  String? _selectedSubCategory;
 
-  void _addToCart(Map<String, dynamic> product) {
+  final List<OrderItem> _cart = [];
+  bool _isDineIn = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategory = 'Drinks';
+    _selectedSubCategory = 'Coffee';
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    final loaded = await ProductLoader.loadProducts();
     setState(() {
-      _cart.add(product);
+      _products = loaded;
+      _loading = false;
     });
   }
+
+  // categories like before (you can keep your original categories)
+  final Map<String, Map<String, dynamic>> categories = {
+    'Drinks': {
+      'sub': ['Coffee', 'Non-Coffee', 'Carbonated', 'Frappe'],
+    },
+    'Meals': {
+      'sub': ['Rice Meals', 'Snacks'],
+    },
+    'Desserts': {
+      'sub': ['Desserts'],
+    },
+  };
+
+  void onProductTapped(ProductModel p) async {
+    final result = await showDialog<OrderItem>(
+      context: context,
+      builder: (ctx) => ProductCustomizationDialog(product: p),
+    );
+
+    if (result != null) {
+      setState(() {
+        // If same product+size exists, increment the qty instead of adding duplicate
+        final sameIndex = _cart.indexWhere(
+          (it) =>
+              it.product.name == result.product.name &&
+              (it.size ?? '') == (result.size ?? '') &&
+              (it.isIced ?? false) == (result.isIced ?? false),
+        );
+        if (sameIndex >= 0) {
+          _cart[sameIndex].quantity += result.quantity;
+        } else {
+          _cart.add(result);
+        }
+      });
+    }
+  }
+
+  void _editItem(OrderItem item) async {
+    // open dialog again pre-filled
+    final result = await showDialog<OrderItem>(
+      context: context,
+      builder: (ctx) => ProductCustomizationDialog(
+        product: item.product,
+        initialQuantity: item.quantity,
+        initialSize: item.size,
+        initialIsIced: item.isIced,
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        final idx = _cart.indexWhere((it) => it.id == item.id);
+        if (idx >= 0) _cart[idx] = result;
+      });
+    }
+  }
+
+  void _deleteItem(OrderItem item) {
+    setState(() {
+      _cart.removeWhere((it) => it.id == item.id);
+    });
+  }
+
+  void _changeQty(OrderItem item, int newQty) {
+    setState(() {
+      final idx = _cart.indexWhere((it) => it.id == item.id);
+      if (idx >= 0) {
+        _cart[idx].quantity = newQty;
+        if (_cart[idx].quantity <= 0) _cart.removeAt(idx);
+      }
+    });
+  }
+
+  double get _subtotal => _cart.fold(0.0, (s, i) => s + i.totalPrice);
+  double get _vat => _subtotal * 0.12;
+  double get _total => _subtotal + _vat;
 
   @override
   Widget build(BuildContext context) {
     final r = Responsive(context);
+
+    final filteredProducts = _products.where((p) {
+      if (_selectedCategory == null) return true;
+      if (_selectedCategory != p.category) return false;
+      if (_selectedSubCategory == null) return true;
+      return _selectedSubCategory == p.subCategory;
+    }).toList();
 
     return Scaffold(
       backgroundColor: ThemeConfig.white,
@@ -41,203 +141,228 @@ class _CashierScreenState extends State<CashierScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // LEFT SIDE: Product Grid
+              // LEFT PANEL (product grid)
               Expanded(
                 flex: 3,
-                child: _ProductGrid(
-                  products: _products,
-                  onTap: _addToCart,
+                child: Column(
+                  children: [
+                    // category tabs
+                    Container(
+                      height: 100,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      color: Colors.white,
+                      child: Row(
+                        children: categories.keys.map((cat) {
+                          final isSelected = _selectedCategory == cat;
+                          return Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedCategory = cat;
+                                  _selectedSubCategory =
+                                      categories[cat]!['sub']?.first as String?;
+                                });
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(25),
+                                  gradient: isSelected
+                                      ? const LinearGradient(
+                                          colors: [
+                                            Color(0xFF000000),
+                                            Color(0xFF00401B),
+                                          ],
+                                        )
+                                      : const LinearGradient(
+                                          colors: [
+                                            Color(0xFF3D1C00),
+                                            Color(0xFF9C5921),
+                                          ],
+                                        ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    cat,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 28,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  
+                  //Subcategory-button
+                    if (_selectedCategory != null)
+                      SizedBox(
+                        height: 40, // enough for the buttons
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          children:
+                              (categories[_selectedCategory]!['sub']
+                                      as List<String>)
+                                  .map((subName) {
+                                    final isSelected =
+                                        _selectedSubCategory == subName;
+
+                                    return Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4,
+                                      ),
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _selectedSubCategory = subName;
+                                          });
+                                        },
+                                        child: Container(
+                                          width: 149, // fixed width
+                                          height: 40, // fixed height
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? null
+                                                : const Color(
+                                                    0xFFF0F0F0,
+                                                  ), // grey when not selected
+                                            gradient: isSelected
+                                                ? const LinearGradient(
+                                                    colors: [
+                                                      Color(0xFF000000),
+                                                      Color(0xFF00401B),
+                                                    ],
+                                                  )
+                                                : null,
+                                            border: Border.all(
+                                              color: const Color(
+                                                0xFF013617,
+                                              ), // dark green border
+                                              width: 1.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              25,
+                                            ),
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              subName,
+                                              style: GoogleFonts.mulish(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : Colors.black,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  })
+                                  .toList(),
+                        ),
+                      ),
+
+                    // product grid
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.only(left: 20),
+                        color: Colors.white,
+                        child: _loading
+                            ? const Center(child: CircularProgressIndicator())
+                            : ItemGridView<ProductModel>(
+                                items: filteredProducts,
+                                itemBuilder: (context, product) {
+                                  return ItemCard(
+                                    product: product,
+                                    onTap: () async {
+                                      // Show the customization dialog
+                                      final orderItem =
+                                          await showDialog<OrderItem>(
+                                            context: context,
+                                            builder: (context) =>
+                                                ProductCustomizationDialog(
+                                                  product: product,
+                                                ),
+                                          );
+
+                                      // If user pressed "Add to Order", add to the order panel
+                                      if (orderItem != null) {
+                                        setState(() {
+                                          // Add to _cart, not orderPanelItems
+                                          // If same product+size exists, increment the quantity
+                                          final sameIndex = _cart.indexWhere(
+                                            (it) =>
+                                                it.product.name ==
+                                                    orderItem.product.name &&
+                                                (it.size ?? '') ==
+                                                    (orderItem.size ?? '') &&
+                                                (it.isIced ?? false) ==
+                                                    (orderItem.isIced ?? false),
+                                          );
+                                          if (sameIndex >= 0) {
+                                            _cart[sameIndex].quantity +=
+                                                orderItem.quantity;
+                                          } else {
+                                            _cart.add(orderItem);
+                                          }
+                                        });
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
               SizedBox(width: r.wp(2)),
 
-              // RIGHT SIDE: Order Summary
+              // RIGHT PANEL: new order panel
               Expanded(
-                flex: 2,
-                child: _OrderSummary(cart: _cart),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProductGrid extends StatelessWidget {
-  final List<Map<String, dynamic>> products;
-  final Function(Map<String, dynamic>) onTap;
-
-  const _ProductGrid({required this.products, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final r = Responsive(context);
-
-    // Number of columns adjusts based on screen width
-    final int crossAxisCount =
-        (r.screenWidth > 1500) ? 5 : (r.screenWidth > 1100) ? 4 : 3;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: ThemeConfig.lightGray.withOpacity(0.3),
-        borderRadius: BorderRadius.circular(r.scale(10)),
-      ),
-      padding: EdgeInsets.all(r.wp(1.5)),
-      child: GridView.builder(
-        itemCount: products.length,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          crossAxisSpacing: r.wp(1),
-          mainAxisSpacing: r.hp(1.5),
-          childAspectRatio: 0.85,
-        ),
-        itemBuilder: (context, index) {
-          final product = products[index];
-          return GestureDetector(
-            onTap: () => onTap(product),
-            child: Container(
-              decoration: BoxDecoration(
-                color: ThemeConfig.white,
-                borderRadius: BorderRadius.circular(r.scale(12)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: r.scale(6),
-                    offset: Offset(0, r.scale(3)),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(
-                    product['image'],
-                    height: r.hp(10),
-                    fit: BoxFit.contain,
-                  ),
-                  SizedBox(height: r.hp(1)),
-                  Text(
-                    product['name'],
-                    style: FontConfig.body(context),
-                    textAlign: TextAlign.center,
-                  ),
-                  SizedBox(height: r.hp(0.5)),
-                  Text(
-                    "₱${product['price']}",
-                    style: FontConfig.body(context).copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: ThemeConfig.primaryGreen,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _OrderSummary extends StatelessWidget {
-  final List<Map<String, dynamic>> cart;
-
-  const _OrderSummary({required this.cart});
-
-  double get _total =>
-      cart.fold(0, (sum, item) => sum + (item['price'] as num));
-
-  @override
-  Widget build(BuildContext context) {
-    final r = Responsive(context);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: ThemeConfig.white,
-        borderRadius: BorderRadius.circular(r.scale(10)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: r.scale(6),
-            offset: Offset(0, r.scale(2)),
-          ),
-        ],
-      ),
-      padding: EdgeInsets.all(r.wp(2)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Order Summary', style: FontConfig.h2(context)),
-          SizedBox(height: r.hp(2)),
-
-          Expanded(
-            child: ListView.builder(
-              itemCount: cart.length,
-              itemBuilder: (context, index) {
-                final item = cart[index];
-                return Container(
-                  margin: EdgeInsets.only(bottom: r.hp(1)),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item['name'],
-                          style: FontConfig.body(context),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Text(
-                        "₱${item['price']}",
-                        style: FontConfig.body(context)
-                            .copyWith(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ),
-
-          const Divider(thickness: 1),
-          SizedBox(height: r.hp(1)),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Total',
-                style: FontConfig.h2(context),
-              ),
-              Text(
-                "₱${_total.toStringAsFixed(2)}",
-                style: FontConfig.h2(context).copyWith(
-                  color: ThemeConfig.primaryGreen,
+                flex: 1,
+                child: NewOrderPanel(
+                  orderItems: _cart,
+                  isDineIn: _isDineIn,
+                  subtotal: _subtotal,
+                  vat: _vat,
+                  total: _total,
+                  onDineInChanged: (val) => setState(() => _isDineIn = val),
+                  onEditItem: (item) => _editItem(item),
+                  onDeleteItem: (item) => _deleteItem(item),
+                  onQuantityChanged: (item, newQty) => _changeQty(item, newQty),
+                  onProceedToPayment: () {
+                    // optional extra action
+                  },
+                  onOrderPlaced: () {
+                    setState(() {
+                      _cart.clear();
+                    });
+                  },
+                  orderType: _isDineIn ? 'Dine In' : 'Take-out',
                 ),
               ),
             ],
           ),
-
-          SizedBox(height: r.hp(2)),
-
-          SizedBox(
-            width: double.infinity,
-            height: r.hp(7),
-            child: ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: ThemeConfig.primaryGreen,
-              ),
-              child: Text(
-                'Complete Payment',
-                style: FontConfig.button(context)
-                    .copyWith(fontSize: r.font(18)),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

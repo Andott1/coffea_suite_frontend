@@ -34,6 +34,7 @@ Future<void> seedProducts() async {
         ingredientUsage: const {},
         available: true,
         updatedAt: DateTime.now(),
+        imageUrl: item['imageUrl'],
       );
       await box.put(product.id, product);
       count++;

@@ -5,7 +5,8 @@
     "subCategory": "Coffee",
     "pricingType": "size",
     "name": "Americano",
-    "prices": { "12oz": 75, "16oz": 105, "22oz": 115, "HOT": 105 }
+    "prices": { "12oz": 75, "16oz": 105, "22oz": 115, "HOT": 105 },
+    "imageUrl": "assets/images/Americano.png"
   },
   {
     "id": "coffee_latte",
@@ -13,7 +14,8 @@
     "subCategory": "Coffee",
     "pricingType": "size",
     "name": "Latte",
-    "prices": { "12oz": 75, "16oz": 105, "22oz": 115, "HOT": 105 }
+    "prices": { "12oz": 75, "16oz": 105, "22oz": 115, "HOT": 105 },
+    "imageUrl": "assets/images/Latte.png"
   },
   {
     "id": "coffee_flat_white",
@@ -21,7 +23,8 @@
     "subCategory": "Coffee",
     "pricingType": "size",
     "name": "Flat White",
-    "prices": { "12oz": 75, "16oz": 105, "22oz": 115, "HOT": 105 }
+    "prices": { "12oz": 75, "16oz": 105, "22oz": 115, "HOT": 105 },
+    "imageUrl": "assets/images/Flat_White.png"
   },
   {
     "id": "coffee_vanilla_latte",
@@ -29,15 +32,17 @@
     "subCategory": "Coffee",
     "pricingType": "size",
     "name": "Vanilla Latte",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 },
+    "imageUrl": "assets/images/Vanilla_Latte.png"
   },
   {
-    "id": "coffee_caramel_machiato",
+    "id": "coffee_caramel_macchiato",
     "category": "Drinks",
     "subCategory": "Coffee",
     "pricingType": "size",
-    "name": "Caramel Machiatto",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "name": "Caramel Macchiato",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 },
+    "imageUrl": "assets/images/Caramel_Machiato.png"
   },
   {
     "id": "coffee_white_mocha_latte",
@@ -45,7 +50,8 @@
     "subCategory": "Coffee",
     "pricingType": "size",
     "name": "White Mocha Latte",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 },
+    "imageUrl": "assets/images/White_Mocha_Latte.png"
   },
   {
     "id": "coffee_mocha_latte",
@@ -53,7 +59,8 @@
     "subCategory": "Coffee",
     "pricingType": "size",
     "name": "Mocha Latte",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 },
+    "imageUrl": "assets/images/Mocha_Latte.png"
   },
   {
     "id": "coffee_spanish_latte",
@@ -61,7 +68,8 @@
     "subCategory": "Coffee",
     "pricingType": "size",
     "name": "Spanish Latte",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 },
+    "imageUrl": "assets/images/Spanish_Latte.png"
   },
   {
     "id": "coffee_hazelnut_latte",
@@ -69,7 +77,8 @@
     "subCategory": "Coffee",
     "pricingType": "size",
     "name": "Hazelnut Latte",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 },
+    "imageUrl": "assets/images/Hazelnut_Latte.png"
   },
   {
     "id": "coffee_dirty_matcha",
@@ -77,15 +86,8 @@
     "subCategory": "Coffee",
     "pricingType": "size",
     "name": "Dirty Matcha",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
-  },
-  {
-    "id": "coffee_strawberry_latte",
-    "category": "Drinks",
-    "subCategory": "Coffee",
-    "pricingType": "size",
-    "name": "Strawberry Latte",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 },
+    "imageUrl": "assets/images/Dirty_Matcha.png"
   },
   {
     "id": "noncoffee_milky_matcha",
@@ -93,7 +95,8 @@
     "subCategory": "Non-Coffee",
     "pricingType": "size",
     "name": "Milky Matcha",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 },
+    "imageUrl": "assets/images/Milky_Matcha.png"
   },
   {
     "id": "noncoffee_signature_cocoa",
@@ -101,7 +104,8 @@
     "subCategory": "Non-Coffee",
     "pricingType": "size",
     "name": "Signature Cocoa",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 },
+    "imageUrl": "assets/images/Signature_Cocoa.png"
   },
   {
     "id": "noncoffee_strawberry_matcha",
@@ -109,7 +113,8 @@
     "subCategory": "Non-Coffee",
     "pricingType": "size",
     "name": "Strawberry Matcha",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130 },
+    "imageUrl": "assets/images/Strawberry_Matcha.png"
   },
   {
     "id": "noncoffee_milky_strawberry",
@@ -117,7 +122,8 @@
     "subCategory": "Non-Coffee",
     "pricingType": "size",
     "name": "Milky Strawberry",
-    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130 },
+    "imageUrl": "assets/images/Milky_Strawberry.png"
   },
   {
     "id": "carbonated_strawberry_lime",
@@ -125,7 +131,8 @@
     "subCategory": "Carbonated",
     "pricingType": "size",
     "name": "Strawberry Lime",
-    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 }
+    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 },
+    "imageUrl": "assets/images/Strawberry_Lime.png"
   },
   {
     "id": "carbonated_greeny_apple",
@@ -133,7 +140,8 @@
     "subCategory": "Carbonated",
     "pricingType": "size",
     "name": "Greeny Apple",
-    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 }
+    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 },
+    "imageUrl": "assets/images/Greeny_Apple.png"
   },
   {
     "id": "carbonated_honey_peach",
@@ -141,7 +149,8 @@
     "subCategory": "Carbonated",
     "pricingType": "size",
     "name": "Honey Peach",
-    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 }
+    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 },
+    "imageUrl": "assets/images/Honey_Peach.png"
   },
   {
     "id": "carbonated_mango_twist",
@@ -149,7 +158,8 @@
     "subCategory": "Carbonated",
     "pricingType": "size",
     "name": "Mango Twist",
-    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 }
+    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 },
+    "imageUrl": "assets/images/Mango_Twist.png"
   },
   {
     "id": "frappe_matcha",
@@ -157,7 +167,8 @@
     "subCategory": "Frappe",
     "pricingType": "size",
     "name": "Matcha Frappe",
-    "prices": { "16oz": 129, "22oz": 149 }
+    "prices": { "16oz": 129, "22oz": 149 },
+    "imageUrl": "assets/images/Matcha.png"
   },
   {
     "id": "frappe_dulce_de_leche",
@@ -165,7 +176,8 @@
     "subCategory": "Frappe",
     "pricingType": "size",
     "name": "Dulce de Leche Frappe",
-    "prices": { "16oz": 129, "22oz": 149 }
+    "prices": { "16oz": 129, "22oz": 149 },
+    "imageUrl": "assets/images/Dulce_de_Leche.png"
   },
   {
     "id": "frappe_mocha_java_chips",
@@ -173,7 +185,8 @@
     "subCategory": "Frappe",
     "pricingType": "size",
     "name": "Mocha Java Chips Frappe",
-    "prices": { "16oz": 129, "22oz": 149 }
+    "prices": { "16oz": 129, "22oz": 149 },
+    "imageUrl": "assets/images/Mocha_JavaChips.png"
   },
   {
     "id": "frappe_coffee_jelly",
@@ -181,70 +194,79 @@
     "subCategory": "Frappe",
     "pricingType": "size",
     "name": "Coffee Jelly Frappe",
-    "prices": { "16oz": 129, "22oz": 149 }
+    "prices": { "16oz": 129, "22oz": 149 },
+    "imageUrl": "assets/images/Coffee_Jelly.png"
   },
   {
-    "id": "meal_pork_sisig",
+    "id": "frappe_strawberry",
+    "category": "Drinks",
+    "SubCategory": "Frappe",
+    "pricingType": "size",
+    "name": "Strawberry Frappe",
+    "prices": { "16oz": 129, "22oz": 149 },
+    "imageUrl": "assets/images/Strawberry.png"
+  },
+  {
+    "id": "frappe_blueberry",
+    "category": "Drinks",
+    "subCategory": "Frappe",
+    "pricingType": "size",
+    "name": "Blueberry Frappe",
+    "prices": { "16oz": 129, "22oz": 149 },
+    "imageUrl": "assets/images/Blueberry.png"
+  },
+  {
+    "id": "meal_sisig",
     "category": "Meals",
-    "subCategory": "Ricemeal",
+    "subCategory": "Rice Meals",
     "pricingType": "variant",
-    "name": "Pork Sisig",
-    "prices": { "Regular": 129 }
+    "name": "Sisig",
+    "prices": { "Regular": 75 },
+    "imageUrl": "assets/images/Sisig.png"
   },
   {
-    "id": "meal_chicken_adobo",
+    "id": "meal_baby_back_ribs",
     "category": "Meals",
-    "subCategory": "Ricemeal",
+    "subCategory": "Rice Meals",
     "pricingType": "variant",
-    "name": "Chicken Adobo",
-    "prices": { "Regular": 125 }
+    "name": "Baby Back Ribs",
+    "prices": { "Regular": 80 },
+    "imageUrl": "assets/images/Baby_Back_Ribs.png"
   },
   {
-    "id": "meal_club_sandwich",
+    "id": "meal_cheesy_burger",
     "category": "Meals",
     "subCategory": "Snacks",
     "pricingType": "variant",
-    "name": "Club Sandwich",
-    "prices": { "Single": 95 }
+    "name": "Cheesy Burger",
+    "prices": { "Regular": 85 },
+    "imageUrl": "assets/images/Cheesy_Burger.png"
   },
   {
-    "id": "meal_crispy_fries",
+    "id": "meal_chicken_and_fries",
     "category": "Meals",
     "subCategory": "Snacks",
     "pricingType": "variant",
-    "name": "Crispy Fries",
-    "prices": { "Regular": 75 }
+    "name": "Chicken and Fries",
+    "prices": { "Regular": 95 },
+    "imageUrl": "assets/images/Chicken_and_Fries.png"
   },
   {
-    "id": "dessert_chocolate_brownie",
-    "category": "Desserts",
-    "subCategory": "Pastry",
+    "id": "dessert_cookies",
+    "category": "Dessert",
+    "subCategory": "Dessert",
     "pricingType": "variant",
-    "name": "Chocolate Brownie",
-    "prices": { "Piece": 65 }
+    "name": "Cookies",
+    "prices": { "Piece": 60 },
+    "imageUrl": "assets/images/Cookies.png"
   },
   {
-    "id": "dessert_blueberry_muffin",
-    "category": "Desserts",
-    "subCategory": "Pastry",
+    "id": "dessert_slice_of_cake",
+    "category": "Dessert",
+    "subCategory": "Dessert",
     "pricingType": "variant",
-    "name": "Blueberry Muffin",
-    "prices": { "Piece": 70 }
-  },
-  {
-    "id": "dessert_coffee_jelly",
-    "category": "Desserts",
-    "subCategory": "Chilled Desserts",
-    "pricingType": "variant",
-    "name": "Coffee Jelly",
-    "prices": { "Cup": 60 }
-  },
-  {
-    "id": "dessert_mango_graham",
-    "category": "Desserts",
-    "subCategory": "Chilled Desserts",
-    "pricingType": "variant",
-    "name": "Mango Graham",
-    "prices": { "Cup": 85 }
+    "name": "Slice of Cake",
+    "prices": { "Piece": 80 },
+    "imageUrl": "assets/images/Slice_of_Cake.png"
   }
 ]

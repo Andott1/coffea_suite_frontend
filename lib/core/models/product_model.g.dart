@@ -1,5 +1,4 @@
 // GENERATED CODE - DO NOT MODIFY BY HAND
-
 part of 'product_model.dart';
 
 // **************************************************************************
@@ -23,17 +22,18 @@ class ProductModelAdapter extends TypeAdapter<ProductModel> {
       subCategory: fields[3] as String,
       pricingType: fields[4] as String,
       prices: (fields[5] as Map).cast<String, double>(),
-      ingredientUsage: (fields[6] as Map).map((dynamic k, dynamic v) =>
-          MapEntry(k as String, (v as Map).cast<String, double>())),
+      ingredientUsage: (fields[6] as Map).map(
+          (dynamic k, dynamic v) => MapEntry(k as String, (v as Map).cast<String, double>())),
       available: fields[7] as bool,
       updatedAt: fields[8] as DateTime,
+      imageUrl: fields[9] as String, // ← included
     );
   }
 
   @override
   void write(BinaryWriter writer, ProductModel obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10) // ← updated to 10 fields
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -51,7 +51,9 @@ class ProductModelAdapter extends TypeAdapter<ProductModel> {
       ..writeByte(7)
       ..write(obj.available)
       ..writeByte(8)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(9)
+      ..write(obj.imageUrl); // ← included
   }
 
   @override

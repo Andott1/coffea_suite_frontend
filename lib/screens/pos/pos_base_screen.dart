@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
+import 'cashier_screen.dart'; // Import your existing CashierScreen
 
 class POSBaseScreen extends StatefulWidget {
   const POSBaseScreen({super.key});
@@ -16,7 +17,10 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
   @override
   void initState() {
     super.initState();
-    _activeIndex = SystemTabMemory.getLastTab(CoffeaSystem.pos, defaultIndex: 1);
+    _activeIndex = SystemTabMemory.getLastTab(
+      CoffeaSystem.pos,
+      defaultIndex: 1,
+    );
   }
 
   void _onTabChanged(int index) {
@@ -24,16 +28,13 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
     SystemTabMemory.setLastTab(CoffeaSystem.pos, index);
   }
 
-  final List<String> _tabs = const [
-    "Dashboard",
-    "Cashier",
-    "History",
-  ];
+  final List<String> _tabs = const ["Dashboard", "Cashier", "History"];
 
-  final List<Widget> _screens = const [
-    POSDashboardScreen(),
-    POSCashierScreen(),
-    POSHistoryScreen(),
+  // Screens: Replace POSCashierScreen placeholder with actual CashierScreen
+  late final List<Widget> _screens = [
+    const POSDashboardScreen(),
+    const CashierScreen(),
+    const POSHistoryScreen(),
   ];
 
   @override
@@ -49,15 +50,12 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
         showOnlineStatus: true,
         showUserMode: true,
       ),
-      body: IndexedStack(
-        index: _activeIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _activeIndex, children: _screens),
     );
   }
 }
 
-// Placeholder screens — these will later be replaced by real implementations.
+// Dashboard placeholder
 class POSDashboardScreen extends StatelessWidget {
   const POSDashboardScreen({super.key});
 
@@ -72,35 +70,7 @@ class POSDashboardScreen extends StatelessWidget {
   }
 }
 
-class POSCashierScreen extends StatelessWidget {
-  const POSCashierScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 3,
-          child: Container(
-            margin: const EdgeInsets.all(12),
-            color: Colors.white,
-            child: const Center(child: Text("Product Selector Grid Placeholder")),
-          ),
-        ),
-        Expanded(
-          flex: 2,
-          child: Container(
-            margin: const EdgeInsets.all(12),
-            color: Colors.white,
-            child: const Center(child: Text("Order Summary Panel Placeholder")),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
+// History placeholder
 class POSHistoryScreen extends StatelessWidget {
   const POSHistoryScreen({super.key});
 

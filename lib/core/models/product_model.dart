@@ -12,24 +12,17 @@ class ProductModel extends HiveObject {
   String name;
 
   @HiveField(2)
-  String category; // e.g., Drinks, Meals, Desserts
+  String category;
 
   @HiveField(3)
-  String subCategory; // e.g., Coffee, Non-Coffee, Ricemeal, Pastry
+  String subCategory;
 
-  /// NEW: pricing type (size-based or variant-based)
-  /// - "size" → multi-size drinks (12oz, 16oz, 22oz, HOT)
-  /// - "variant" → fixed price items (Regular, Piece, Single)
   @HiveField(4)
   String pricingType;
 
-  /// Dynamic price table (key = size/variant, value = price)
-  /// e.g., {'12oz': 75.0, '16oz': 115.0, 'HOT': 105.0}
   @HiveField(5)
   Map<String, double> prices;
 
-  /// Optional map of ingredient usage per size/variant
-  /// e.g. {'Coffee Beans': {'12oz': 30, '16oz': 45}}
   @HiveField(6)
   Map<String, Map<String, double>> ingredientUsage;
 
@@ -38,6 +31,10 @@ class ProductModel extends HiveObject {
 
   @HiveField(8)
   DateTime updatedAt;
+
+  /// NEW FIELD: image URL or asset path
+  @HiveField(9)
+  String imageUrl;
 
   // ──────────────── CONSTRUCTOR ────────────────
   ProductModel({
@@ -50,24 +47,17 @@ class ProductModel extends HiveObject {
     this.ingredientUsage = const {},
     this.available = true,
     required this.updatedAt,
+    required this.imageUrl, // new required field
   });
 
   // ──────────────── FACTORY FROM JSON ────────────────
   factory ProductModel.fromJson(Map<String, dynamic> json) {
-    // Clean pricing map: ignore nulls and non-numeric values
+    final rawPrices = json['prices'] ?? {};
     final Map<String, double> priceMap = {};
-    final knownKeys = [
-      '12oz', '16oz', '22oz', 'HOT',
-      'Regular', 'Piece', 'Cup', 'Single'
-    ];
-
-    for (final key in knownKeys) {
-      final value = json[key];
-      if (value != null) {
-        final parsed = double.tryParse(value.toString());
-        if (parsed != null) priceMap[key] = parsed;
-      }
-    }
+    rawPrices.forEach((key, value) {
+      final parsed = double.tryParse(value.toString());
+      if (parsed != null) priceMap[key] = parsed;
+    });
 
     return ProductModel(
       id: json['id'] ?? json['product_id'],
@@ -76,17 +66,10 @@ class ProductModel extends HiveObject {
       subCategory: json['subCategory'] ?? json['subcategory'] ?? '',
       pricingType: json['pricingType'] ?? json['pricing_type'] ?? 'size',
       prices: priceMap,
-      ingredientUsage: (json['ingredientUsage'] as Map?)?.map(
-            (k, v) => MapEntry(
-              k,
-              Map<String, double>.from(v as Map),
-            ),
-          ) ??
-          {},
+      ingredientUsage: {}, // optional for later
       available: json['available'] ?? true,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : DateTime.now(),
+      updatedAt: DateTime.now(),
+      imageUrl: json['imageUrl'] ?? '', // read from JSON
     );
   }
 
@@ -102,14 +85,13 @@ class ProductModel extends HiveObject {
       'ingredientUsage': ingredientUsage,
       'available': available,
       'updatedAt': updatedAt.toIso8601String(),
+      'imageUrl': imageUrl, // save image URL
     };
   }
 
   // ──────────────── HELPERS ────────────────
   double? getPrice(String key) => prices[key];
-
   bool get isDrink => category.toLowerCase() == 'drinks';
   bool get isMeal => category.toLowerCase() == 'meals';
   bool get isDessert => category.toLowerCase() == 'desserts';
 }
-/// <<END FILE>>
