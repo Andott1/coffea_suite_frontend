@@ -1,10 +1,10 @@
-/// <<FILE: lib/screens/startup/startup_screen.dart>>
 import 'package:flutter/material.dart';
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../config/role_config.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/widgets/master_topbar.dart';
+import '../../core/widgets/container_card_titled.dart';
 import 'package:provider/provider.dart';
 
 class StartupScreen extends StatefulWidget {
@@ -27,9 +27,6 @@ class _StartupScreenState extends State<StartupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final double scaledBarHeight = (screenHeight / 800) * 90; // dynamic scaling
-
     return Consumer<RoleConfig>(
       builder: (context, roleManager, child) {
         final isAdmin = roleManager.isAdmin;
@@ -48,103 +45,69 @@ class _StartupScreenState extends State<StartupScreen> {
               // ──────── MIDDLE SECTION ────────
               Expanded(
                 child: Container(
-                  color: const Color(0xFFF6F6F6), // 👈 light gray background
+                  color: const Color(0xFFF6F6F6),
                   alignment: Alignment.center,
-                  child: Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.symmetric(horizontal: 260, vertical: 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.white, // floating window color
-                      border: Border.all(color: Color(0xFFEEEEEE), width: 2),
-                      borderRadius: BorderRadius.circular(25), // rounded corners
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        // 🟩 ROW 1: Label
-                        Expanded(
-                          flex: 1,
-                          child: Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 260, vertical: 60),
+                    child: ContainerCardTitled(
+                      title: "Select System",
+                      centerTitle: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 20,
+                      ),
+
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final double maxWidth = constraints.maxWidth;
+                            const double horizontalGap = 20;
+                            const double verticalGap = 20;
+
+                            final double buttonWidth =
+                                (maxWidth - horizontalGap * 3) / 2;
+
+                            return Wrap(
+                              alignment: WrapAlignment.center,
+                              runAlignment: WrapAlignment.center,
+                              spacing: horizontalGap,
+                              runSpacing: verticalGap,
                               children: [
-                                Text(
-                                  "Select System",
-                                  textAlign: TextAlign.center,
-                                  style: FontConfig.h2(context).copyWith(
-                                    color: ThemeConfig.primaryGreen,
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                                _SystemButton(
+                                  label: "Point of Sale",
+                                  icon: Icons.point_of_sale,
+                                  onTap: () => Navigator.pushNamed(context, '/pos'),
+                                  width: buttonWidth,
+                                ),
+                                _SystemButton(
+                                  label: "Attendance",
+                                  icon: Icons.access_time,
+                                  onTap: () => Navigator.pushNamed(context, '/attendance'),
+                                  width: buttonWidth,
+                                ),
+                                _SystemButton(
+                                  label: "Inventory",
+                                  icon: Icons.inventory_2,
+                                  onTap: () => Navigator.pushNamed(context, '/inventory'),
+                                  width: buttonWidth,
+                                ),
+                                _SystemButton(
+                                  label: "Admin Tools",
+                                  icon: Icons.admin_panel_settings,
+                                  onTap: roleManager.isAdmin
+                                      ? () => Navigator.pushNamed(context, '/admin')
+                                      : null,
+                                  disabled: !roleManager.isAdmin,
+                                  width: buttonWidth,
                                 ),
                               ],
-                            ),
-                          ),
+                            );
+                          },
                         ),
-
-                        // 🟦 ROW 2: Buttons Grid
-                        Expanded(
-                          flex: 7,
-                          child: Center(
-                            child: LayoutBuilder(
-                              builder: (context, constraints) {
-                                final double maxWidth = constraints.maxWidth;
-                                final double horizontalGap = 20;
-                                final double verticalGap = 20;
-
-                                final double buttonWidth = (maxWidth - horizontalGap * 3) / 2;
-
-                                return Wrap(
-                                  alignment: WrapAlignment.center,
-                                  runAlignment: WrapAlignment.center,
-                                  spacing: horizontalGap,
-                                  runSpacing: verticalGap,
-                                  children: [
-                                    _SystemButton(
-                                      label: "Point of Sale",
-                                      icon: Icons.point_of_sale,
-                                      onTap: () => Navigator.pushNamed(context, '/pos'),
-                                      width: buttonWidth,
-                                    ),
-                                    _SystemButton(
-                                      label: "Attendance",
-                                      icon: Icons.access_time,
-                                      onTap: () =>
-                                          Navigator.pushNamed(context, '/attendance'),
-                                      width: buttonWidth,
-                                    ),
-                                    _SystemButton(
-                                      label: "Inventory",
-                                      icon: Icons.inventory_2,
-                                      onTap: () =>
-                                          Navigator.pushNamed(context, '/inventory'),
-                                      width: buttonWidth,
-                                    ),
-                                    _SystemButton(
-                                      label: "Admin Tools",
-                                      icon: Icons.admin_panel_settings,
-                                      onTap: context.read<RoleConfig>().isAdmin
-                                          ? () => Navigator.pushNamed(context, '/admin')
-                                          : null,
-                                      disabled: !context.read<RoleConfig>().isAdmin,
-                                      width: buttonWidth,
-                                    ),
-                                  ],
-                                );
-                              },
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                  )
                 ),
               ),
 
@@ -236,4 +199,3 @@ class _SystemButton extends StatelessWidget {
     );
   }
 }
-/// <<END FILE>>

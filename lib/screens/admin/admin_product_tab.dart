@@ -305,6 +305,39 @@ class _AdminProductTabState extends State<AdminProductTab> {
 
                             const SizedBox(height: 14),
 
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "Pricing Type",
+                                  style: FontConfig.h2(context),
+                                ),
+                                
+                                const SizedBox(width: 6),
+
+                                BasicDropdownButton<String>(
+                                  width: 220,
+                                  value: _pricingType,
+                                  items: const ["size", "variant"],
+                                  onChanged: (value) {
+                                    if (value == null) return;
+                                    setState(() {
+                                      _pricingType = value;
+
+                                      // Reset selections when switching pricing type
+                                      _selectedSizes.clear();
+
+                                      // Clear price controllers
+                                      for (final c in _sizePriceCtrls.values) {
+                                        c.dispose();
+                                      }
+                                      _sizePriceCtrls.clear();
+                                    });
+                                  },
+                                ),
+                              ]
+                            ),
+
                             // ─────────────────────────────
                             // AVAILABLE SIZES HEADER
                             // ─────────────────────────────
@@ -313,7 +346,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
                               children: [
                                 Text(
                                   "Available Sizes",
-                                  style: FontConfig.h3(context),
+                                  style: FontConfig.h2(context),
                                 ),
                                 Row(  
                                   children: [
@@ -358,44 +391,12 @@ class _AdminProductTabState extends State<AdminProductTab> {
                               children: [
                                 Text(
                                   "Pricing",
-                                  style: FontConfig.h3(context),
+                                  style: FontConfig.h2(context),
                                 ),
                               ],
                             ),
 
-                            const SizedBox(height: 10),
-
-                            // ─────────────────────────────
-                            // PRICING TYPE
-                            // ─────────────────────────────
-                            Text(
-                              "Pricing Type",
-                              style: FontConfig.h3(context),
-                            ),
-                            const SizedBox(height: 6),
-
-                            BasicDropdownButton<String>(
-                              width: 220,
-                              value: _pricingType,
-                              items: const ["size", "variant"],
-                              onChanged: (value) {
-                                if (value == null) return;
-                                setState(() {
-                                  _pricingType = value;
-
-                                  // Reset selections when switching pricing type
-                                  _selectedSizes.clear();
-
-                                  // Clear price controllers
-                                  for (final c in _sizePriceCtrls.values) {
-                                    c.dispose();
-                                  }
-                                  _sizePriceCtrls.clear();
-                                });
-                              },
-                            ),
-
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 14),
 
                             // ─────────────────────────────
                             // PRICING FORM LIST
@@ -453,7 +454,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
                               children: [
                                 Text(
                                   "Ingredient Usage",
-                                  style: FontConfig.h3(context),
+                                  style: FontConfig.h2(context),
                                 ),
                                 Row(
                                   children: [
@@ -470,7 +471,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
                               ],
                             ),
 
-                            const SizedBox(height: 10),
+                            const SizedBox(height: 14),
 
                             // ─────────────────────────────
                             // SELECTED INGREDIENT CHIPS
@@ -991,186 +992,194 @@ class _AdminProductTabState extends State<AdminProductTab> {
               onPressed: () => Navigator.pop(context),
             )
           ],
-          child: SizedBox(
-            height: 480, // scrollable container height
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(right: 4),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
 
-                  // ──────────────────────────────
-                  // BASIC INFO
-                  // ──────────────────────────────
-                  _detailRow("Category", product.category),
-                  _detailRow("Subcategory", product.subCategory),
-                  _detailRow("Pricing Type", product.pricingType),
-
-                  const SizedBox(height: 20),
-
-                  // ──────────────────────────────
-                  // PRICES SECTION
-                  // ──────────────────────────────
-                  Text(
-                    "Prices",
-                    style: FontConfig.h2(context).copyWith(
-                      color: ThemeConfig.primaryGreen,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
-                  Column(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ──────────────────────────────
+              // SCROLLABLE PRODUCT INFO
+              // ──────────────────────────────
+              ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxHeight: 480,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: product.prices.entries.map((entry) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              "${entry.key}:",
-                              style: FontConfig.body(context).copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: ThemeConfig.secondaryGreen,
-                              ),
-                            ),
-                            Text(
-                              FormatUtils.formatCurrency(entry.value),
-                              style: FontConfig.body(context).copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: ThemeConfig.primaryGreen,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // ──────────────────────────────
-                  // INGREDIENT USAGE SECTION
-                  // ──────────────────────────────
-                  Text(
-                    "Ingredient Usage",
-                    style: FontConfig.h2(context).copyWith(
-                      color: ThemeConfig.primaryGreen,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  if (product.ingredientUsage.isEmpty)
-                    Text(
-                      "No ingredient usage defined.",
-                      style: FontConfig.body(context).copyWith(
-                        color: ThemeConfig.midGray,
-                      ),
-                    )
-                  else
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: product.ingredientUsage.entries.map((entry) {
-                        final ingredientName = entry.key;
-                        final sizeMap = entry.value;
-
-                        // find ingredient unit
-                        final ingModel = HiveService.ingredientBox.values.firstWhere(
-                          (i) => i.name == ingredientName,
-                          orElse: () => HiveService.ingredientBox.values.first,
-                        );
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: ThemeConfig.lightGray),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                ingredientName,
-                                style: FontConfig.h3(context).copyWith(
-                                  color: ThemeConfig.secondaryGreen,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-
-                              const SizedBox(height: 10),
-
-                              Column(
-                                children: sizeMap.entries.map((sz) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 6),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          "${sz.key}:",
-                                          style: FontConfig.body(context).copyWith(
-                                            fontWeight: FontWeight.w600,
-                                            color: ThemeConfig.secondaryGreen,
-                                          ),
-                                        ),
-                                        Text(
-                                          "${sz.value} ${ingModel.baseUnit}",
-                                          style: FontConfig.body(context).copyWith(
-                                            fontWeight: FontWeight.w500,
-                                            color: Colors.black87,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }).toList(),
-                              )
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-
-                  const SizedBox(height: 30),
-
-                  // ──────────────────────────────
-                  // ACTION BUTTONS
-                  // ──────────────────────────────
-                  Row(
                     children: [
-                      Expanded(
-                        child: BasicButton(
-                          label: "Edit",
-                          type: AppButtonType.secondary,
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _showEditDialog(product);
-                          },
+
+                      // BASIC INFO
+                      _detailRow("Category", product.category),
+                      _detailRow("Subcategory", product.subCategory),
+                      _detailRow("Pricing Type", product.pricingType),
+
+                      const SizedBox(height: 20),
+
+                      // PRICES
+                      Text(
+                        "Prices",
+                        style: FontConfig.h2(context).copyWith(
+                          color: ThemeConfig.primaryGreen,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(width: 24),
-                      Expanded(
-                        child: BasicButton(
-                          label: "Delete",
-                          type: AppButtonType.danger,
-                          onPressed: () async {
-                            await product.delete();
-                            DialogUtils.showToast(context, "${product.name} deleted.");
-                            Navigator.pop(context);
-                            setState(() {});
-                          },
+                      const SizedBox(height: 10),
+
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: product.prices.entries.map((entry) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  "${entry.key}:",
+                                  style: FontConfig.body(context).copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: ThemeConfig.secondaryGreen,
+                                  ),
+                                ),
+                                Text(
+                                  FormatUtils.formatCurrency(entry.value),
+                                  style: FontConfig.body(context).copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: ThemeConfig.primaryGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+
+                      const SizedBox(height: 20),
+
+                      // INGREDIENT USAGE
+                      Text(
+                        "Ingredient Usage",
+                        style: FontConfig.h2(context).copyWith(
+                          color: ThemeConfig.primaryGreen,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
+
+                      const SizedBox(height: 10),
+
+                      if (product.ingredientUsage.isEmpty)
+                        Text(
+                          "No ingredient usage defined.",
+                          style: FontConfig.body(context).copyWith(
+                            color: ThemeConfig.midGray,
+                          ),
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: product.ingredientUsage.entries.map((entry) {
+                            final ingredientName = entry.key;
+                            final sizeMap = entry.value;
+
+                            final ingModel = HiveService.ingredientBox.values.firstWhere(
+                              (i) => i.name == ingredientName,
+                              orElse: () => HiveService.ingredientBox.values.first,
+                            );
+
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: ThemeConfig.lightGray),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    ingredientName,
+                                    style: FontConfig.h3(context).copyWith(
+                                      color: ThemeConfig.secondaryGreen,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  Column(
+                                    children: sizeMap.entries.map((sz) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 6),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Text(
+                                              "${sz.key}:",
+                                              style: FontConfig.body(context).copyWith(
+                                                fontWeight: FontWeight.w600,
+                                                color: ThemeConfig.secondaryGreen,
+                                              ),
+                                            ),
+                                            Text(
+                                              "${sz.value} ${ingModel.baseUnit}",
+                                              style: FontConfig.body(context).copyWith(
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    }).toList(),
+                                  )
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+
+                      const SizedBox(height: 24),
                     ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              // ──────────────────────────────
+              // FIXED ACTION BUTTONS
+              // ──────────────────────────────
+              Row(
+                children: [
+                  Expanded(
+                    child: BasicButton(
+                      label: "Edit",
+                      type: AppButtonType.secondary,
+                      onPressed: () {
+                        Navigator.pop(context);
+                        DialogUtils.showToast(
+                          context,
+                          "Edit feature under maintenance!",
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 24),
+                  Expanded(
+                    child: BasicButton(
+                      label: "Delete",
+                      type: AppButtonType.danger,
+                      onPressed: () async {
+                        await product.delete();
+                        DialogUtils.showToast(context, "${product.name} deleted.");
+                        Navigator.pop(context);
+                        setState(() {});
+                      },
+                    ),
                   ),
                 ],
               ),
-            ),
+            ],
           ),
         );
       },
@@ -1683,6 +1692,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    const SizedBox(height: 14),
                     // ─────────────────────────
                     // BASIC INFO
                     // ─────────────────────────
