@@ -1,158 +1,199 @@
 import 'package:flutter/material.dart';
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
-import '../../core/utils/responsive.dart';
+import '../../config/role_config.dart';
+import '../../core/utils/dialog_utils.dart';
+import '../../core/widgets/master_topbar.dart';
+import '../../core/widgets/container_card_titled.dart';
+import 'package:provider/provider.dart';
 
-class StartupScreen extends StatelessWidget {
+class StartupScreen extends StatefulWidget {
   const StartupScreen({super.key});
 
   @override
+  State<StartupScreen> createState() => _StartupScreenState();
+}
+
+class _StartupScreenState extends State<StartupScreen> {
+  void _toggleRole(BuildContext context) {
+    final roleManager = context.read<RoleConfig>();
+    roleManager.toggleRole();
+
+    final message = roleManager.isAdmin
+        ? "Switched to Admin Mode"
+        : "Switched to Employee Mode";
+    DialogUtils.showToast(context, message);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final r = Responsive(context);
+    return Consumer<RoleConfig>(
+      builder: (context, roleManager, child) {
+        final isAdmin = roleManager.isAdmin;
 
-    return Scaffold(
-      backgroundColor: ThemeConfig.white,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: r.wp(5)),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Spacer(flex: 2),
+        return Scaffold(
+          backgroundColor: ThemeConfig.white,
+          body: Column(
+            children: [
+              // ──────── TOP BAR ────────
+              MasterTopBar(
+                system: CoffeaSystem.startup,
+                showTabs: false,
+                showBackButton: false,
+              ),
 
-                // App Logo
-                Image.asset(
-                  'assets/logo/coffea.png',
-                  height: r.hp(20), // 20% of screen height
-                  fit: BoxFit.contain,
-                ),
-
-                SizedBox(height: r.hp(3)),
-
-                Text(
-                  'Select System',
-                  style: FontConfig.h1(context).copyWith(fontSize: r.font(28)),
-                ),
-
-                SizedBox(height: r.hp(4)),
-
-                // System Buttons Grid
-                Wrap(
-                  spacing: r.wp(2),
-                  runSpacing: r.hp(2),
-                  alignment: WrapAlignment.center,
-                  children: [
-                    _SystemButton(
-                      label: 'POS System',
-                      icon: Icons.point_of_sale,
-                      width: r.wp(35),
-                      height: r.hp(18),
-                      onTap: () => Navigator.pushNamed(context, '/pos'),
-                    ),
-                    _SystemButton(
-                      label: 'Attendance',
-                      icon: Icons.access_time,
-                      width: r.wp(35),
-                      height: r.hp(18),
-                      onTap: () => Navigator.pushNamed(context, '/attendance'),
-                    ),
-                    _SystemButton(
-                      label: 'Admin Tools',
-                      icon: Icons.admin_panel_settings,
-                      width: r.wp(35),
-                      height: r.hp(18),
-                      onTap: () => Navigator.pushNamed(context, '/admin'),
-                    ),
-                    _SystemButton(
-                      label: 'Inventory',
-                      icon: Icons.inventory_2,
-                      width: r.wp(35),
-                      height: r.hp(18),
-                      onTap: () => Navigator.pushNamed(context, '/inventory'),
-                    ),
-                  ],
-                ),
-
-                const Spacer(),
-
-                Padding(
-                  padding: EdgeInsets.symmetric(vertical: r.hp(2)),
-                  child: Column(
-                    children: [
-                      const Divider(
-                        thickness: 1,
-                        color: ThemeConfig.lightGray,
+              // ──────── MIDDLE SECTION ────────
+              Expanded(
+                child: Container(
+                  color: const Color(0xFFF6F6F6),
+                  alignment: Alignment.center,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 260, vertical: 60),
+                    child: ContainerCardTitled(
+                      title: "Select System",
+                      centerTitle: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 20,
                       ),
-                      SizedBox(height: r.hp(1)),
-                      Text(
-                        'v1.0.0   Coffea POS Suite',
-                        style: FontConfig.caption(context),
+
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final double maxWidth = constraints.maxWidth;
+                            const double horizontalGap = 20;
+                            const double verticalGap = 20;
+
+                            final double buttonWidth =
+                                (maxWidth - horizontalGap * 3) / 2;
+
+                            return Wrap(
+                              alignment: WrapAlignment.center,
+                              runAlignment: WrapAlignment.center,
+                              spacing: horizontalGap,
+                              runSpacing: verticalGap,
+                              children: [
+                                _SystemButton(
+                                  label: "Point of Sale",
+                                  icon: Icons.point_of_sale,
+                                  onTap: () => Navigator.pushNamed(context, '/pos'),
+                                  width: buttonWidth,
+                                ),
+                                _SystemButton(
+                                  label: "Attendance",
+                                  icon: Icons.access_time,
+                                  onTap: () => Navigator.pushNamed(context, '/attendance'),
+                                  width: buttonWidth,
+                                ),
+                                _SystemButton(
+                                  label: "Inventory",
+                                  icon: Icons.inventory_2,
+                                  onTap: () => Navigator.pushNamed(context, '/inventory'),
+                                  width: buttonWidth,
+                                ),
+                                _SystemButton(
+                                  label: "Admin Tools",
+                                  icon: Icons.admin_panel_settings,
+                                  onTap: roleManager.isAdmin
+                                      ? () => Navigator.pushNamed(context, '/admin')
+                                      : null,
+                                  disabled: !roleManager.isAdmin,
+                                  width: buttonWidth,
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
-                    ],
+                    ),
+                  )
+                ),
+              ),
+
+              // ──────── BOTTOM BAR ────────
+              Container(
+                height: 64,
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: ThemeConfig.white,
+                  border: Border(
+                    top: BorderSide(
+                      color: ThemeConfig.lightGray,
+                      width: 2,
+                    ),
                   ),
                 ),
-              ],
-            ),
+                child: Center(
+                  child: Text(
+                    "v1.0.0   •   Coffea System Suite",
+                    style: FontConfig.body(context).copyWith(
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
+// ───────────────────────────────
+// System Button Widget (with ripple)
+// ───────────────────────────────
 class _SystemButton extends StatelessWidget {
   final String label;
   final IconData icon;
-  final double width;
-  final double height;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final bool disabled;
+  final double? width;
 
   const _SystemButton({
     required this.label,
     required this.icon,
-    required this.width,
-    required this.height,
-    required this.onTap,
+    this.onTap,
+    this.disabled = false,
+    this.width,
   });
 
   @override
   Widget build(BuildContext context) {
-    final r = Responsive(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(r.scale(12)),
-      child: Ink(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: ThemeConfig.primaryGreen,
-          borderRadius: BorderRadius.circular(r.scale(12)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
-              blurRadius: r.scale(8),
-              offset: Offset(0, r.scale(4)),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: r.scale(36),
-              color: ThemeConfig.white,
-            ),
-            SizedBox(height: r.hp(1.2)),
-            Text(
-              label,
-              style: FontConfig.button(context).copyWith(
-                fontSize: r.font(18),
+    return Material(
+      color: disabled ? Colors.grey[200] : ThemeConfig.primaryGreen,
+      borderRadius: BorderRadius.circular(20),
+      elevation: disabled ? 0 : 4,
+      shadowColor:
+          disabled ? Colors.transparent : ThemeConfig.primaryGreen.withOpacity(0.3),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: disabled ? null : onTap,
+        child: Container(
+          width: width,
+          height: 160,
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: disabled ? Colors.grey : Colors.white,
+                size: 38,
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: disabled ? Colors.grey : Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

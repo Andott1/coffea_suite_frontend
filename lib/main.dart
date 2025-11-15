@@ -1,15 +1,28 @@
+/// <<FILE: lib/main.dart>>
+import 'package:coffea_suite_frontend/core/services/hive_service.dart';
 import 'package:flutter/material.dart';
-import 'config/theme_config.dart';
+import 'package:flutter/rendering.dart';
+import 'package:provider/provider.dart';
+import 'config/role_config.dart';
 import 'screens/startup/startup_screen.dart';
-
-// Base system screens
 import 'screens/pos/pos_base_screen.dart';
 import 'screens/admin/admin_base_screen.dart';
 import 'screens/inventory/inventory_base_screen.dart';
 import 'screens/attendance/attendance_base_screen.dart';
+import 'config/theme_config.dart';
 
-void main() {
-  runApp(const CoffeaSuiteApp());
+void main() async {
+  //debugPaintSizeEnabled = true;
+  WidgetsFlutterBinding.ensureInitialized();
+  await HiveService.init();
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<RoleConfig>.value(value: RoleConfig.instance),
+      ],
+      child: const CoffeaSuiteApp(),
+    ),
+  );
 }
 
 class CoffeaSuiteApp extends StatelessWidget {
@@ -32,3 +45,4 @@ class CoffeaSuiteApp extends StatelessWidget {
     );
   }
 }
+/// <<END FILE>>

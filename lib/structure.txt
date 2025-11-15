@@ -1,86 +1,103 @@
+assets/
+│
+├── data/
+│   ├── ingredients_list.json
+│   ├── ingredients_usage.json
+│   └── products_list.json
+│
+├── fonts/
+│
+├── icons/
+│
+└── logo/
+    └── coffea.png
+
 lib/
 │
-├── main.dart                             <-- App entry point (loads StartupScreen)
-│
-├── config/                               <-- Global theme, fonts, and constants
+├── config/
 │   ├── font_config.dart
-│   ├── theme_config.dart                 <-- Material theme setup (colors, styles)
 │   ├── pricing_config.dart
-│   └── role_config.dart                  <-- Role constants (Admin, Employee, Cashier)
+│   ├── role_config.dart
+│   └── theme_config.dart
 │
-├── core/                                 <-- Shared app logic and services
+├── core/
 │   ├── models/
-│   │   ├── product_model.dart
-│   │   ├── order_item_model.dart
-│   │   ├── order_model.dart
-│   │   ├── size_price_model.dart
 │   │   ├── attendance_model.dart
 │   │   ├── employee_model.dart
-│   │   └── payroll_model.dart
+│   │   ├── ingredient_model.dart
+│   │   ├── ingredient_model.g.dart
+│   │   ├── ingredient_usage_model.dart
+│   │   ├── ingredient_usage_model.g.dart
+│   │   ├── order_item_model.dart
+│   │   ├── order_model.dart
+│   │   ├── payroll_model.dart
+│   │   ├── product_model.dart
+│   │   ├── product_model.g.dart
+│   │   └── size_price_model.dart
 │   │
 │   ├── providers/
-│   │   ├── order_provider.dart
-│   │   ├── inventory_provider.dart
 │   │   ├── attendance_provider.dart
-│   │   └── employee_provider.dart
+│   │   ├── employee_provider.dart
+│   │   ├── inventory_provider.dart
+│   │   └── order_provider.dart
 │   │
 │   ├── services/
-│   │   ├── hive_service.dart             <-- Local database handling
-│   │   ├── order_service.dart
-│   │   ├── inventory_service.dart
 │   │   ├── attendance_service.dart
-│   │   ├── payroll_service.dart
-│   │   └── employee_service.dart
+│   │   ├── employee_service.dart
+│   │   ├── hive_service.dart
+│   │   ├── inventory_service.dart
+│   │   ├── order_service.dart
+│   │   └── payroll_service.dart
 │   │
 │   ├── utils/
 │   │   ├── date_utils.dart
+│   │   ├── dialog_utils.dart
 │   │   ├── format_utils.dart
-│   │   └── dialog_utils.dart
+│   │   └── responsive.dart
+│   │   └── system_tab_memory.dart
 │   │
 │   └── widgets/
 │       ├── custom_button.dart
 │       ├── custom_card.dart
-│       ├── topbar.dart                   <-- Shared topbar (used by POS/Admin)
-│       └── modal_dialog.dart
+│       ├── modal_dialog.dart
+│       └── topbar.dart
 │
 ├── screens/
-│   ├── startup/
-│   │   └── startup_screen.dart           <-- Main system selector UI
+│   ├── admin/
+│   │   ├── admin_base_screen.dart
+│   │   ├── admin_dashboard_screen.dart
+│   │   ├── admin_ingredient_tab.dart
+│   │   ├── analytics_screen.dart
+│   │   ├── employee_management_screen.dart
+│   │   └── settings_screen.dart
 │   │
-│   ├── pos/                              <-- Point of Sale module
-│   │   ├── pos_dashboard.dart
-│   │   ├── cashier_screen.dart
-│   │   ├── transaction_history_screen.dart
-│   │   ├── pos_topbar.dart
-│   │   └── payment_screen.dart
+│   ├── attendance/
+│   │   ├── attendance_base_screen.dart
+│   │   ├── attendance_logs_screen.dart
+│   │   ├── attendance_screen.dart
+│   │   └── payroll_screen.dart
 │   │
-│   ├── inventory/                        <-- Inventory Management module
+│   ├── inventory/
+│   │   ├── inventory_base_screen.dart
 │   │   ├── inventory_dashboard.dart
-│   │   ├── product_list_screen.dart
 │   │   ├── product_edit_screen.dart
-│   │   ├── stock_adjustment_screen.dart
-│   │   └── inventory_topbar.dart
+│   │   ├── product_list_screen.dart
+│   │   └── stock_adjustment_screen.dart
 │   │
-│   ├── attendance/                       <-- Attendance & Payroll module
-│   │   ├── attendance_screen.dart        <-- Employee Time-In/Out UI
-│   │   ├── attendance_logs_screen.dart   <-- Admin: attendance records
-│   │   ├── payroll_screen.dart
-│   │   └── attendance_topbar.dart
+│   ├── pos/
+│   │   ├── cashier_screen.dart
+│   │   ├── payment_screen.dart
+│   │   ├── pos_base_screen.dart
+│   │   ├── pos_dashboard.dart
+│   │   └── transaction_history_screen.dart
 │   │
-│   └── admin/                            <-- Admin Tools & Analytics module
-│       ├── admin_dashboard_screen.dart
-│       ├── analytics_screen.dart
-│       ├── employee_management_screen.dart
-│       ├── settings_screen.dart
-│       └── admin_topbar.dart
+│   └── startup/
+│       └── startup_screen.dart
 │
-├── scripts/                              <-- Data setup or batch operations
+├── scripts/
+│   ├── seed_ingredient_usage.dart
+│   ├── seed_ingredients.dart
 │   └── seed_products.dart
 │
-├── assets/
-│   ├── logo/
-│   │   └── coffea.png
-│   ├── fonts/
-│   └── icons/
-│
-└── structure.txt                         <-- Project structure reference
+├── main.dart
+└── structure.txt

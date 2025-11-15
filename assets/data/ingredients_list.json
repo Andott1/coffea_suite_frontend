@@ -1,0 +1,325 @@
+[
+  {
+    "id": "coffee_beans",
+    "category": "Core Ingredients",
+    "name": "Coffee Beans",
+    "unit": "kg",
+    "quantity": 1,
+    "baseUnit": "g",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+  {
+    "id": "matcha_powder",
+    "category": "Core Ingredients",
+    "name": "Matcha Powder",
+    "unit": "kg",
+    "quantity": 1,
+    "baseUnit": "g",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+  {
+    "id": "cocoa_powder",
+    "category": "Core Ingredients",
+    "name": "Cocoa Powder",
+    "unit": "kg",
+    "quantity": 1,
+    "baseUnit": "g",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+  {
+    "id": "milk",
+    "category": "Core Ingredients",
+    "name": "Milk",
+    "unit": "L",
+    "quantity": 1,
+    "baseUnit": "mL",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+  {
+    "id": "condensed_milk",
+    "category": "Core Ingredients",
+    "name": "Condensed Milk",
+    "unit": "L",
+    "quantity": 1,
+    "baseUnit": "mL",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+  {
+    "id": "frappe_base",
+    "category": "Core Ingredients",
+    "name": "Frappe Base",
+    "unit": "kg",
+    "quantity": 1,
+    "baseUnit": "g",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+  {
+    "id": "whipped_cream",
+    "category": "Core Ingredients",
+    "name": "Whipped Cream",
+    "unit": "L",
+    "quantity": 1,
+    "baseUnit": "mL",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+
+  {
+    "id": "caramel_syrup",
+    "category": "Syrups (Flavoring)",
+    "name": "Caramel Syrup",
+    "unit": "mL",
+    "quantity": 750,
+    "baseUnit": "mL",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "hazelnut_syrup",
+    "category": "Syrups (Flavoring)",
+    "name": "Hazelnut Syrup",
+    "unit": "mL",
+    "quantity": 750,
+    "baseUnit": "mL",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "vanilla_syrup",
+    "category": "Syrups (Flavoring)",
+    "name": "Vanilla Syrup",
+    "unit": "mL",
+    "quantity": 750,
+    "baseUnit": "mL",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "strawberry_syrup",
+    "category": "Syrups (Flavoring)",
+    "name": "Strawberry Syrup",
+    "unit": "mL",
+    "quantity": 750,
+    "baseUnit": "mL",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "green_apple_syrup",
+    "category": "Syrups (Flavoring)",
+    "name": "Green Apple Syrup",
+    "unit": "mL",
+    "quantity": 750,
+    "baseUnit": "mL",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "mango_syrup",
+    "category": "Syrups (Flavoring)",
+    "name": "Mango Syrup",
+    "unit": "mL",
+    "quantity": 750,
+    "baseUnit": "mL",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "peach_syrup",
+    "category": "Syrups (Flavoring)",
+    "name": "Peach Syrup",
+    "unit": "mL",
+    "quantity": 750,
+    "baseUnit": "mL",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "tiramisu_syrup",
+    "category": "Syrups (Flavoring)",
+    "name": "Tiramisu Syrup",
+    "unit": "mL",
+    "quantity": 750,
+    "baseUnit": "mL",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "sugar_syrup",
+    "category": "Syrups (Flavoring)",
+    "name": "Sugar Syrup",
+    "unit": "mL",
+    "quantity": 750,
+    "baseUnit": "mL",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+
+  {
+    "id": "caramel_sauce",
+    "category": "Sauces & Toppings",
+    "name": "Caramel Sauce",
+    "unit": "L",
+    "quantity": 1,
+    "baseUnit": "mL",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+  {
+    "id": "chocolate_sauce",
+    "category": "Sauces & Toppings",
+    "name": "Chocolate Sauce",
+    "unit": "L",
+    "quantity": 1,
+    "baseUnit": "mL",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+  {
+    "id": "white_chocolate_sauce",
+    "category": "Sauces & Toppings",
+    "name": "White Chocolate Sauce",
+    "unit": "L",
+    "quantity": 1,
+    "baseUnit": "mL",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+  {
+    "id": "mocha_java_chips",
+    "category": "Sauces & Toppings",
+    "name": "Mocha Java Chips",
+    "unit": "L",
+    "quantity": 1,
+    "baseUnit": "mL",
+    "conversionFactor": 1000,
+    "unitCost": 0
+  },
+
+  {
+    "id": "cup_12oz",
+    "category": "Packaging Supplies",
+    "name": "12 oz Cup",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "cup_16oz",
+    "category": "Packaging Supplies",
+    "name": "16 oz Cup",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "cup_22oz",
+    "category": "Packaging Supplies",
+    "name": "22 oz Cup",
+    "unit": "pcs",
+    "quantity": 50,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "cup_12oz_hot",
+    "category": "Packaging Supplies",
+    "name": "12 oz Cup (Hot)",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "cup_16oz_u",
+    "category": "Packaging Supplies",
+    "name": "16 oz U Cup",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "cup_12oz_u",
+    "category": "Packaging Supplies",
+    "name": "12 oz U Cup",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "cup_22oz_u",
+    "category": "Packaging Supplies",
+    "name": "22 oz U Cup",
+    "unit": "pcs",
+    "quantity": 50,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "flat_lids_cold",
+    "category": "Packaging Supplies",
+    "name": "Flat Lids (Cold)",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "lids_hot",
+    "category": "Packaging Supplies",
+    "name": "Lids (Hot)",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "dome_lids",
+    "category": "Packaging Supplies",
+    "name": "Dome Lids",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "thin_straw",
+    "category": "Packaging Supplies",
+    "name": "Thin Straw",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  },
+  {
+    "id": "boba_straw",
+    "category": "Packaging Supplies",
+    "name": "Boba Straw",
+    "unit": "pcs",
+    "quantity": 100,
+    "baseUnit": "pcs",
+    "conversionFactor": 1,
+    "unitCost": 0
+  }
+]

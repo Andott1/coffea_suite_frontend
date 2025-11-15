@@ -1,3 +1,4 @@
+/// <<FILE: lib/config/theme_config.dart>>
 import 'package:flutter/material.dart';
 
 class ThemeConfig {
@@ -8,6 +9,7 @@ class ThemeConfig {
   static const Color mochaBrown = Color(0xFF8B6341);
   static const Color white = Color(0xFFFFFFFF);
   static const Color lightGray = Color(0xFFEEEEEE);
+  static const Color midGray = Color(0xFFBFBFBF);
 
   static ThemeData lightTheme = ThemeData(
     scaffoldBackgroundColor: white,
@@ -16,12 +18,10 @@ class ThemeConfig {
       seedColor: primaryGreen,
       primary: primaryGreen,
       secondary: secondaryGreen,
-      background: white,
       surface: white,
       onPrimary: white,
       onSecondary: white,
       onSurface: primaryGreen,
-      onBackground: primaryGreen,
       brightness: Brightness.light,
     ),
     appBarTheme: const AppBarTheme(
@@ -37,6 +37,20 @@ class ThemeConfig {
         textStyle: const TextStyle(fontWeight: FontWeight.w600),
       ),
     ),
+    inputDecorationTheme: InputDecorationTheme(
+      hintStyle: TextStyle(
+        color: Colors.grey[600],
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: primaryGreen),
+      ),
+      // 👇 Apply focus color to hint when focused
+      floatingLabelStyle: const TextStyle(
+        color: primaryGreen,
+      ),
+    ),
     fontFamily: 'Roboto',
   );
-}
+}	
+/// <<END FILE>>
