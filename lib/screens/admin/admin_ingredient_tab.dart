@@ -10,6 +10,7 @@ import '../../core/utils/dialog_utils.dart';
 import '../../core/utils/format_utils.dart';
 
 import '../../core/services/backup_service.dart';
+import '../../core/widgets/backups_list_dialog.dart';
 import '../../core/widgets/basic_input_field.dart';
 
 import '../../core/widgets/basic_search_box.dart';
@@ -18,7 +19,6 @@ import '../../core/widgets/container_card.dart';
 import '../../core/widgets/container_card_titled.dart';
 
 import '../../core/widgets/hybrid_dropdown_field.dart';
-import '../../core/widgets/ingredient_backups_dialog.dart';
 
 import '../../core/widgets/item_card.dart';
 import '../../core/widgets/item_grid_view.dart';
@@ -627,7 +627,13 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
                                   label: "Restore", type: AppButtonType.secondary, icon: Icons.restore,
                                   onPressed: () async {
                                     final service = BackupService();
-                                    final restored = await showDialog<bool?>(context: context, builder: (_) => IngredientBackupsDialog(backupService: service));
+                                    final restored = await showDialog<bool?>(
+                                      context: context, 
+                                      builder: (_) => BackupsListDialog(
+                                        backupService: service, 
+                                        type: 'ingredients' // ✅ Specify type
+                                      )
+                                    );
                                     if (restored == true) {
                                       DialogUtils.showToast(context, "Restore completed successfully.");
                                       setState(() {});

@@ -8,6 +8,7 @@ import '../../core/widgets/dialog_box_titled.dart';
 import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/numeric_pad.dart';
 import '../../core/utils/dialog_utils.dart';
+import '../../core/services/inventory_log_service.dart';
 
 class StockAdjustmentDialog extends StatefulWidget {
   final IngredientModel ingredient;
@@ -94,6 +95,15 @@ class _StockAdjustmentDialogState extends State<StockAdjustmentDialog> {
     widget.ingredient.updatedAt = DateTime.now();
     await widget.ingredient.save();
 
+    // 2. ✅ Log Transaction
+    await InventoryLogService.log(
+      ingredientName: widget.ingredient.name,
+      action: "Restock",
+      quantity: qtyToAdd, // Positive
+      unit: widget.ingredient.baseUnit, // Always log in base unit for consistency
+      reason: "Manual Add",
+    );
+
     if (mounted) {
       DialogUtils.showToast(context, "Stock updated successfully");
       Navigator.pop(context);
@@ -112,7 +122,7 @@ class _StockAdjustmentDialogState extends State<StockAdjustmentDialog> {
         children: [
           _reasonOption(ctx, "Spoilage / Expired"),
           _reasonOption(ctx, "Spilled / Waste"),
-          _reasonOption(ctx, "Inventory Correction"),
+          _reasonOption(ctx, "Inventory Correction"), // This triggers "Correction" action
           _reasonOption(ctx, "Theft / Lost"),
         ],
       )
@@ -129,6 +139,23 @@ class _StockAdjustmentDialogState extends State<StockAdjustmentDialog> {
     widget.ingredient.quantity -= qtyToReduce;
     widget.ingredient.updatedAt = DateTime.now();
     await widget.ingredient.save();
+
+    // ✅ FIX: Determine Action Category dynamically
+    // If the reason is a count correction, label it "Correction".
+    // Otherwise (Spoilage, Theft, Spills), label it "Waste".
+    String actionCategory = "Waste";
+    if (reason.contains("Correction")) {
+      actionCategory = "Correction";
+    }
+
+    // 3. Log Transaction
+    await InventoryLogService.log(
+      ingredientName: widget.ingredient.name,
+      action: actionCategory, // ✅ Dynamic Action
+      quantity: -qtyToReduce, // Negative
+      unit: widget.ingredient.baseUnit, // Always base unit for logs
+      reason: reason,
+    );
 
     if (mounted) {
       DialogUtils.showToast(context, "Reduced stock ($reason)", accentColor: Colors.redAccent);

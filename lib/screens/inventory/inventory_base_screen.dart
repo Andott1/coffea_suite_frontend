@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
-import 'inventory_list_tab.dart'; // ✅ Import New Tab
+import 'inventory_list_tab.dart'; 
+import 'inventory_dashboard_tab.dart'; // ✅ NEW
+import 'inventory_logs_tab.dart';      // ✅ NEW
 
 class InventoryBaseScreen extends StatefulWidget {
   const InventoryBaseScreen({super.key});
@@ -26,12 +28,15 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
   }
 
   final List<String> _tabs = const [
-    "Inventory List", // Renamed for clarity
-    "Logs",           // Renamed from "Stock Adjustments" per discussion
+    "Dashboard",      // ✅ Tab 0
+    "Inventory List", // ✅ Tab 1
+    "Logs",           // ✅ Tab 2
   ];
 
   final List<Widget> _screens = const [
-    InventoryListTab(),           // ✅ The new layout
+    InventoryDashboardTab(), // ✅ Dashboard
+    InventoryListTab(),      // ✅ Inventory List
+    InventoryLogsTab(),      // ✅ Logs Table
   ];
 
   @override
@@ -41,7 +46,8 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
       appBar: MasterTopBar(
         system: CoffeaSystem.inventory,
         tabs: _tabs,
-        adminOnlyTabs: const [false, false], // Logs should be visible to all usually? Or Manager only? Assuming all for now.
+        // Managers/Admins can see everything in Inventory usually
+        adminOnlyTabs: const [false, false, false], 
         activeIndex: _activeIndex,
         onTabSelected: _onTabChanged,
         showOnlineStatus: true,
