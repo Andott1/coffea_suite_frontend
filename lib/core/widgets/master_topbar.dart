@@ -1,6 +1,9 @@
 /// <<FILE: lib/core/widgets/master_topbar.dart>>
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../bloc/auth/auth_bloc.dart';
+import '../bloc/auth/auth_state.dart';
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../core/services/session_user.dart';
@@ -61,12 +64,19 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
     final double statusBarHeight = MediaQuery.of(context).padding.top;
 
     // 1. Wrap with SessionUserNotifier Consumer
-    return Consumer<SessionUserNotifier>(
-      builder: (context, notifier, _) {
-        final user = SessionUser.current;
-        final isAdmin = SessionUser.isAdmin;
-        final userLabel = user?.username.toUpperCase() ?? "GUEST";
-        final roleLabel = user?.role.name.toUpperCase() ?? "";
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        // Default values
+        String userLabel = "GUEST";
+        String roleLabel = "";
+        bool isAdmin = false;
+
+        // Extract data from state
+        if (state is AuthAuthenticated) {
+          userLabel = state.user.username.toUpperCase();
+          roleLabel = state.user.role.name.toUpperCase();
+          isAdmin = state.user.role == UserRoleLevel.admin;
+        }
 
         return Column(
           mainAxisSize: MainAxisSize.min,

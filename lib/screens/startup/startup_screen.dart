@@ -10,6 +10,10 @@ import '../../core/widgets/container_card_titled.dart';
 import '../../core/widgets/login_dialog.dart'; // import login dialog
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/bloc/auth/auth_bloc.dart';
+import '../../core/bloc/auth/auth_state.dart';
+
 class StartupScreen extends StatefulWidget {
   const StartupScreen({super.key});
 
@@ -54,11 +58,15 @@ class _StartupScreenState extends State<StartupScreen> {
   @override
   Widget build(BuildContext context) {
     // 2. Listen to Session Changes
-    return Consumer<SessionUserNotifier>(
-      builder: (context, notifier, child) {
-        final user = SessionUser.current;
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        
+        final isLoggedIn = state is AuthAuthenticated;
+        UserModel? user;
+        if (state is AuthAuthenticated) {
+          user = state.user;
+        }
         final role = user?.role ?? UserRoleLevel.employee;
-        final isLoggedIn = SessionUser.isLoggedIn;
 
         return Scaffold(
           backgroundColor: ThemeConfig.white,

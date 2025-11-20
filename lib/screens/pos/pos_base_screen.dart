@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
+import 'cashier_screen.dart'; // ✅ Import the real CashierScreen
+import 'transaction_history_screen.dart'; // ✅ Import
+import 'pos_dashboard_screen.dart'; // ✅ Import
 
 class POSBaseScreen extends StatefulWidget {
   const POSBaseScreen({super.key});
@@ -16,7 +19,7 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
   @override
   void initState() {
     super.initState();
-    _activeIndex = SystemTabMemory.getLastTab(CoffeaSystem.pos, defaultIndex: 1);
+    _activeIndex = SystemTabMemory.getLastTab(CoffeaSystem.pos, defaultIndex: 1); // Default to Cashier tab
   }
 
   void _onTabChanged(int index) {
@@ -31,9 +34,9 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
   ];
 
   final List<Widget> _screens = const [
-    POSDashboardScreen(),
-    POSCashierScreen(),
-    POSHistoryScreen(),
+    POSDashboardScreen(), // ✅ Use real screen
+    CashierScreen(),
+    TransactionHistoryScreen(),
   ];
 
   @override
@@ -56,63 +59,4 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
     );
   }
 }
-
-// Placeholder screens — these will later be replaced by real implementations.
-class POSDashboardScreen extends StatelessWidget {
-  const POSDashboardScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        "POS Dashboard Screen",
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-}
-
-class POSCashierScreen extends StatelessWidget {
-  const POSCashierScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 3,
-          child: Container(
-            margin: const EdgeInsets.all(12),
-            color: Colors.white,
-            child: const Center(child: Text("Product Selector Grid Placeholder")),
-          ),
-        ),
-        Expanded(
-          flex: 2,
-          child: Container(
-            margin: const EdgeInsets.all(12),
-            color: Colors.white,
-            child: const Center(child: Text("Order Summary Panel Placeholder")),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class POSHistoryScreen extends StatelessWidget {
-  const POSHistoryScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-        "Transaction History Placeholder",
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-      ),
-    );
-  }
-}
-
 /// <<END FILE>>
