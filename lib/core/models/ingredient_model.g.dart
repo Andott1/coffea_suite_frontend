@@ -28,13 +28,14 @@ class IngredientModelAdapter extends TypeAdapter<IngredientModel> {
       conversionFactor: fields[8] as double?,
       isCustomConversion: fields[9] as bool,
       unitCost: fields[10] as double,
+      purchaseSize: fields[11] as double,
     );
   }
 
   @override
   void write(BinaryWriter writer, IngredientModel obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(12)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +57,9 @@ class IngredientModelAdapter extends TypeAdapter<IngredientModel> {
       ..writeByte(9)
       ..write(obj.isCustomConversion)
       ..writeByte(10)
-      ..write(obj.unitCost);
+      ..write(obj.unitCost)
+      ..writeByte(11)
+      ..write(obj.purchaseSize);
   }
 
   @override

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
 import 'inventory_list_tab.dart'; // ✅ Import New Tab
-import 'stock_adjustment_screen.dart'; // Placeholder
 
 class InventoryBaseScreen extends StatefulWidget {
   const InventoryBaseScreen({super.key});
@@ -33,7 +32,6 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
 
   final List<Widget> _screens = const [
     InventoryListTab(),           // ✅ The new layout
-    StockAdjustmentScreen(),      // Placeholder for Logs (Next Step)
   ];
 
   @override

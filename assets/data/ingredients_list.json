@@ -7,7 +7,9 @@
     "quantity": 1,
     "baseUnit": "g",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
   {
     "id": "matcha_powder",
@@ -17,7 +19,9 @@
     "quantity": 1,
     "baseUnit": "g",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
   {
     "id": "cocoa_powder",
@@ -27,7 +31,9 @@
     "quantity": 1,
     "baseUnit": "g",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
   {
     "id": "milk",
@@ -37,7 +43,9 @@
     "quantity": 1,
     "baseUnit": "mL",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
   {
     "id": "condensed_milk",
@@ -47,7 +55,9 @@
     "quantity": 1,
     "baseUnit": "mL",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
   {
     "id": "frappe_base",
@@ -57,7 +67,9 @@
     "quantity": 1,
     "baseUnit": "g",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
   {
     "id": "whipped_cream",
@@ -67,9 +79,10 @@
     "quantity": 1,
     "baseUnit": "mL",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
-
   {
     "id": "caramel_syrup",
     "category": "Syrups (Flavoring)",
@@ -78,7 +91,9 @@
     "quantity": 750,
     "baseUnit": "mL",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 750,
+    "reorderLevel": 0
   },
   {
     "id": "hazelnut_syrup",
@@ -88,7 +103,9 @@
     "quantity": 750,
     "baseUnit": "mL",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 750,
+    "reorderLevel": 0
   },
   {
     "id": "vanilla_syrup",
@@ -98,7 +115,9 @@
     "quantity": 750,
     "baseUnit": "mL",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 750,
+    "reorderLevel": 0
   },
   {
     "id": "strawberry_syrup",
@@ -108,7 +127,9 @@
     "quantity": 750,
     "baseUnit": "mL",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 750,
+    "reorderLevel": 0
   },
   {
     "id": "green_apple_syrup",
@@ -118,7 +139,9 @@
     "quantity": 750,
     "baseUnit": "mL",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 750,
+    "reorderLevel": 0
   },
   {
     "id": "mango_syrup",
@@ -128,7 +151,9 @@
     "quantity": 750,
     "baseUnit": "mL",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 750,
+    "reorderLevel": 0
   },
   {
     "id": "peach_syrup",
@@ -138,7 +163,9 @@
     "quantity": 750,
     "baseUnit": "mL",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 750,
+    "reorderLevel": 0
   },
   {
     "id": "tiramisu_syrup",
@@ -148,7 +175,9 @@
     "quantity": 750,
     "baseUnit": "mL",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 750,
+    "reorderLevel": 0
   },
   {
     "id": "sugar_syrup",
@@ -158,9 +187,10 @@
     "quantity": 750,
     "baseUnit": "mL",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 750,
+    "reorderLevel": 0
   },
-
   {
     "id": "caramel_sauce",
     "category": "Sauces & Toppings",
@@ -169,7 +199,9 @@
     "quantity": 1,
     "baseUnit": "mL",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
   {
     "id": "chocolate_sauce",
@@ -179,7 +211,9 @@
     "quantity": 1,
     "baseUnit": "mL",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
   {
     "id": "white_chocolate_sauce",
@@ -189,7 +223,9 @@
     "quantity": 1,
     "baseUnit": "mL",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
   {
     "id": "mocha_java_chips",
@@ -199,9 +235,10 @@
     "quantity": 1,
     "baseUnit": "mL",
     "conversionFactor": 1000,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 1,
+    "reorderLevel": 0
   },
-
   {
     "id": "cup_12oz",
     "category": "Packaging Supplies",
@@ -210,7 +247,9 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   },
   {
     "id": "cup_16oz",
@@ -220,7 +259,9 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   },
   {
     "id": "cup_22oz",
@@ -230,7 +271,9 @@
     "quantity": 50,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 50,
+    "reorderLevel": 0
   },
   {
     "id": "cup_12oz_hot",
@@ -240,7 +283,9 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   },
   {
     "id": "cup_16oz_u",
@@ -250,7 +295,9 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   },
   {
     "id": "cup_12oz_u",
@@ -260,7 +307,9 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   },
   {
     "id": "cup_22oz_u",
@@ -270,7 +319,9 @@
     "quantity": 50,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 50,
+    "reorderLevel": 0
   },
   {
     "id": "flat_lids_cold",
@@ -280,7 +331,9 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   },
   {
     "id": "lids_hot",
@@ -290,7 +343,9 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   },
   {
     "id": "dome_lids",
@@ -300,7 +355,9 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   },
   {
     "id": "thin_straw",
@@ -310,7 +367,9 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   },
   {
     "id": "boba_straw",
@@ -320,6 +379,8 @@
     "quantity": 100,
     "baseUnit": "pcs",
     "conversionFactor": 1,
-    "unitCost": 0
+    "unitCost": 0,
+    "purchaseSize": 100,
+    "reorderLevel": 0
   }
 ]

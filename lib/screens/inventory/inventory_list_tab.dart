@@ -7,11 +7,13 @@ import '../../core/models/ingredient_model.dart';
 import '../../core/services/hive_service.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/utils/dialog_utils.dart';
+import '../../core/utils/format_utils.dart';
 import '../../core/widgets/basic_search_box.dart';
 import '../../core/widgets/basic_dropdown_button.dart'; // Reusing your custom dropdown
 import '../../core/widgets/container_card.dart';
 import '../../core/widgets/item_card.dart';
 import '../../core/widgets/item_grid_view.dart';
+import 'stock_adjustment_dialog.dart';
 
 class InventoryListTab extends StatefulWidget {
   const InventoryListTab({super.key});
@@ -76,11 +78,28 @@ class _InventoryListTabState extends State<InventoryListTab> {
 
     // 4. Sort
     items.sort((a, b) {
+      // Calculate Ratio: (Display Qty / Purchase Size)
+      // This effectively gives us "How many bottles/packs do we have left?"
+      double getRatio(IngredientModel i) {
+        if (i.purchaseSize <= 0) return i.quantity; // Fallback if data is bad
+        return i.displayQuantity / i.purchaseSize;
+      }
+
       switch (_selectedSort) {
-        case 'Name (A–Z)': return a.name.compareTo(b.name);
-        case 'Quantity (Low-High)': return a.quantity.compareTo(b.quantity);
-        case 'Quantity (High-Low)': return b.quantity.compareTo(a.quantity);
-        default: return 0;
+        case 'Name (A–Z)': 
+          return a.name.compareTo(b.name);
+
+        case 'Stock Level (Lowest)': 
+          // Sorts by "Least amount of full units left"
+          // e.g. 0.1 bottles comes before 2.0 bottles
+          return getRatio(a).compareTo(getRatio(b));
+
+        case 'Stock Level (Highest)': 
+          // Sorts by "Most stocked items"
+          return getRatio(b).compareTo(getRatio(a));
+
+        default: 
+          return 0;
       }
     });
 
@@ -105,80 +124,85 @@ class _InventoryListTabState extends State<InventoryListTab> {
             // ────────────────────────────────────────────
             SizedBox(
               width: r.wp(25).clamp(260.0, 320.0), 
-              child: Column(
-                children: [
-                  // ─── TOP CONTROLS ───
-                  ContainerCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Search
-                        BasicSearchBox(
-                          hintText: "Search...",
-                          onChanged: (v) => setState(() => _searchQuery = v),
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Sort
-                        Text("Sort Order", style: FontConfig.caption(context)),
-                        const SizedBox(height: 8),
-                        BasicDropdownButton<String>(
-                          value: _selectedSort,
-                          width: double.infinity, // Full width dropdown
-                          items: const ['Name (A–Z)', 'Quantity (Low-High)', 'Quantity (High-Low)'],
-                          onChanged: (v) => setState(() => _selectedSort = v!),
-                        ),
+              // ✅ FIX: Wrap entire column in ScrollView to handle keyboard overflow safely
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 20), // Add padding for scrolling comfort
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  children: [
+                    // ─── TOP CONTROLS ───
+                    ContainerCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Search
+                          Text("Search, Sort, Filter", style: FontConfig.h2(context)),
+                          const SizedBox(height: 8),
 
-                        const SizedBox(height: 20),
-
-                        // ─────────────────────────────────────────
-                        // NEW 2-PART FILTER SYSTEM
-                        // ─────────────────────────────────────────
-                        
-                        // PART 1: Filter By (Dropdown)
-                        Text("Filter By", style: FontConfig.caption(context)),
-                        const SizedBox(height: 8),
-                        BasicDropdownButton<String>(
-                          value: _filterType,
-                          width: double.infinity,
-                          items: const ['Category', 'Unit'],
-                          onChanged: (v) {
-                            if (v == null || v == _filterType) return;
-                            setState(() {
-                              _filterType = v;
-                              _selectedFilterValue = null; // Reset selection on mode switch
-                            });
-                          },
-                        ),
-
-                        const SizedBox(height: 12),
-
-                        // PART 2: Options (Horizontal Scroll)
-                        // Generates options based on selected _filterType
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          physics: const BouncingScrollPhysics(),
-                          child: Row(
-                            children: [
-                              // "All" Chip
-                              _buildFilterChip("All", null),
-                              
-                              // Dynamic Chips
-                              ..._getFilterOptions().map((opt) {
-                                return _buildFilterChip(opt, opt);
-                              }).toList(),
-                            ],
+                          BasicSearchBox(
+                            hintText: "Search...",
+                            onChanged: (v) => setState(() => _searchQuery = v),
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
+                          
+                          const SizedBox(height: 16),
+                          
+                          // Sort
+                          Text("Sort Order", style: FontConfig.caption(context)),
+                          const SizedBox(height: 8),
 
-                  // ─── STATUS SUMMARY (Expanding to fill space) ───
-                  Expanded(
-                    child: ValueListenableBuilder(
+                          BasicDropdownButton<String>(
+                            value: _selectedSort,
+                            width: double.infinity,
+                            items: const [
+                              'Name (A–Z)', 
+                              'Stock Level (Lowest)', // Renamed for clarity
+                              'Stock Level (Highest)'
+                            ],
+                            onChanged: (v) => setState(() => _selectedSort = v!),
+                          ),
+
+                          const SizedBox(height: 20),
+                          
+                          // Filter By
+                          Text("Filter By", style: FontConfig.caption(context)),
+                          const SizedBox(height: 8),
+                          BasicDropdownButton<String>(
+                            value: _filterType,
+                            width: double.infinity,
+                            items: const ['Category', 'Unit'],
+                            onChanged: (v) {
+                              if (v == null || v == _filterType) return;
+                              setState(() {
+                                _filterType = v;
+                                _selectedFilterValue = null; 
+                              });
+                            },
+                          ),
+
+                          const SizedBox(height: 12),
+
+                          // Options Scroll
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            child: Row(
+                              children: [
+                                _buildFilterChip("All", null),
+                                ..._getFilterOptions().map((opt) {
+                                  return _buildFilterChip(opt, opt);
+                                }).toList(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 16),
+
+                    // ─── STATUS SUMMARY ───
+                    // ❌ Removed 'Expanded' here. Just let it stack naturally.
+                    ValueListenableBuilder(
                       valueListenable: box.listenable(),
                       builder: (context, _, __) {
                         final all = box.values;
@@ -187,25 +211,23 @@ class _InventoryListTabState extends State<InventoryListTab> {
                         final good = all.where((i) => i.quantity > i.reorderLevel).length;
 
                         return ContainerCard(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(20),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("Stock Status", style: FontConfig.h3(context)),
-                              const SizedBox(height: 16),
+                              Text("Stock Status", style: FontConfig.h2(context)),
+                              const SizedBox(height: 14),
                               
                               _buildStatusRow("Critical Out", critical, Colors.redAccent, 'critical'),
-                              const Divider(),
                               _buildStatusRow("Low Stock", low, Colors.orangeAccent, 'low'),
-                              const Divider(),
                               _buildStatusRow("Good Stock", good, ThemeConfig.primaryGreen, 'good'),
                             ],
                           ),
                         );
                       },
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
@@ -224,31 +246,34 @@ class _InventoryListTabState extends State<InventoryListTab> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       // Header Count
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _statusFilter != null 
-                                ? "${_statusFilter!.toUpperCase()} ITEMS" 
-                                : (_selectedFilterValue?.toUpperCase() ?? "ALL INVENTORY"),
-                            style: FontConfig.h2(context),
-                          ),
-                          Text(
-                            "${items.length} Items Found",
-                            style: FontConfig.body(context).copyWith(color: ThemeConfig.midGray),
-                          ),
-                        ],
+                      ContainerCard(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _statusFilter != null 
+                                  ? "${_statusFilter!.toUpperCase()} ITEMS" 
+                                  : (_selectedFilterValue?.toUpperCase() ?? "ALL INVENTORY"),
+                              style: FontConfig.h2(context),
+                            ),
+                            Text(
+                              "${items.length} Items Found",
+                              style: FontConfig.body(context).copyWith(color: ThemeConfig.secondaryGreen),
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(height: 14),
+
+                      const SizedBox(height: 20),
 
                       // GRID
                       Expanded(
                         child: ItemGridView<IngredientModel>(
                           items: items,
-                          minItemWidth: 240,
+                          minItemWidth: 200,
                           childAspectRatio: 1.1, 
-                          crossAxisSpacing: 16,
-                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 14,
+                          mainAxisSpacing: 14,
                           itemBuilder: (context, item) => _buildInventoryCard(item),
                         ),
                       ),
@@ -303,12 +328,12 @@ class _InventoryListTabState extends State<InventoryListTab> {
           _statusFilter = isSelected ? null : filterKey;
         });
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
         decoration: BoxDecoration(
           color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
           border: isSelected ? Border.all(color: color) : null,
         ),
         child: Row(
@@ -336,13 +361,20 @@ class _InventoryListTabState extends State<InventoryListTab> {
     return ItemCard(
       padding: EdgeInsets.zero,
       onTap: () {
-        // Placeholder for Dialog
-        DialogUtils.showToast(context, "Adjust: ${item.name}");
+        // ✅ FIX: Open the new dialog
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => StockAdjustmentDialog(ingredient: item),
+        ).then((_) {
+          // Refresh UI when dialog closes (to show updated stock)
+          if(mounted) setState((){});
+        });
       },
       child: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -369,7 +401,7 @@ class _InventoryListTabState extends State<InventoryListTab> {
                     text: TextSpan(
                       children: [
                         TextSpan(
-                          text: item.displayQuantity.toStringAsFixed(1),
+                          text: FormatUtils.formatQuantity(item.displayQuantity),
                           style: TextStyle(
                             fontSize: 36, 
                             fontWeight: FontWeight.w800,

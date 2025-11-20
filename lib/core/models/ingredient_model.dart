@@ -47,6 +47,9 @@ class IngredientModel extends HiveObject {
   @HiveField(10)
   double unitCost;
 
+  @HiveField(11) 
+  double purchaseSize;
+
   // ──────────────── AUTO-CONVERSION PRESETS ────────────────
   static const Map<String, Map<String, dynamic>> _autoConversionPresets = {
     'kg': {'base': 'g', 'factor': 1000.0},
@@ -69,6 +72,7 @@ class IngredientModel extends HiveObject {
     double? conversionFactor,
     this.isCustomConversion = false,
     this.unitCost = 0.0, // 💰 new default
+    this.purchaseSize = 1.0,
   })  : baseUnit = baseUnit ?? _autoConversionPresets[unit]?['base'] ?? unit,
         conversionFactor =
             conversionFactor ?? _autoConversionPresets[unit]?['factor'] ?? 1.0;
@@ -77,11 +81,22 @@ class IngredientModel extends HiveObject {
   double get displayQuantity => quantity / conversionFactor;
   String get displayString => "${displayQuantity.toStringAsFixed(2)} $unit";
 
-  /// Derived cost per base unit (e.g., ₱250 / 1000g = ₱0.25 per gram)
-  double get costPerBaseUnit => conversionFactor == 0 ? 0 : unitCost / conversionFactor;
+  /// ✅ FIX 1: Cost per Base Unit (e.g., Cost per mL)
+  /// Logic: (Cost per Bottle) / (Size of Bottle in Base Units)
+  double get costPerBaseUnit {
+    // Convert purchaseSize (which is in 'unit', e.g., L) to Base Unit (e.g., mL)
+    double sizeInBaseUnits = purchaseSize * conversionFactor;
+    
+    if (sizeInBaseUnits == 0) return 0;
+    return unitCost / sizeInBaseUnits;
+  }
 
-  /// Total value of current stock (quantity in purchased units × cost per unit)
-  double get totalValue => displayQuantity * unitCost;
+  /// ✅ FIX 2: Total Value
+  /// Logic: (Total Quantity / Bottle Size) * Cost per Bottle
+  double get totalValue {
+    if (purchaseSize == 0) return 0;
+    return (displayQuantity / purchaseSize) * unitCost;
+  }
 
   // ──────────────── SERIALIZATION ────────────────
   factory IngredientModel.fromJson(Map<String, dynamic> json) {
@@ -102,6 +117,7 @@ class IngredientModel extends HiveObject {
       conversionFactor: (json['conversionFactor'] ?? preset?['factor'] ?? 1).toDouble(),
       isCustomConversion: json['isCustomConversion'] ?? false,
       unitCost: (json['unitCost'] ?? 0).toDouble(),
+      purchaseSize: (json['purchaseSize'] ?? 1.0).toDouble(),
     );
   }
 
@@ -117,6 +133,7 @@ class IngredientModel extends HiveObject {
         'conversionFactor': conversionFactor,
         'isCustomConversion': isCustomConversion,
         'unitCost': unitCost,
+        'purchaseSize': purchaseSize,
       };
 
   // ──────────────── UTILITIES ────────────────
@@ -131,6 +148,7 @@ class IngredientModel extends HiveObject {
     required double quantity,
     double reorderLevel = 0,
     double unitCost = 0.0,
+    double purchaseSize = 1.0,
   }) {
     final preset = _autoConversionPresets[unit];
     return IngredientModel(
@@ -144,6 +162,7 @@ class IngredientModel extends HiveObject {
       baseUnit: preset?['base'] ?? unit,
       conversionFactor: preset?['factor'] ?? 1.0,
       unitCost: unitCost,
+      purchaseSize: purchaseSize,
     );
   }
 }
