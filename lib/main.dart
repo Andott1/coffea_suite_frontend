@@ -1,8 +1,8 @@
 /// <<FILE: lib/main.dart>>
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ Import Bloc
 import 'core/services/hive_service.dart';
-import 'core/services/session_user.dart'; // Import SessionUser
+import 'core/bloc/auth/auth_bloc.dart'; // ✅ Import AuthBloc
 import 'config/theme_config.dart';
 
 // Screens
@@ -12,17 +12,17 @@ import 'screens/admin/admin_base_screen.dart';
 import 'screens/inventory/inventory_base_screen.dart';
 import 'screens/attendance/attendance_base_screen.dart';
 
+import 'screens/pos/bloc/pos_bloc.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await HiveService.init();
 
   runApp(
-    MultiProvider(
+    MultiBlocProvider(
       providers: [
-        // Replaced RoleConfig with SessionUserNotifier
-        ChangeNotifierProvider<SessionUserNotifier>.value(
-          value: SessionUserNotifier.instance
-        ),
+        BlocProvider<AuthBloc>(create: (_) => AuthBloc()),
+        BlocProvider<PosBloc>(create: (_) => PosBloc()), // ✅ Add POS Bloc
       ],
       child: const CoffeaSuiteApp(),
     ),

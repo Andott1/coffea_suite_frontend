@@ -6,6 +6,11 @@ import '../../core/services/session_user.dart'; // Updated import
 import 'admin_ingredient_tab.dart';
 import 'admin_product_tab.dart';
 
+import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ Import Bloc
+import '../../core/bloc/auth/auth_bloc.dart';      // ✅ Import AuthBloc
+import '../../core/bloc/auth/auth_state.dart';     // ✅ Import AuthState
+import '../../core/models/user_model.dart';        // ✅ Import UserRoleLevel
+
 class AdminBaseScreen extends StatefulWidget {
   const AdminBaseScreen({super.key});
 
@@ -58,14 +63,16 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
   @override
   Widget build(BuildContext context) {
     // Listen to session changes
-    return Consumer<SessionUserNotifier>(
-      builder: (context, notifier, child) {
-        // Reactive Security Check
-        if (!SessionUser.isAdmin) {
-           // If user switches to Employee via TopBar while on this screen, kick them out
+    return BlocBuilder<AuthBloc, AuthState>(
+      builder: (context, state) {
+        
+        if (state is! AuthAuthenticated || state.user.role != UserRoleLevel.admin) {
+           // If user logs out or switches to non-admin, kick them out
            WidgetsBinding.instance.addPostFrameCallback((_) {
              if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
            });
+           // Return loading/empty while redirecting
+           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
         return Scaffold(

@@ -27,20 +27,4 @@ class SessionUser {
       _current?.role == UserRoleLevel.admin; // Managers also include Admins usually, or strictly separation? 
                                              // Based on your request: Admin > Manager > Employee
 }
-
-class SessionUserNotifier extends ChangeNotifier {
-  static final SessionUserNotifier instance = SessionUserNotifier._internal();
-  SessionUserNotifier._internal();
-
-  /// Updates the session and notifies all listeners (UI rebuilds)
-  void login(UserModel user) {
-    SessionUser.set(user);
-    notifyListeners();
-  }
-
-  void logout() {
-    SessionUser.clear();
-    notifyListeners();
-  }
-}
 /// <<END FILE>>
