@@ -8,6 +8,7 @@ import '../../core/services/session_user.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/widgets/container_card_titled.dart';
 import '../../core/widgets/login_dialog.dart'; // import login dialog
+import 'package:package_info_plus/package_info_plus.dart';
 
 class StartupScreen extends StatefulWidget {
   const StartupScreen({super.key});
@@ -17,16 +18,28 @@ class StartupScreen extends StatefulWidget {
 }
 
 class _StartupScreenState extends State<StartupScreen> {
+  String _version = "";
 
   @override
   void initState() {
     super.initState();
+    _loadVersion();
     // 1. Trigger Login Dialog on startup if not logged in
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!SessionUser.isLoggedIn) {
         _showStartupLogin();
       }
     });
+  }
+
+  void _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if(mounted) {
+      setState(() {
+        // Output example: "v1.0.0 (Build 1)"
+        _version = "v${info.version} (Build ${info.buildNumber})";
+      });
+    }
   }
 
   void _showStartupLogin() async {
@@ -134,7 +147,7 @@ class _StartupScreenState extends State<StartupScreen> {
                     ),
                     child: Center(
                       child: Text(
-                        "v1.0.2i   •   Coffea System Suite   •   ${isLoggedIn ? 'Logged in as ${user!.username}' : 'Not Logged In'}",
+                        "$_version   •   Coffea System Suite",
                         style: FontConfig.caption(context),
                       ),
                     ),

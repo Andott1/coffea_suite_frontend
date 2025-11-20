@@ -31,11 +31,28 @@ android {
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+        getByName("release") {
+            // ✅ Kotlin syntax for signing config
             signingConfig = signingConfigs.getByName("debug")
         }
+    }
+
+    // ✅ Auto-Rename APK Logic (Kotlin DSL)
+    applicationVariants.all {
+        val variant = this
+        variant.outputs
+            .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
+            .forEach { output ->
+                val appName = "CoffeaPOS"
+                val versionName = variant.versionName
+                val versionCode = variant.versionCode
+                
+                // Construct the new name
+                val newName = "${appName}_v${versionName}_build${versionCode}.apk"
+                
+                // Set the output filename
+                output.outputFileName = newName
+            }
     }
 }
 
