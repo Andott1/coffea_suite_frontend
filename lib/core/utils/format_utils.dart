@@ -11,6 +11,17 @@ class FormatUtils {
     );
     return formatter.format(value);
   }
+
+  /// ✅ NEW: Formats quantity to show decimals only when needed.
+  /// 1.00 -> "1"
+  /// 1.50 -> "1.50"
+  /// 1.75 -> "1.75"
+  static String formatQuantity(double value) {
+    if (value % 1 == 0) {
+      return value.toInt().toString();
+    }
+    return value.toStringAsFixed(2);
+  }
 }
 
 /// Live currency input formatter that auto-adds commas while typing.

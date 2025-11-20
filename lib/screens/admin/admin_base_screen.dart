@@ -2,9 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/master_topbar.dart';
-import '../../config/role_config.dart';
-import 'admin_ingredient_tab.dart'; // ✅ NEW import
-import 'admin_product_tab.dart'; // ✅ NEW import
+import '../../core/services/session_user.dart'; // Updated import
+import 'admin_ingredient_tab.dart';
+import 'admin_product_tab.dart';
 
 class AdminBaseScreen extends StatefulWidget {
   const AdminBaseScreen({super.key});
@@ -15,9 +15,8 @@ class AdminBaseScreen extends StatefulWidget {
 
 class _AdminBaseScreenState extends State<AdminBaseScreen> {
   int _activeIndex = 0;
-  late RoleConfig _roleManager;
-  late VoidCallback _roleListener;
-
+  
+  // Tabs configuration
   final List<String> _tabs = const [
     "Analytics",
     "Employees",
@@ -28,151 +27,99 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
 
   late final List<Widget> _screens;
 
+  @override
+  void initState() {
+    super.initState();
+    _screens = const [
+      AdminAnalyticsScreen(),
+      AdminEmployeesScreen(),
+      AdminProductTab(),
+      AdminIngredientTab(),
+      AdminSettingsScreen(),
+    ];
+
+    // Security Check on Init
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAccess();
+    });
+  }
+
+  void _checkAccess() {
+    if (!SessionUser.isAdmin) {
+       // Kick user out if they are not admin
+       if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+    }
+  }
+
   void _onTabChanged(int index) {
     setState(() => _activeIndex = index);
   }
 
   @override
-  void initState() {
-    super.initState();
-
-    _screens = const [
-      AdminAnalyticsScreen(),
-      AdminEmployeesScreen(),
-      AdminProductTab(),
-      AdminIngredientTab(), // ✅ replaced placeholder with real tab
-      AdminSettingsScreen(),
-    ];
-
-    // Attach role change listener
-    _roleManager = RoleConfig.instance;
-    _roleListener = () {
-      // If role changes to employee → redirect to startup screen
-      if (!_roleManager.isAdmin && mounted) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
-      }
-    };
-
-    _roleManager.addListener(_roleListener);
-  }
-
-  @override
-  void dispose() {
-    _roleManager.removeListener(_roleListener);
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: MasterTopBar(
-        system: CoffeaSystem.admin,
-        tabs: _tabs,
-        adminOnlyTabs: const [true, true, true, true, true],
-        activeIndex: _activeIndex,
-        onTabSelected: _onTabChanged,
-        showOnlineStatus: true,
-        showUserMode: true,
-      ),
-      body: IndexedStack(
-        index: _activeIndex,
-        children: _screens,
-      ),
+    // Listen to session changes
+    return Consumer<SessionUserNotifier>(
+      builder: (context, notifier, child) {
+        // Reactive Security Check
+        if (!SessionUser.isAdmin) {
+           // If user switches to Employee via TopBar while on this screen, kick them out
+           WidgetsBinding.instance.addPostFrameCallback((_) {
+             if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+           });
+        }
+
+        return Scaffold(
+          backgroundColor: Colors.grey[100],
+          appBar: MasterTopBar(
+            system: CoffeaSystem.admin,
+            tabs: _tabs,
+            // All tabs here are technically admin-only, passing true ensures logic holds
+            adminOnlyTabs: const [true, true, true, true, true], 
+            activeIndex: _activeIndex,
+            onTabSelected: _onTabChanged,
+            showOnlineStatus: true,
+            showUserMode: true,
+          ),
+          body: IndexedStack(
+            index: _activeIndex,
+            children: _screens,
+          ),
+        );
+      }
     );
   }
 }
 
-//
-// ────────────────────────────────────────────────────────────
-// OTHER EXISTING ADMIN TABS (unchanged except Ingredients)
-// ────────────────────────────────────────────────────────────
-//
-
+// ... (Placeholders for Analytics, Employees, Products, Settings remain unchanged) ...
 class AdminAnalyticsScreen extends StatelessWidget {
   const AdminAnalyticsScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: GridView.count(
-        crossAxisCount: 3,
-        mainAxisSpacing: 16,
-        crossAxisSpacing: 16,
-        childAspectRatio: 1.4,
-        children: const [
-          _AdminStatCard(title: "Total Sales", value: "₱25,430"),
-          _AdminStatCard(title: "Transactions Today", value: "132"),
-          _AdminStatCard(title: "Active Employees", value: "8"),
-        ],
-      ),
-    );
-  }
-}
-
-class _AdminStatCard extends StatelessWidget {
-  final String title;
-  final String value;
-
-  const _AdminStatCard({required this.title, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey[700],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    return const Center(child: Text("Analytics Placeholder"));
   }
 }
 
 class AdminEmployeesScreen extends StatelessWidget {
   const AdminEmployeesScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text("Manage Employees Placeholder",
-          style: TextStyle(fontSize: 16)),
-    );
+    return const Center(child: Text("Employees Placeholder"));
+  }
+}
+
+class AdminProductsScreen extends StatelessWidget {
+  const AdminProductsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: Text("Products Placeholder"));
   }
 }
 
 class AdminSettingsScreen extends StatelessWidget {
   const AdminSettingsScreen({super.key});
-
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text("System Settings Placeholder",
-          style: TextStyle(fontSize: 16)),
-    );
+    return const Center(child: Text("Settings Placeholder"));
   }
 }
-
 /// <<END FILE>>

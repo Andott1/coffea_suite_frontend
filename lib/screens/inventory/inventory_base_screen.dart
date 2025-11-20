@@ -2,6 +2,9 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
+import 'inventory_list_tab.dart'; 
+import 'inventory_dashboard_tab.dart'; // ✅ NEW
+import 'inventory_logs_tab.dart';      // ✅ NEW
 
 class InventoryBaseScreen extends StatefulWidget {
   const InventoryBaseScreen({super.key});
@@ -25,15 +28,15 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
   }
 
   final List<String> _tabs = const [
-    "Overview",
-    "Products",
-    "Stock Adjustments",
+    "Dashboard",      // ✅ Tab 0
+    "Inventory List", // ✅ Tab 1
+    "Logs",           // ✅ Tab 2
   ];
 
   final List<Widget> _screens = const [
-    InventoryOverviewScreen(),
-    InventoryProductsScreen(),
-    InventoryAdjustmentsScreen(),
+    InventoryDashboardTab(), // ✅ Dashboard
+    InventoryListTab(),      // ✅ Inventory List
+    InventoryLogsTab(),      // ✅ Logs Table
   ];
 
   @override
@@ -43,7 +46,8 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
       appBar: MasterTopBar(
         system: CoffeaSystem.inventory,
         tabs: _tabs,
-        adminOnlyTabs: const [false, false, true],
+        // Managers/Admins can see everything in Inventory usually
+        adminOnlyTabs: const [false, false, false], 
         activeIndex: _activeIndex,
         onTabSelected: _onTabChanged,
         showOnlineStatus: true,
@@ -56,107 +60,4 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
     );
   }
 }
-
-/// -----------------------------
-/// TAB: Overview
-/// -----------------------------
-class InventoryOverviewScreen extends StatelessWidget {
-  const InventoryOverviewScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Inventory Overview",
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              color: Colors.white,
-              child: const Center(
-                child: Text(
-                  "Analytics and Stock Summary Placeholder",
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// -----------------------------
-/// TAB: Products
-/// -----------------------------
-class InventoryProductsScreen extends StatelessWidget {
-  const InventoryProductsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          TextField(
-            decoration: InputDecoration(
-              hintText: "Search product...",
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              filled: true,
-              fillColor: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              color: Colors.white,
-              child: const Center(
-                child: Text(
-                  "Inventory Product Table Placeholder",
-                  style: TextStyle(fontSize: 16),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// -----------------------------
-/// TAB: Stock Adjustments
-/// -----------------------------
-class InventoryAdjustmentsScreen extends StatelessWidget {
-  const InventoryAdjustmentsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Container(
-        width: double.infinity,
-        color: Colors.white,
-        child: const Center(
-          child: Text(
-            "Stock Adjustment Form Placeholder",
-            style: TextStyle(fontSize: 16),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// <<END FILE>>

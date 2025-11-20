@@ -1,24 +1,28 @@
 /// <<FILE: lib/main.dart>>
-import 'package:coffea_suite_frontend/core/services/hive_service.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
-import 'config/role_config.dart';
+import 'core/services/hive_service.dart';
+import 'core/services/session_user.dart'; // Import SessionUser
+import 'config/theme_config.dart';
+
+// Screens
 import 'screens/startup/startup_screen.dart';
 import 'screens/pos/pos_base_screen.dart';
 import 'screens/admin/admin_base_screen.dart';
 import 'screens/inventory/inventory_base_screen.dart';
 import 'screens/attendance/attendance_base_screen.dart';
-import 'config/theme_config.dart';
 
 void main() async {
-  //debugPaintSizeEnabled = true;
   WidgetsFlutterBinding.ensureInitialized();
   await HiveService.init();
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider<RoleConfig>.value(value: RoleConfig.instance),
+        // Replaced RoleConfig with SessionUserNotifier
+        ChangeNotifierProvider<SessionUserNotifier>.value(
+          value: SessionUserNotifier.instance
+        ),
       ],
       child: const CoffeaSuiteApp(),
     ),
