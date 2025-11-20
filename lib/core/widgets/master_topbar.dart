@@ -6,6 +6,7 @@ import '../../config/theme_config.dart';
 import '../../core/services/session_user.dart';
 import '../../core/models/user_model.dart';
 import 'login_dialog.dart'; 
+import 'basic_button.dart';
 
 // ... (CoffeaSystem Enum and TopBarLayout class remain unchanged) ...
 enum CoffeaSystem { startup, pos, attendance, inventory, admin }
@@ -230,63 +231,23 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                         const SizedBox(width: 12),
 
                         if (showUserMode)
-                          Material(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
-                              onTap: () {
-                                // 2. OPEN SWITCH USER DIALOG
-                                showDialog(
-                                  context: context, 
-                                  barrierDismissible: true,
-                                  builder: (_) => const LoginDialog(isStartup: false),
-                                );
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: ThemeConfig.primaryGreen,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isAdmin ? Icons.admin_panel_settings : Icons.person, 
-                                      size: 18, 
-                                      color: ThemeConfig.primaryGreen
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          userLabel,
-                                          style: const TextStyle(
-                                            fontSize: 12, 
-                                            fontWeight: FontWeight.bold,
-                                            color: ThemeConfig.primaryGreen
-                                          ),
-                                        ),
-                                        Text(
-                                          roleLabel,
-                                          style: const TextStyle(
-                                            fontSize: 10, 
-                                            color: ThemeConfig.secondaryGreen
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.autorenew, size: 16, color: ThemeConfig.midGray),
-                                  ],
-                                ),
-                              ),
-                            ),
+                          // ✅ FIX: Using BasicButton for standard styling
+                          BasicButton(
+                            label: "$userLabel • $roleLabel",
+                            icon: isAdmin ? Icons.admin_panel_settings : Icons.person,
+                            type: AppButtonType.secondary,
+                            fullWidth: false,
+                            height: 40, // Compact for TopBar
+                            fontSize: 14,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            onPressed: () {
+                              FocusScope.of(context).unfocus();
+                              showDialog(
+                                context: context,
+                                barrierDismissible: true,
+                                builder: (_) => const LoginDialog(isStartup: false),
+                              );
+                            },
                           ),
                       ],
                     ),

@@ -19,6 +19,8 @@ class BasicButton extends StatelessWidget {
   final double height;
   final EdgeInsetsGeometry padding;
 
+  final double? fontSize;
+
   const BasicButton({
     super.key,
     required this.label,
@@ -28,6 +30,7 @@ class BasicButton extends StatelessWidget {
     this.fullWidth = true,
     this.height = 48,
     this.padding = const EdgeInsets.symmetric(horizontal: 20),
+    this.fontSize,
   });
 
   @override
@@ -141,7 +144,7 @@ class BasicButton extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (iconData != null) ...[
-          Icon(iconData, color: textColor, size: 20),
+          Icon(iconData, color: textColor, size: fontSize != null ? fontSize! + 4 : 20),
           const SizedBox(width: 8),
         ],
         Text(
@@ -149,6 +152,7 @@ class BasicButton extends StatelessWidget {
           style: FontConfig.buttonLarge(context).copyWith(
             color: textColor,
             fontWeight: FontWeight.w600,
+            fontSize: fontSize,
           ),
         ),
       ],

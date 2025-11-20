@@ -34,6 +34,8 @@ class DialogBoxTitled extends StatelessWidget {
 
   final List<Widget>? actions;
 
+  final bool dismissOnOutsideTap;
+
   const DialogBoxTitled({
     super.key,
     required this.title,
@@ -43,6 +45,7 @@ class DialogBoxTitled extends StatelessWidget {
     this.width = 500,
     this.padding = const EdgeInsets.all(20),
     this.titleSpacing = 10,
+    this.dismissOnOutsideTap = true,
   });
 
   @override
@@ -50,7 +53,7 @@ class DialogBoxTitled extends StatelessWidget {
     return DialogBox(
       width: width,
       padding: padding,
-      dismissOnOutsideTap: true,
+      dismissOnOutsideTap: dismissOnOutsideTap,
 
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -74,8 +74,8 @@ class _LoginDialogState extends State<LoginDialog> {
   Widget build(BuildContext context) {
     return DialogBoxTitled(
       title: "User Login",
-      subtitle: "Enter your credentials to access the system",
       width: 400,
+      dismissOnOutsideTap: !widget.isStartup,
       child: Form(
         key: _formKey,
         child: Column(
