@@ -18,7 +18,7 @@ Future<void> seedUsers() async {
 
     print("⏳ Seeding Users...");
 
-    final jsonString = await rootBundle.loadString('assets/data/users.json');
+    final jsonString = await rootBundle.loadString('assets/data/users_list.json');
     final List<dynamic> data = jsonDecode(jsonString);
 
     int count = 0;
