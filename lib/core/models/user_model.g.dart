@@ -24,6 +24,7 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
       pinHash: fields[4] as String,
       role: fields[5] as UserRoleLevel,
       isActive: fields[6] as bool,
+      hourlyRate: fields[9] as double,
       createdAt: fields[7] as DateTime?,
       updatedAt: fields[8] as DateTime?,
     );
@@ -32,7 +33,7 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
   @override
   void write(BinaryWriter writer, UserModel obj) {
     writer
-      ..writeByte(9)
+      ..writeByte(10)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -50,7 +51,9 @@ class UserModelAdapter extends TypeAdapter<UserModel> {
       ..writeByte(7)
       ..write(obj.createdAt)
       ..writeByte(8)
-      ..write(obj.updatedAt);
+      ..write(obj.updatedAt)
+      ..writeByte(9)
+      ..write(obj.hourlyRate);
   }
 
   @override
