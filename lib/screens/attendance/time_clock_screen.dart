@@ -9,6 +9,7 @@ import '../../config/theme_config.dart';
 import '../../core/models/user_model.dart';
 import '../../core/models/attendance_log_model.dart';
 import '../../core/services/hive_service.dart';
+import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/utils/hashing_utils.dart';
 import '../../core/widgets/basic_button.dart';
@@ -153,6 +154,24 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
       );
       await HiveService.attendanceBox.put(newLog.id, newLog);
       _todayLog = newLog;
+
+      final logToSync = _todayLog ?? newLog;
+
+      SupabaseSyncService.addToQueue(
+        table: 'attendance_logs',
+        action: 'UPSERT',
+        data: {
+          'id': logToSync.id,
+          'user_id': logToSync.userId,
+          'date': logToSync.date.toIso8601String(),
+          'time_in': logToSync.timeIn.toIso8601String(),
+          'time_out': logToSync.timeOut?.toIso8601String(),
+          'break_start': logToSync.breakStart?.toIso8601String(),
+          'break_end': logToSync.breakEnd?.toIso8601String(),
+          'status': logToSync.status.name,
+        }
+      );
+
       _showSuccess("Timed In at ${DateFormat('hh:mm a').format(now)}");
     } 
     
