@@ -294,6 +294,9 @@ class SupabaseSyncService {
           referenceNo: map['reference_no'],
           isVoid: map['is_void'] ?? false,
           status: statusEnum,
+          
+          // ✅ RESTORE ORDER TYPE
+          orderType: map['order_type'] ?? 'dineIn', 
         );
         await txnBox.put(txn.id, txn);
       }
@@ -395,6 +398,10 @@ class SupabaseSyncService {
         'status': item.status.name,
         'is_void': item.isVoid,
         'reference_no': item.referenceNo,
+        
+        // ✅ PUSH ORDER TYPE
+        'order_type': item.orderType,
+
         'items': item.items.map((i) => {
           'product_name': i.product.name,
           'variant': i.variant,

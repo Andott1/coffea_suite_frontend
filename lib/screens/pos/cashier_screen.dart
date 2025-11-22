@@ -18,6 +18,8 @@ import '../../core/models/transaction_model.dart'; // ✅ Import
 
 import '../../core/widgets/basic_button.dart'; // Used in dialog
 
+import '../../core/services/supabase_sync_service.dart';
+
 import 'product_builder_dialog.dart';
 import 'payment_screen.dart';
 
@@ -59,9 +61,92 @@ class _CashierScreenState extends State<CashierScreen> {
   // ──────────────── QUEUE LOGIC ────────────────
   
   void _updateStatus(TransactionModel txn, OrderStatus newStatus) async {
+    // 1. Update Local Hive
     txn.status = newStatus;
-    await txn.save();
+    await txn.save(); 
+
+    // 2. ✅ Sync to Supabase
+    SupabaseSyncService.addToQueue(
+      table: 'transactions',
+      action: 'UPSERT',
+      data: {
+        'id': txn.id,
+        'date_time': txn.dateTime.toIso8601String(),
+        'total_amount': txn.totalAmount,
+        'tendered_amount': txn.tenderedAmount,
+        'payment_method': txn.paymentMethod,
+        'cashier_name': txn.cashierName,
+        'reference_no': txn.referenceNo,
+        'is_void': txn.isVoid,
+        
+        // ✅ SYNC UPDATED STATUS
+        'status': newStatus.name, 
+        
+        // Don't forget order_type!
+        'order_type': txn.orderType, 
+
+        // We must resend items because UPSERT replaces the row
+        'items': txn.items.map((i) => {
+          'product_name': i.product.name,
+          'variant': i.variant,
+          'qty': i.quantity,
+          'price': i.price,
+          'total': i.total
+        }).toList(),
+      }
+    );
+
     if(mounted) Navigator.pop(context); // Close dialog
+  }
+
+  void _voidTransaction(TransactionModel txn) async {
+    // 1. Create a new copy with isVoid = true
+    final newTxn = TransactionModel(
+      id: txn.id,
+      dateTime: txn.dateTime,
+      items: txn.items,
+      totalAmount: txn.totalAmount,
+      tenderedAmount: txn.tenderedAmount,
+      paymentMethod: txn.paymentMethod,
+      cashierName: txn.cashierName,
+      referenceNo: txn.referenceNo,
+      isVoid: true,               // ✅ FORCE TRUE
+      status: OrderStatus.voided, // ✅ FORCE STATUS
+      orderType: txn.orderType,
+    );
+
+    // 2. Replace in Local Hive (using the same key to overwrite)
+    await HiveService.transactionBox.put(txn.key, newTxn);
+
+    // 3. Sync to Supabase with correct flags
+    SupabaseSyncService.addToQueue(
+      table: 'transactions',
+      action: 'UPSERT',
+      data: {
+        'id': newTxn.id,
+        'date_time': newTxn.dateTime.toIso8601String(),
+        'total_amount': newTxn.totalAmount,
+        'tendered_amount': newTxn.tenderedAmount,
+        'payment_method': newTxn.paymentMethod,
+        'cashier_name': newTxn.cashierName,
+        'reference_no': newTxn.referenceNo,
+        'is_void': true, // ✅ Explicitly sending TRUE
+        'status': 'voided',
+        'order_type': newTxn.orderType,
+        'items': newTxn.items.map((i) => {
+          'product_name': i.product.name,
+          'variant': i.variant,
+          'qty': i.quantity,
+          'price': i.price,
+          'total': i.total
+        }).toList(),
+      }
+    );
+
+    if (mounted) {
+      Navigator.pop(context); // Close dialog
+      DialogUtils.showToast(context, "Order Voided", accentColor: Colors.red);
+    }
   }
 
   void _showOrderOptions(TransactionModel txn) {
@@ -97,7 +182,7 @@ class _CashierScreenState extends State<CashierScreen> {
               
               _actionBtn("Void Transaction", Colors.red, () {
                  // Future: Add logic to refund stock?
-                 _updateStatus(txn, OrderStatus.voided);
+                 _voidTransaction(txn);
                  DialogUtils.showToast(context, "Order Voided");
               }),
             ],

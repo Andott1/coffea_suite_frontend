@@ -16,6 +16,9 @@ import '../models/cart_item_model.dart'; // ✅ Import
 import '../models/transaction_model.dart'; // ✅ Import
 import '../models/attendance_log_model.dart'; // ✅ Import
 
+import 'package:connectivity_plus/connectivity_plus.dart'; // ✅ Check internet
+import 'supabase_sync_service.dart'; // ✅ Perform restore
+
 class HiveService {
   static bool _initialized = false;
 
@@ -68,23 +71,62 @@ class HiveService {
     await Hive.openBox<TransactionModel>('transactions');
     await Hive.openBox<AttendanceLogModel>('attendance_logs');
 
-    // ✅ Seed data if empty
-    if (ingredientBox.isEmpty) {
-      await seedIngredients();
-    }
-    if (productBox.isEmpty) {
-      await seedProducts();
-    }
-    if (usageBox.isEmpty) {
-      await seedIngredientUsage();
-    }
-    if (userBox.isEmpty) {
-      await seedUsers();
-    }
+    await _smartSeed(userBox, ingredientBox, productBox, usageBox);
 
     _initialized = true;
 
     print('[HiveService] ✅ Hive initialized, adapters registered, and boxes ready.');
+  }
+
+  // ──────────────── SMART SEEDING STRATEGY ────────────────
+  static Future<void> _smartSeed(
+    Box<UserModel> userBox,
+    Box<IngredientModel> ingredientBox,
+    Box<ProductModel> productBox,
+    Box<IngredientUsageModel> usageBox,
+  ) async {
+    // 1. Only run if critical data (Users) is missing.
+    if (userBox.isNotEmpty) return;
+
+    print('[HiveService] 🆕 Fresh Install Detected.');
+
+    // 2. Check Connectivity
+    final connectivity = await Connectivity().checkConnectivity();
+    final isOnline = !connectivity.contains(ConnectivityResult.none);
+
+    bool restoreSuccess = false;
+
+    // 3. Try Cloud Restore if Online
+    if (isOnline) {
+      print('[HiveService] ☁️ Online detected. Attempting Cloud Restore...');
+      try {
+        await SupabaseSyncService.restoreFromCloud();
+        
+        // Verify if data actually came in. 
+        // If Supabase is empty (new project), userBox will still be empty.
+        if (userBox.isNotEmpty) {
+          restoreSuccess = true;
+          print('[HiveService] ✅ Cloud Restore Successful.');
+        } else {
+          print('[HiveService] ⚠️ Cloud DB is empty.');
+        }
+      } catch (e) {
+        print('[HiveService] ❌ Cloud Restore Failed: $e');
+        // Fallthrough to local seed
+      }
+    } else {
+      print('[HiveService] 🔌 Offline detected. Skipping Cloud Restore.');
+    }
+
+    // 4. Fallback: Local Seeding
+    // Run this if we are Offline OR if Cloud Restore failed/returned empty
+    if (!restoreSuccess && userBox.isEmpty) {
+      print('[HiveService] 🌱 Executing Local Fallback Seeding...');
+      if (ingredientBox.isEmpty) await seedIngredients();
+      if (productBox.isEmpty) await seedProducts();
+      if (usageBox.isEmpty) await seedIngredientUsage();
+      if (userBox.isEmpty) await seedUsers();
+    }
   }
 
   // Accessors

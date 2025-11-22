@@ -21,14 +21,14 @@ import 'screens/pos/bloc/pos_bloc.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1. Initialize Local Database (Hive)
-  await HiveService.init();
-
-  // 2. Initialize Supabase (Cloud Sync)
+  // 1. Initialize Supabase (Cloud Sync)
   await Supabase.initialize(
     url: 'https://vvbjuezcwyakrnkrmgon.supabase.co', 
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2Ymp1ZXpjd3lha3Jua3JtZ29uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMzI1ODUsImV4cCI6MjA3ODYwODU4NX0.MBloBPZdwfjit4N5heAxdWwRMOGHF3mPHsTkk-zZkWM', 
   );
+
+  // 2. Initialize Local Database (Hive)
+  await HiveService.init();
 
   // 3. Start the Sync Service (Background Queue)
   await SupabaseSyncService.init();
