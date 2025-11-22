@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ Import 1
+import 'core/bloc/connectivity/connectivity_cubit.dart';
 
 import 'core/services/hive_service.dart';
 import 'core/services/supabase_sync_service.dart'; // ✅ Import 2
@@ -37,6 +38,7 @@ void main() async {
       providers: [
         BlocProvider<AuthBloc>(create: (_) => AuthBloc()),
         BlocProvider<PosBloc>(create: (_) => PosBloc()),
+        BlocProvider<ConnectivityCubit>(create: (_) => ConnectivityCubit()),
       ],
       child: const CoffeaSuiteApp(),
     ),

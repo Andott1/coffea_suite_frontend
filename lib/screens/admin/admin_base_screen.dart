@@ -10,7 +10,8 @@ import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ Import Bloc
 import '../../core/bloc/auth/auth_bloc.dart';      // ✅ Import AuthBloc
 import '../../core/bloc/auth/auth_state.dart';     // ✅ Import AuthState
 import '../../core/models/user_model.dart';
-import 'employee_management_screen.dart';        // ✅ Import UserRoleLevel
+import 'employee_management_screen.dart';
+import 'settings_screen.dart';        // ✅ Import UserRoleLevel
 
 class AdminBaseScreen extends StatefulWidget {
   const AdminBaseScreen({super.key});
@@ -41,7 +42,7 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
       EmployeeManagementScreen(),
       AdminProductTab(),
       AdminIngredientTab(),
-      AdminSettingsScreen(),
+      SettingsScreen(),
     ];
 
     // Security Check on Init
@@ -112,14 +113,6 @@ class AdminProductsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(child: Text("Products Placeholder"));
-  }
-}
-
-class AdminSettingsScreen extends StatelessWidget {
-  const AdminSettingsScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text("Settings Placeholder"));
   }
 }
 /// <<END FILE>>

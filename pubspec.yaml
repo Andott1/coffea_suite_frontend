@@ -1,7 +1,7 @@
 name: coffea_suite_frontend
 description: "Coffea Suite POS and Inventory Management System"
 publish_to: 'none'
-version: 1.2.0+3
+version: 1.2.2+5
 
 environment:
   sdk: ^3.8.0
