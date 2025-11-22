@@ -1,5 +1,6 @@
 /// <<FILE: lib/screens/pos/bloc/pos_bloc.dart>>
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../core/services/supabase_sync_service.dart';
 import 'pos_event.dart';
 import 'pos_state.dart';
 import '../../../core/models/cart_item_model.dart';
@@ -93,6 +94,28 @@ class PosBloc extends Bloc<PosEvent, PosState> {
 
     // 2. Save to Hive History
     await HiveService.transactionBox.add(transaction);
+
+    SupabaseSyncService.addToQueue(
+      table: 'transactions',
+      action: 'UPSERT',
+      data: {
+        'id': transaction.id,
+        'date_time': transaction.dateTime.toIso8601String(),
+        'total_amount': transaction.totalAmount,
+        'payment_method': transaction.paymentMethod,
+        'cashier_name': transaction.cashierName,
+        'status': transaction.status.name, // 'pending', 'completed'
+        'is_void': transaction.isVoid,
+        // Store items as JSON string for simple history reference
+        'items': transaction.items.map((i) => {
+          'product_name': i.product.name,
+          'variant': i.variant,
+          'qty': i.quantity,
+          'price': i.price,
+          'total': i.total
+        }).toList(), 
+      }
+    );
 
     // 3. Deduct Inventory Stock
     await StockLogic.deductStock(state.cart, transactionId);

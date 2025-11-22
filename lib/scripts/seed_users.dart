@@ -47,6 +47,7 @@ Future<void> seedUsers() async {
         pinHash: HashingUtils.hashPin(item['pin']),
         role: role,
         isActive: true,
+        hourlyRate: role == UserRoleLevel.admin ? 0.0 : 65.0,
       );
 
       await userBox.put(user.id, user);

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
 import '../../core/models/ingredient_model.dart';
+import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/format_utils.dart';
 import '../../core/widgets/dialog_box_titled.dart';
 import '../../core/widgets/basic_button.dart';
@@ -94,6 +95,27 @@ class _StockAdjustmentDialogState extends State<StockAdjustmentDialog> {
     widget.ingredient.quantity += qtyToAdd;
     widget.ingredient.updatedAt = DateTime.now();
     await widget.ingredient.save();
+
+    SupabaseSyncService.addToQueue(
+      table: 'ingredients',
+      action: 'UPSERT',
+      data: {
+        'id': widget.ingredient.id,
+        'name': widget.ingredient.name,
+        'category': widget.ingredient.category,
+        'unit': widget.ingredient.unit,
+        'quantity': widget.ingredient.quantity,
+
+        // ✅ MANUAL MAPPING TO SNAKE_CASE
+        'reorder_level': widget.ingredient.reorderLevel,
+        'unit_cost': widget.ingredient.unitCost,
+        'purchase_size': widget.ingredient.purchaseSize,
+        'base_unit': widget.ingredient.baseUnit,
+        'conversion_factor': widget.ingredient.conversionFactor,
+        'is_custom_conversion': widget.ingredient.isCustomConversion,
+        'updated_at': widget.ingredient.updatedAt.toIso8601String(),
+      },
+    );
 
     // 2. ✅ Log Transaction
     await InventoryLogService.log(

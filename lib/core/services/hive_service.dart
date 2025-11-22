@@ -14,6 +14,7 @@ import '../models/inventory_log_model.dart';
 
 import '../models/cart_item_model.dart'; // ✅ Import
 import '../models/transaction_model.dart'; // ✅ Import
+import '../models/attendance_log_model.dart'; // ✅ Import
 
 class HiveService {
   static bool _initialized = false;
@@ -51,6 +52,12 @@ class HiveService {
     if (!Hive.isAdapterRegistered(6)) {
       Hive.registerAdapter(OrderStatusAdapter());
     }
+    if (!Hive.isAdapterRegistered(30)) {
+      Hive.registerAdapter(AttendanceStatusAdapter());
+    }
+    if (!Hive.isAdapterRegistered(31)) {
+      Hive.registerAdapter(AttendanceLogModelAdapter());
+    }
 
     // Open boxes
     final ingredientBox = await Hive.openBox<IngredientModel>('ingredients');
@@ -59,6 +66,7 @@ class HiveService {
     final userBox = await Hive.openBox<UserModel>('users');
     await Hive.openBox<InventoryLogModel>('inventory_logs');
     await Hive.openBox<TransactionModel>('transactions');
+    await Hive.openBox<AttendanceLogModel>('attendance_logs');
 
     // ✅ Seed data if empty
     if (ingredientBox.isEmpty) {
@@ -75,6 +83,7 @@ class HiveService {
     }
 
     _initialized = true;
+
     print('[HiveService] ✅ Hive initialized, adapters registered, and boxes ready.');
   }
 
@@ -85,6 +94,7 @@ class HiveService {
   static Box<UserModel> get userBox => Hive.box<UserModel>('users');
   static Box<InventoryLogModel> get logsBox => Hive.box<InventoryLogModel>('inventory_logs');
   static Box<TransactionModel> get transactionBox => Hive.box<TransactionModel>('transactions');
+  static Box<AttendanceLogModel> get attendanceBox => Hive.box<AttendanceLogModel>('attendance_logs');
 
   // Maintenance
   static Future<void> clearAll() async {
@@ -94,6 +104,7 @@ class HiveService {
     await userBox.clear();
     await logsBox.clear();
     await transactionBox.clear();
+    await attendanceBox.clear();
     print('[HiveService] 🧹 All Hive boxes cleared');
   }
 

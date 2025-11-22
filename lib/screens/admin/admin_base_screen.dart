@@ -9,7 +9,9 @@ import 'admin_product_tab.dart';
 import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ Import Bloc
 import '../../core/bloc/auth/auth_bloc.dart';      // ✅ Import AuthBloc
 import '../../core/bloc/auth/auth_state.dart';     // ✅ Import AuthState
-import '../../core/models/user_model.dart';        // ✅ Import UserRoleLevel
+import '../../core/models/user_model.dart';
+import 'employee_management_screen.dart';
+import 'settings_screen.dart';        // ✅ Import UserRoleLevel
 
 class AdminBaseScreen extends StatefulWidget {
   const AdminBaseScreen({super.key});
@@ -37,10 +39,10 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
     super.initState();
     _screens = const [
       AdminAnalyticsScreen(),
-      AdminEmployeesScreen(),
+      EmployeeManagementScreen(),
       AdminProductTab(),
       AdminIngredientTab(),
-      AdminSettingsScreen(),
+      SettingsScreen(),
     ];
 
     // Security Check on Init
@@ -106,27 +108,11 @@ class AdminAnalyticsScreen extends StatelessWidget {
   }
 }
 
-class AdminEmployeesScreen extends StatelessWidget {
-  const AdminEmployeesScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text("Employees Placeholder"));
-  }
-}
-
 class AdminProductsScreen extends StatelessWidget {
   const AdminProductsScreen({super.key});
   @override
   Widget build(BuildContext context) {
     return const Center(child: Text("Products Placeholder"));
-  }
-}
-
-class AdminSettingsScreen extends StatelessWidget {
-  const AdminSettingsScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text("Settings Placeholder"));
   }
 }
 /// <<END FILE>>
