@@ -6,6 +6,7 @@ import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
 
 import '../../core/models/ingredient_model.dart';
+import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/utils/format_utils.dart';
 
@@ -92,6 +93,28 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
     );
 
     await ingredientBox.put(id, ingredient);
+
+    SupabaseSyncService.addToQueue(
+      table: 'ingredients',
+      action: 'UPSERT',
+      data: {
+        'id': ingredient.id,
+        'name': ingredient.name,
+        'category': ingredient.category,
+        'unit': ingredient.unit,
+        'quantity': ingredient.quantity,
+        
+        // ✅ MANUAL MAPPING TO SNAKE_CASE
+        'reorder_level': ingredient.reorderLevel,
+        'unit_cost': ingredient.unitCost,
+        'purchase_size': ingredient.purchaseSize,
+        'base_unit': ingredient.baseUnit,             // Map baseUnit -> base_unit
+        'conversion_factor': ingredient.conversionFactor,
+        'is_custom_conversion': ingredient.isCustomConversion,
+        'updated_at': ingredient.updatedAt.toIso8601String(),
+      },
+    );
+
     DialogUtils.showToast(context, "Ingredient added successfully!");
     _clearForm();
     setState(() {});

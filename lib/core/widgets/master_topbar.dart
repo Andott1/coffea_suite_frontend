@@ -1,9 +1,12 @@
 /// <<FILE: lib/core/widgets/master_topbar.dart>>
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth/auth_bloc.dart';
 import '../bloc/auth/auth_state.dart';
+import '../bloc/connectivity/connectivity_cubit.dart';
+
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../core/services/session_user.dart';
@@ -223,19 +226,28 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                     alignment: Alignment.centerRight,
                     child: Row(
                       children: [
+                        // ✅ UPDATED: Global Connectivity Check
                         if (showOnlineStatus)
-                          Row(
-                            children: [
-                              const Icon(Icons.wifi, size: 18, color: ThemeConfig.primaryGreen),
-                              const SizedBox(width: 4),
-                              Text(
-                                "Online",
-                                style: FontConfig.body(context).copyWith(
-                                  color: ThemeConfig.primaryGreen,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
+                          BlocBuilder<ConnectivityCubit, bool>(
+                            builder: (context, isOnline) {
+                              final color = isOnline ? ThemeConfig.primaryGreen : Colors.redAccent;
+                              final icon = isOnline ? Icons.wifi : Icons.wifi_off;
+                              final text = isOnline ? "Online" : "Offline";
+
+                              return Row(
+                                children: [
+                                  Icon(icon, size: 18, color: color),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    text,
+                                    style: FontConfig.body(context).copyWith(
+                                      color: color,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
                           ),
                         
                         const SizedBox(width: 12),

@@ -8,6 +8,7 @@ import '../../config/theme_config.dart';
 import '../../core/models/transaction_model.dart';
 import '../../core/services/hive_service.dart';
 import '../../core/services/session_user.dart'; // For Admin check
+import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/format_utils.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/widgets/basic_search_box.dart';
@@ -218,6 +219,18 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               );
               
               await HiveService.transactionBox.put(txn.key, newTxn); // Use Hive key to replace in-place
+
+              SupabaseSyncService.addToQueue(
+                table: 'transactions',
+                action: 'UPSERT',
+                data: {
+                  'id': newTxn.id,
+                  'is_void': true,
+                  'status': 'voided',
+                  'date_time': newTxn.dateTime.toIso8601String(),
+                  // ... include other required fields to satisfy table constraints if any
+                }
+              );
               
               if(mounted) {
                 Navigator.pop(ctx);

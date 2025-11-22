@@ -23,6 +23,8 @@ import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/item_card.dart';
 import '../../core/widgets/item_grid_view.dart';
 
+import '../../core/services/supabase_sync_service.dart';
+
 class AdminProductTab extends StatefulWidget {
   const AdminProductTab({super.key});
 
@@ -205,7 +207,24 @@ class _AdminProductTabState extends State<AdminProductTab> {
     // ─────────────────────────────
     // SAVE TO HIVE
     // ─────────────────────────────
-    await productBox.add(newProduct);
+    await productBox.put(newProduct.id, newProduct); // changed .add() to .put() for ID safety
+
+    // ✅ NEW: SYNC TO SUPABASE
+    SupabaseSyncService.addToQueue(
+      table: 'products',
+      action: 'UPSERT',
+      data: {
+        'id': newProduct.id,
+        'name': newProduct.name,
+        'category': newProduct.category,
+        'sub_category': newProduct.subCategory, // snake_case
+        'pricing_type': newProduct.pricingType, // snake_case
+        'prices': newProduct.prices,
+        'ingredient_usage': newProduct.ingredientUsage,
+        'available': newProduct.available,
+        'updated_at': newProduct.updatedAt.toIso8601String(),
+      },
+    );
 
     DialogUtils.showToast(context, "Product added successfully!");
 
@@ -1157,10 +1176,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
                       type: AppButtonType.secondary,
                       onPressed: () {
                         Navigator.pop(context);
-                        DialogUtils.showToast(
-                          context,
-                          "Edit feature under maintenance!",
-                        );
+                        _showEditDialog(product);
                       },
                     ),
                   ),
@@ -1170,10 +1186,22 @@ class _AdminProductTabState extends State<AdminProductTab> {
                       label: "Delete",
                       type: AppButtonType.danger,
                       onPressed: () async {
-                        await product.delete();
-                        DialogUtils.showToast(context, "${product.name} deleted.");
-                        Navigator.pop(context);
-                        setState(() {});
+                        final id = product.id; // Capture ID before deletion
+                        
+                        await product.delete(); // Delete from Hive
+
+                        // ✅ NEW: SYNC DELETE TO SUPABASE
+                        SupabaseSyncService.addToQueue(
+                          table: 'products',
+                          action: 'DELETE',
+                          data: {'id': id},
+                        );
+
+                        if (mounted) {
+                          DialogUtils.showToast(context, "${product.name} deleted.");
+                          Navigator.pop(context);
+                          setState(() {});
+                        }
                       },
                     ),
                   ),
@@ -1421,6 +1449,103 @@ class _AdminProductTabState extends State<AdminProductTab> {
     );
   }
 
+  Future<void> _showAddIngredientForEdit(
+    BuildContext context, 
+    StateSetter setStateDialog, 
+    Map<String, Map<String, TextEditingController>> editIngredientCtrls,
+    List<String> sizes
+  ) async {
+    final ingredientBox = HiveService.ingredientBox;
+    final allIngredients = ingredientBox.values.map((i) => i.name).toSet().toList();
+    final dropdownCtrl = TextEditingController();
+
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (_) => DialogBoxTitled(
+        title: "Add Ingredient",
+        width: 380,
+        child: Column(
+          children: [
+            HybridDropdownField(
+              label: "Search Ingredient",
+              controller: dropdownCtrl,
+              options: allIngredients,
+            ),
+            const SizedBox(height: 16),
+            BasicButton(
+              label: "Add",
+              type: AppButtonType.primary,
+              onPressed: () {
+                if (dropdownCtrl.text.isEmpty) return;
+                Navigator.pop(context, dropdownCtrl.text.trim());
+              },
+            )
+          ],
+        ),
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      if (editIngredientCtrls.containsKey(result)) {
+        DialogUtils.showToast(context, "Ingredient already exists.");
+        return;
+      }
+      
+      // Initialize controllers for all current sizes
+      setStateDialog(() {
+        editIngredientCtrls[result] = {};
+        for (final size in sizes) {
+          editIngredientCtrls[result]![size] = TextEditingController();
+        }
+      });
+    }
+  }
+
+  // ✅ Helper to Remove Ingredient in Edit Mode
+  Future<void> _showManageIngredientsForEdit(
+    BuildContext context,
+    StateSetter setStateDialog,
+    Map<String, Map<String, TextEditingController>> editIngredientCtrls,
+  ) async {
+    await showDialog(
+      context: context,
+      builder: (_) => DialogBoxTitled(
+        title: "Remove Ingredients",
+        width: 400,
+        child: StatefulBuilder(
+          builder: (ctx, setInnerState) {
+            return Column(
+              children: [
+                if (editIngredientCtrls.isEmpty)
+                  const Text("No ingredients to remove."),
+                ...editIngredientCtrls.keys.map((ing) => ListTile(
+                  title: Text(ing, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () {
+                      // Remove from map
+                      setStateDialog(() {
+                        editIngredientCtrls.remove(ing);
+                      });
+                      // Refresh local list
+                      setInnerState(() {}); 
+                    },
+                  ),
+                )),
+                const SizedBox(height: 16),
+                BasicButton(
+                  label: "Done",
+                  type: AppButtonType.secondary,
+                  onPressed: () => Navigator.pop(context),
+                )
+              ],
+            );
+          }
+        ),
+      ),
+    );
+  }
+
   Future<void> _showAddSizeDialogForEdit(
     List<String> editSizes,
     String pricingType,
@@ -1640,32 +1765,30 @@ class _AdminProductTabState extends State<AdminProductTab> {
   void _showEditDialog(ProductModel product) {
     // Controllers prefilled with existing data
     final formKey = GlobalKey<FormState>();
-
     final editName = TextEditingController(text: product.name);
     final editCategory = TextEditingController(text: product.category);
     final editSubCategory = TextEditingController(text: product.subCategory);
-
+    
     // Pricing type
     String pricingType = product.pricingType;
-
+    
     // Sizes / variants
     List<String> editSizes = product.prices.keys.toList();
-
+    
     // Price controllers
     final Map<String, TextEditingController> editPriceCtrls = {};
     for (final size in editSizes) {
-      editPriceCtrls[size] =
-          TextEditingController(text: product.prices[size]?.toString());
+      editPriceCtrls[size] = TextEditingController(text: product.prices[size]?.toString());
     }
 
     // Ingredient Usage controllers
+    // Structure: Map<IngredientName, Map<Size, Controller>>
     Map<String, Map<String, TextEditingController>> editIngredientCtrls = {};
     for (final ing in product.ingredientUsage.keys) {
       editIngredientCtrls[ing] = {};
       for (final size in editSizes) {
         final qty = product.ingredientUsage[ing]?[size] ?? 0;
-        editIngredientCtrls[ing]![size] =
-            TextEditingController(text: qty.toString());
+        editIngredientCtrls[ing]![size] = TextEditingController(text: qty.toString());
       }
     }
 
@@ -1675,7 +1798,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
       builder: (_) {
         return DialogBoxTitled(
           title: "Edit Product",
-          width: 520,
+          width: 550, // Slightly wider
           actions: [
             IconButton(
               icon: const Icon(Icons.close, size: 24, color: ThemeConfig.primaryGreen),
@@ -1683,285 +1806,308 @@ class _AdminProductTabState extends State<AdminProductTab> {
               onPressed: () => Navigator.pop(context),
             ),
           ],
-          child: SizedBox(
-            height: 520,
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(right: 6),
-              child: Form(
-                key: formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 14),
-                    // ─────────────────────────
-                    // BASIC INFO
-                    // ─────────────────────────
-                    BasicInputField(
-                      label: "Product Name",
-                      controller: editName,
-                    ),
-                    const SizedBox(height: 14),
-
-                    HybridDropdownField(
-                      label: "Category",
-                      controller: editCategory,
-                      options: productBox.values
-                          .map((p) => p.category)
-                          .where((c) => c.isNotEmpty)
-                          .toSet()
-                          .toList(),
-                    ),
-
-                    const SizedBox(height: 12),
-
-                    HybridDropdownField(
-                      label: "Subcategory",
-                      controller: editSubCategory,
-                      options: productBox.values
-                          .map((p) => p.subCategory)
-                          .where((c) => c.isNotEmpty)
-                          .toSet()
-                          .toList(),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // ─────────────────────────
-                    // PRICING TYPE
-                    // ─────────────────────────
-                    Text("Pricing Type", style: FontConfig.h3(context)),
-                    const SizedBox(height: 6),
-
-                    BasicDropdownButton<String>(
-                      width: 200,
-                      value: pricingType,
-                      items: const ["size", "variant"],
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() {});
-                        pricingType = value;
-
-                        // Reset sizes when switching type
-                        editSizes.clear();
-                        editPriceCtrls.clear();
-                        editIngredientCtrls.clear();
-                      },
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // ─────────────────────────
-                    // SIZES / VARIANTS
-                    // ─────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          // ✅ WRAP IN STATEFUL BUILDER FOR REFRESHING
+          child: StatefulBuilder(
+            builder: (context, setState) {
+              return SizedBox(
+                height: 600,
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Available ${pricingType == "size" ? "Sizes" : "Variants"}",
-                            style: FontConfig.h3(context)),
+                        const SizedBox(height: 14),
+                        // ─────────────────────────
+                        // BASIC INFO
+                        // ─────────────────────────
+                        BasicInputField(label: "Product Name", controller: editName),
+                        const SizedBox(height: 14),
+
                         Row(
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
-                              onPressed: () =>
-                                  _showEditSizesDialogForEdit(editSizes, pricingType, editPriceCtrls, editIngredientCtrls),
+                            Expanded(
+                              child: HybridDropdownField(
+                                label: "Category",
+                                controller: editCategory,
+                                options: productBox.values.map((p) => p.category).where((c) => c.isNotEmpty).toSet().toList(),
+                              ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.add, color: ThemeConfig.primaryGreen),
-                              onPressed: () =>
-                                  _showAddSizeDialogForEdit(editSizes, pricingType, editPriceCtrls, editIngredientCtrls),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: HybridDropdownField(
+                                label: "Subcategory",
+                                controller: editSubCategory,
+                                options: productBox.values.map((p) => p.subCategory).where((c) => c.isNotEmpty).toSet().toList(),
+                              ),
                             ),
                           ],
-                        )
-                      ],
-                    ),
+                        ),
 
-                    editSizes.isEmpty
-                        ? Text(
-                            "No entries.",
-                            style: FontConfig.body(context).copyWith(color: ThemeConfig.midGray),
-                          )
-                        : Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            children: editSizes.map((s) => BasicChipDisplay(label: s)).toList(),
-                          ),
+                        const SizedBox(height: 20),
 
-                    const SizedBox(height: 20),
+                        // ─────────────────────────
+                        // PRICING TYPE
+                        // ─────────────────────────
+                        Text("Pricing Type", style: FontConfig.h3(context)),
+                        const SizedBox(height: 6),
+                        BasicDropdownButton<String>(
+                          width: 200,
+                          value: pricingType,
+                          items: const ["size", "variant"],
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() {
+                              pricingType = value;
+                              editSizes.clear();
+                              editPriceCtrls.clear();
+                              editIngredientCtrls.clear();
+                            });
+                          },
+                        ),
 
-                    // ─────────────────────────
-                    // PRICES
-                    // ─────────────────────────
-                    Text("Prices", style: FontConfig.h3(context)),
-                    const SizedBox(height: 10),
+                        const SizedBox(height: 20),
 
-                    Column(
-                      children: editSizes.map((size) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            children: [
-                              SizedBox(
-                                width: 80,
-                                child: Text(
-                                  "$size:",
-                                  style: FontConfig.body(context).copyWith(
-                                    fontWeight: FontWeight.w600,
-                                    color: ThemeConfig.secondaryGreen,
-                                  ),
+                        // ─────────────────────────
+                        // SIZES / VARIANTS
+                        // ─────────────────────────
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Available ${pricingType == "size" ? "Sizes" : "Variants"}", style: FontConfig.h3(context)),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
+                                  onPressed: () async {
+                                    await _showEditSizesDialogForEdit(editSizes, pricingType, editPriceCtrls, editIngredientCtrls);
+                                    setState(() {}); // Refresh UI after return
+                                  },
                                 ),
-                              ),
-                              Expanded(
-                                child: BasicInputField(
-                                  label: "₱ Price",
-                                  controller: editPriceCtrls[size]!,
-                                  inputType: TextInputType.number,
-                                  isCurrency: true,
+                                IconButton(
+                                  icon: const Icon(Icons.add, color: ThemeConfig.primaryGreen),
+                                  onPressed: () async {
+                                    await _showAddSizeDialogForEdit(editSizes, pricingType, editPriceCtrls, editIngredientCtrls);
+                                    setState(() {}); // Refresh UI after return
+                                  },
                                 ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                              ],
+                            )
+                          ],
+                        ),
 
-                    const SizedBox(height: 20),
-
-                    // ─────────────────────────
-                    // INGREDIENT USAGE
-                    // ─────────────────────────
-                    Text("Ingredient Usage", style: FontConfig.h3(context)),
-                    const SizedBox(height: 10),
-
-                    Column(
-                      children: editIngredientCtrls.keys.map((ing) {
-                        final unit = HiveService.ingredientBox.values
-                            .firstWhere((i) => i.name == ing)
-                            .baseUnit;
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: ThemeConfig.lightGray),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                ing,
-                                style: FontConfig.h3(context).copyWith(
-                                  color: ThemeConfig.secondaryGreen,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                        editSizes.isEmpty
+                            ? Text("No entries.", style: FontConfig.body(context).copyWith(color: ThemeConfig.midGray))
+                            : Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: editSizes.map((s) => BasicChipDisplay(label: s)).toList(),
                               ),
 
-                              const SizedBox(height: 10),
+                        const SizedBox(height: 20),
 
-                              Column(
-                                children: editSizes.map((size) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Row(
-                                      children: [
-                                        SizedBox(
-                                          width: 80,
-                                          child: Text(
-                                            "$size:",
-                                            style: FontConfig.body(context).copyWith(
-                                              fontWeight: FontWeight.w600,
-                                              color: ThemeConfig.secondaryGreen,
-                                            ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: BasicInputField(
-                                            label: "Qty ($unit)",
-                                            controller: editIngredientCtrls[ing]![size]!,
-                                            inputType: TextInputType.number,
-                                          ),
-                                        ),
-                                      ],
+                        // ─────────────────────────
+                        // PRICES
+                        // ─────────────────────────
+                        if (editSizes.isNotEmpty) ...[
+                          Text("Prices", style: FontConfig.h3(context)),
+                          const SizedBox(height: 10),
+                          Column(
+                            children: editSizes.map((size) {
+                              // Safety check if controller missing
+                              editPriceCtrls.putIfAbsent(size, () => TextEditingController());
+                              
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 80,
+                                      child: Text("$size:", style: FontConfig.body(context).copyWith(fontWeight: FontWeight.w600, color: ThemeConfig.secondaryGreen)),
                                     ),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
+                                    Expanded(
+                                      child: BasicInputField(
+                                        label: "₱ Price",
+                                        controller: editPriceCtrls[size]!,
+                                        inputType: TextInputType.number,
+                                        isCurrency: true,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
                           ),
-                        );
-                      }).toList(),
-                    ),
+                        ],
 
-                    const SizedBox(height: 24),
+                        const SizedBox(height: 20),
 
-                    // ─────────────────────────
-                    // SAVE BUTTON
-                    // ─────────────────────────
-                    BasicButton(
-                      label: "Save Changes",
-                      type: AppButtonType.primary,
-                      onPressed: () async {
-                        if (!formKey.currentState!.validate()) {
-                          DialogUtils.showToast(context, "Please fill all fields.");
-                          return;
-                        }
+                        // ─────────────────────────
+                        // INGREDIENT USAGE (EDITABLE)
+                        // ─────────────────────────
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Ingredient Usage", style: FontConfig.h3(context)),
+                            // ✅ NEW ACTION BUTTONS
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: ThemeConfig.primaryGreen),
+                                  tooltip: "Remove Ingredients",
+                                  onPressed: () => _showManageIngredientsForEdit(context, setState, editIngredientCtrls),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.add, color: ThemeConfig.primaryGreen),
+                                  tooltip: "Add Ingredient",
+                                  onPressed: () => _showAddIngredientForEdit(context, setState, editIngredientCtrls, editSizes),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
 
-                        if (editSizes.isEmpty) {
-                          DialogUtils.showToast(context, "Add at least one size/variant.");
-                          return;
-                        }
+                        if (editIngredientCtrls.isEmpty)
+                          Text("No ingredients linked.", style: FontConfig.body(context).copyWith(color: ThemeConfig.midGray))
+                        else
+                          Column(
+                            children: editIngredientCtrls.keys.map((ing) {
+                              // Get unit for label
+                              String unit = "unit";
+                              try {
+                                final i = HiveService.ingredientBox.values.firstWhere((x) => x.name == ing);
+                                unit = i.baseUnit;
+                              } catch (_) {}
 
-                        // Build pricing map
-                        final newPrices = <String, double>{};
-                        for (final size in editSizes) {
-                          final txt = editPriceCtrls[size]!.text.replaceAll(",", "");
-                          final parsed = double.tryParse(txt);
-                          if (parsed == null) {
-                            DialogUtils.showToast(context, "Invalid price for $size.");
-                            return;
-                          }
-                          newPrices[size] = parsed;
-                        }
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 16),
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: ThemeConfig.lightGray),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(ing, style: FontConfig.h3(context).copyWith(color: ThemeConfig.secondaryGreen, fontWeight: FontWeight.w700)),
+                                    const SizedBox(height: 10),
+                                    Column(
+                                      children: editSizes.map((size) {
+                                        // Safety check
+                                        editIngredientCtrls[ing]!.putIfAbsent(size, () => TextEditingController());
 
-                        // Build ingredient usage
-                        final newUsage = <String, Map<String, double>>{};
-                        for (final ing in editIngredientCtrls.keys) {
-                          newUsage[ing] = {};
-                          for (final size in editSizes) {
-                            final txt = editIngredientCtrls[ing]![size]!.text.replaceAll(",", "");
-                            final parsed = double.tryParse(txt);
-                            if (parsed == null) {
-                              DialogUtils.showToast(context, "Invalid qty for $ing ($size).");
+                                        return Padding(
+                                          padding: const EdgeInsets.only(bottom: 8),
+                                          child: Row(
+                                            children: [
+                                              SizedBox(
+                                                width: 80,
+                                                child: Text("$size:", style: FontConfig.body(context).copyWith(fontWeight: FontWeight.w600, color: ThemeConfig.secondaryGreen)),
+                                              ),
+                                              Expanded(
+                                                child: BasicInputField(
+                                                  label: "Qty ($unit)",
+                                                  controller: editIngredientCtrls[ing]![size]!,
+                                                  inputType: TextInputType.number,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+
+                        const SizedBox(height: 24),
+
+                        // ─────────────────────────
+                        // SAVE BUTTON (Synced)
+                        // ─────────────────────────
+                        BasicButton(
+                          label: "Save Changes",
+                          type: AppButtonType.primary,
+                          onPressed: () async {
+                            if (!formKey.currentState!.validate()) return;
+                            if (editSizes.isEmpty) {
+                              DialogUtils.showToast(context, "Add at least one size/variant.");
                               return;
                             }
-                            newUsage[ing]![size] = parsed;
-                          }
-                        }
 
-                        // Apply updates
-                        product
-                          ..name = editName.text.trim()
-                          ..category = editCategory.text.trim()
-                          ..subCategory = editSubCategory.text.trim()
-                          ..pricingType = pricingType
-                          ..prices = newPrices
-                          ..ingredientUsage = newUsage
-                          ..updatedAt = DateTime.now();
+                            // 1. Build pricing map
+                            final newPrices = <String, double>{};
+                            for (final size in editSizes) {
+                              final txt = editPriceCtrls[size]!.text.replaceAll(",", "");
+                              final parsed = double.tryParse(txt);
+                              if (parsed == null) {
+                                DialogUtils.showToast(context, "Invalid price for $size.");
+                                return;
+                              }
+                              newPrices[size] = parsed;
+                            }
 
-                        await product.save();
+                            // 2. Build ingredient usage
+                            final newUsage = <String, Map<String, double>>{};
+                            for (final ing in editIngredientCtrls.keys) {
+                              newUsage[ing] = {};
+                              for (final size in editSizes) {
+                                final txt = editIngredientCtrls[ing]![size]!.text.replaceAll(",", "");
+                                final parsed = double.tryParse(txt) ?? 0;
+                                if (parsed > 0) {
+                                  newUsage[ing]![size] = parsed;
+                                }
+                              }
+                              if (newUsage[ing]!.isEmpty) newUsage.remove(ing);
+                            }
 
-                        DialogUtils.showToast(context, "Product updated.");
-                        Navigator.pop(context);
-                        setState(() {});
-                      },
+                            // 3. Save & Sync
+                            product
+                              ..name = editName.text.trim()
+                              ..category = editCategory.text.trim()
+                              ..subCategory = editSubCategory.text.trim()
+                              ..pricingType = pricingType
+                              ..prices = newPrices
+                              ..ingredientUsage = newUsage
+                              ..updatedAt = DateTime.now();
+                            
+                            await product.save();
+
+                            SupabaseSyncService.addToQueue(
+                              table: 'products',
+                              action: 'UPSERT',
+                              data: {
+                                'id': product.id,
+                                'name': product.name,
+                                'category': product.category,
+                                'sub_category': product.subCategory,
+                                'pricing_type': product.pricingType,
+                                'prices': product.prices,
+                                'ingredient_usage': product.ingredientUsage,
+                                'available': product.available,
+                                'updated_at': product.updatedAt.toIso8601String(),
+                              },
+                            );
+
+                            if (mounted) {
+                              DialogUtils.showToast(context, "Product updated.");
+                              Navigator.pop(context);
+                              setState(() {}); 
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
-
-                    const SizedBox(height: 16),
-                  ],
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
         );
       },

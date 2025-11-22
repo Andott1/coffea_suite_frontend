@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import 'hive_service.dart';
 import 'session_user.dart';
 import '../models/inventory_log_model.dart';
+import 'supabase_sync_service.dart';
 
 class InventoryLogService {
   static final _uuid = const Uuid();
@@ -30,6 +31,21 @@ class InventoryLogService {
     );
 
     await HiveService.logsBox.add(logEntry);
+
+    SupabaseSyncService.addToQueue(
+      table: 'inventory_logs',
+      action: 'UPSERT',
+      data: {
+        'id': logEntry.id,
+        'date_time': logEntry.dateTime.toIso8601String(),
+        'ingredient_name': logEntry.ingredientName,
+        'action': logEntry.action,
+        'change_amount': logEntry.changeAmount,
+        'unit': logEntry.unit,
+        'reason': logEntry.reason,
+        'user_name': logEntry.userName,
+      }
+    );
   }
 }
 /// <<END FILE>>

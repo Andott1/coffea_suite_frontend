@@ -2,6 +2,7 @@
 import '../../../core/models/cart_item_model.dart';
 import '../../../core/services/hive_service.dart';
 import '../../../core/services/inventory_log_service.dart';
+import '../../../core/services/supabase_sync_service.dart';
 
 class StockLogic {
   /// Iterates through the cart and deducts ingredients from Hive
@@ -38,6 +39,27 @@ class StockLogic {
             ingredient.quantity -= totalDeduction;
             ingredient.updatedAt = DateTime.now();
             await ingredient.save();
+
+            SupabaseSyncService.addToQueue(
+              table: 'ingredients',
+              action: 'UPSERT',
+              data: {
+                'id': ingredient.id,
+                'name': ingredient.name,
+                'category': ingredient.category,
+                'unit': ingredient.unit,
+                'quantity': ingredient.quantity,
+
+                // ✅ MANUAL MAPPING TO SNAKE_CASE
+                'reorder_level': ingredient.reorderLevel,
+                'unit_cost': ingredient.unitCost,
+                'purchase_size': ingredient.purchaseSize,
+                'base_unit': ingredient.baseUnit,
+                'conversion_factor': ingredient.conversionFactor,
+                'is_custom_conversion': ingredient.isCustomConversion,
+                'updated_at': ingredient.updatedAt.toIso8601String(),
+              },
+            );
 
             // 6. Log it (Silent log, or maybe grouped log later)
             // Logging every single bean deduction might spam the logs. 
