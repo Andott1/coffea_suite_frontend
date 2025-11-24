@@ -47,4 +47,3 @@ class InventoryLogService {
     );
   }
 }
-/// <<END FILE>>

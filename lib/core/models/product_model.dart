@@ -111,4 +111,4 @@ class ProductModel extends HiveObject {
   bool get isMeal => category.toLowerCase() == 'meals';
   bool get isDessert => category.toLowerCase() == 'desserts';
 }
-/// <<END FILE>>
+

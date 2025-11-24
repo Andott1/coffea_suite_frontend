@@ -58,4 +58,3 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
     );
   }
 }
-/// <<END FILE>>

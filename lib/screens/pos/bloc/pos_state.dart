@@ -47,4 +47,3 @@ class PosState extends Equatable {
   @override
   List<Object?> get props => [cart, total, isLoading, orderType];
 }
-/// <<END FILE>>

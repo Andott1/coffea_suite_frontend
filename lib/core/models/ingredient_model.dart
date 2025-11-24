@@ -165,4 +165,3 @@ class IngredientModel extends HiveObject {
     );
   }
 }
-/// <<END FILE>>

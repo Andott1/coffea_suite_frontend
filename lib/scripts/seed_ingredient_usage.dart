@@ -47,4 +47,3 @@ Future<void> seedIngredientUsage() async {
     LoggerService.error('❌ Failed to seed ingredient usage: $e');
   }
 }
-/// <<END FILE>>

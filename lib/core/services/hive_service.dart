@@ -156,4 +156,3 @@ class HiveService {
     LoggerService.info('[HiveService] 🔒 Hive closed');
   }
 }
-/// <<END FILE>>

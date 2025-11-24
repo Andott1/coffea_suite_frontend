@@ -71,4 +71,3 @@ class PosConfirmPayment extends PosEvent {
   List<Object?> get props => [totalAmount, tenderedAmount, paymentMethod, referenceNo];
 }
 
-/// <<END FILE>>

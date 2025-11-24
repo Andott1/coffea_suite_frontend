@@ -95,4 +95,4 @@ class IngredientUsageModel extends HiveObject {
   bool get isEmpty =>
       quantities.values.every((v) => v == 0 || v.isNaN || v.isInfinite);
 }
-/// <<END FILE>>
+

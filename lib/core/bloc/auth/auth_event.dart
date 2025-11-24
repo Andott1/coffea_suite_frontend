@@ -26,4 +26,3 @@ class AuthLoginRequested extends AuthEvent {
 
 /// User logs out or switches user
 class AuthLogoutRequested extends AuthEvent {}
-/// <<END FILE>>

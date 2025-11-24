@@ -59,4 +59,3 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
     );
   }
 }
-/// <<END FILE>>

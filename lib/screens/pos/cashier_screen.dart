@@ -775,4 +775,3 @@ class _CashierScreenState extends State<CashierScreen> {
     return HiveService.productBox.values.where((p) => p.category == _selectedCategory).map((p) => p.subCategory).toSet().toList()..sort();
   }
 }
-/// <<END FILE>>

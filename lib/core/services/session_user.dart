@@ -26,4 +26,3 @@ class SessionUser {
       _current?.role == UserRoleLevel.admin; // Managers also include Admins usually, or strictly separation? 
                                              // Based on your request: Admin > Manager > Employee
 }
-/// <<END FILE>>

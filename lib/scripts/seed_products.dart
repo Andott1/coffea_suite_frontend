@@ -44,4 +44,3 @@ Future<void> seedProducts() async {
     LoggerService.error('❌ Failed to seed products: $e');
   }
 }
-/// <<END FILE>>

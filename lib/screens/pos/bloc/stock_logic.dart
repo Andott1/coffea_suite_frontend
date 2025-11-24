@@ -80,4 +80,3 @@ class StockLogic {
     }
   }
 }
-/// <<END FILE>>

@@ -395,4 +395,3 @@ class _StockAdjustmentDialogState extends State<StockAdjustmentDialog> {
     );
   }
 }
-/// <<END FILE>>

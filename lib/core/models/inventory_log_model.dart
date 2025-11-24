@@ -39,4 +39,3 @@ class InventoryLogModel extends HiveObject {
     required this.reason,
   });
 }
-/// <<END FILE>>

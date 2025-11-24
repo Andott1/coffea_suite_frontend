@@ -453,4 +453,3 @@ class _InventoryListTabState extends State<InventoryListTab> {
     );
   }
 }
-/// <<END FILE>>

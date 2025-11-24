@@ -21,4 +21,3 @@ class SystemTabMemory {
   /// Optional: Clear all saved tabs (useful for logout or reset)
   static void clearAll() => _lastTabs.clear();
 }
-/// <<END FILE>>

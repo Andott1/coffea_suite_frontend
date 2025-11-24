@@ -17,4 +17,3 @@ class InventoryDashboard extends StatelessWidget {
     );
   }
 }
-/// <<END FILE>>
