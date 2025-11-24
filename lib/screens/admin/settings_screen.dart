@@ -11,6 +11,9 @@ import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/container_card_titled.dart';
+import '../../core/widgets/container_card.dart'; // ✅ Needed
+import '../../core/services/backup_service.dart'; // ✅ Needed
+import '../../core/widgets/backups_list_dialog.dart'; // ✅ Needed
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -63,7 +66,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _handleRestore() async {
-    // 1. Confirm Dialog
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -102,11 +104,46 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // ✅ NEW: Local Backup Logic
+  Future<void> _createLocalBackup(String type) async {
+    final service = BackupService();
+    final filename = await showDialog<String?>(
+      context: context,
+      builder: (ctx) {
+        final c = TextEditingController();
+        return AlertDialog(
+          title: Text('Create $type Backup'),
+          content: TextField(controller: c, decoration: const InputDecoration(hintText: 'Enter file name (optional)')),
+          actions: [
+            TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.of(ctx).pop(c.text.trim()), child: const Text('Save')),
+          ],
+        );
+      },
+    );
+    if (filename != null) {
+      try {
+        final entry = await service.createBackup(fileName: filename, type: type.toLowerCase());
+        if(mounted) DialogUtils.showToast(context, 'Backup created: ${entry.filename}');
+      } catch (e) {
+        if(mounted) DialogUtils.showToast(context, 'Backup failed: $e', icon: Icons.error);
+      }
+    }
+  }
+
+  Future<void> _restoreLocalBackup(String type) async {
+    final service = BackupService();
+    await showDialog(
+      context: context, 
+      builder: (_) => BackupsListDialog(backupService: service, type: type.toLowerCase())
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ThemeConfig.lightGray,
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,14 +213,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
+            
+            const SizedBox(height: 20),
+
+            // ─── ✅ LOCAL BACKUPS SECTION ───
+            ContainerCardTitled(
+              title: "Local Data Backups",
+              subtitle: "Create JSON snapshots of your data on this device",
+              child: Column(
+                children: [
+                  _buildBackupRow(context, "Ingredients", Icons.science),
+                  const Divider(),
+                  _buildBackupRow(context, "Logs", Icons.list_alt),
+                ],
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-}
 
-// ──────────────── HELPER WIDGETS ────────────────
+  Widget _buildBackupRow(BuildContext context, String label, IconData icon) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, color: ThemeConfig.midGray),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+          BasicButton(
+            label: "Backup", 
+            type: AppButtonType.secondary, 
+            fullWidth: false, 
+            height: 36,
+            onPressed: () => _createLocalBackup(label)
+          ),
+          const SizedBox(width: 12),
+          BasicButton(
+            label: "Restore", 
+            type: AppButtonType.secondary, 
+            fullWidth: false,
+            height: 36,
+            onPressed: () => _restoreLocalBackup(label)
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ConnectionStatusBadge extends StatelessWidget {
   @override
@@ -222,7 +302,6 @@ class _QueueStatusBadge extends StatelessWidget {
       builder: (context, Box<SyncQueueModel> box, _) {
         final count = box.length;
         final isSyncing = count > 0;
-        
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
@@ -234,15 +313,10 @@ class _QueueStatusBadge extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isSyncing) 
-                const SizedBox(
-                  width: 12, height: 12, 
-                  child: CircularProgressIndicator(strokeWidth: 2)
-                )
+                const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
               else 
                 const Icon(Icons.check_circle, size: 16, color: Colors.blue),
-              
               const SizedBox(width: 8),
-              
               Text(
                 isSyncing ? "$count Pending Uploads..." : "All Synced",
                 style: TextStyle(fontWeight: FontWeight.bold, color: isSyncing ? Colors.orange : Colors.blue),

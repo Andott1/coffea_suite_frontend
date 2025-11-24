@@ -19,6 +19,7 @@ import '../../core/widgets/basic_button.dart'; // Used in dialog
 
 import '../../core/services/supabase_sync_service.dart';
 
+import 'bloc/stock_logic.dart';
 import 'product_builder_dialog.dart';
 import 'payment_screen.dart';
 
@@ -659,84 +660,115 @@ class _CashierScreenState extends State<CashierScreen> {
 
   Widget _buildProductCard(ProductModel product) {
     final color = _getProductColor(product);
-    final bool isAvailable = product.available;
+    final bool isVisible = product.available;
 
-    return BlocBuilder<PosBloc, PosState>(
-      builder: (context, state) {
-        final qtyInCart = state.cart.where((item) => item.product.id == product.id).fold(0, (sum, item) => sum + item.quantity);
+    return ValueListenableBuilder(
+      valueListenable: HiveService.ingredientBox.listenable(),
+      builder: (context, _, __) {
+          final bool inStock = StockLogic.isProductAvailable(product);
+          final bool isSellable = isVisible && inStock;
 
-        return GestureDetector(
-          onTap: () {
-            if (!isAvailable) {
-              DialogUtils.showToast(context, "Item is unavailable", icon: Icons.block, accentColor: Colors.red);
-              return;
-            }
-            // TEMPORARY: Direct Add (Simulate selecting first variant)
-            if (product.prices.isNotEmpty) {
-              showDialog(
-                context: context, 
-                builder: (_) => ProductBuilderDialog(product: product)
+          return BlocBuilder<PosBloc, PosState>(
+            builder: (context, state) {
+              final qtyInCart = state.cart.where((item) => item.product.id == product.id).fold(0, (sum, item) => sum + item.quantity);
+
+              return GestureDetector(
+                onTap: () {
+                  if (!isVisible) {
+                    DialogUtils.showToast(context, "Item is INACTIVE (Check Products)", icon: Icons.block, accentColor: Colors.red);
+                    return;
+                  }
+                  if (!inStock) {
+                    // ✅ Strict Logic: Block Sale
+                    DialogUtils.showToast(context, "Item is SOLD OUT (Check Inventory)", icon: Icons.block, accentColor: Colors.red);
+                    return;
+                  }
+                  // ... existing add logic ...
+                  if (product.prices.isNotEmpty) {
+                    showDialog(
+                      context: context, 
+                      builder: (_) => ProductBuilderDialog(product: product)
+                    );
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Container(
+                              color: isSellable ? color : Colors.grey[400],
+                              child: Icon(product.isDrink ? Icons.local_cafe : Icons.restaurant, color: Colors.white.withValues(alpha: 0.5), size: 40),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                                  Text(
+                                    FormatUtils.formatCurrency(product.prices.values.isEmpty ? 0 : product.prices.values.reduce((a, b) => a < b ? a : b)),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // ✅ OVERLAY: SOLD OUT (Computed)
+                      if (isVisible && !inStock)
+                        Container(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            "SOLD OUT", 
+                            textAlign: TextAlign.center, 
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                          ),
+                        ),
+
+                      // ✅ OVERLAY: INACTIVE (Admin) - (Should technically be hidden from list, but good for debugging)
+                      if (!isVisible)
+                        Container(
+                          color: Colors.red.withValues(alpha: 0.6),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            "INACTIVE", 
+                            textAlign: TextAlign.center, 
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                          ),
+                        ),
+                      if (qtyInCart > 0)
+                        Positioned(
+                          top: 8, right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: const BoxDecoration(color: ThemeConfig.primaryGreen, shape: BoxShape.circle),
+                            child: Text("$qtyInCart", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                  ),
+                ),
               );
             }
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Container(
-                        color: isAvailable ? color : Colors.grey[400],
-                        child: Icon(product.isDrink ? Icons.local_cafe : Icons.restaurant, color: Colors.white.withValues(alpha: 0.5), size: 40),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                            Text(
-                              FormatUtils.formatCurrency(product.prices.values.isEmpty ? 0 : product.prices.values.reduce((a, b) => a < b ? a : b)),
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (!isAvailable)
-                  Container(
-                    color: Colors.black.withValues(alpha: 0.5),
-                    alignment: Alignment.center,
-                    child: const Text("NOT\nAVAILABLE", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                  ),
-                if (qtyInCart > 0)
-                  Positioned(
-                    top: 8, right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(color: ThemeConfig.primaryGreen, shape: BoxShape.circle),
-                      child: Text("$qtyInCart", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      }
+          );
+        
+      },
     );
   }
 

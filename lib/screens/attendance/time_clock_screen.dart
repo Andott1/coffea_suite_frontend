@@ -76,7 +76,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
       return;
     }
     if (_activeUser != null) return; // Already logged in
-    if (_pinCode.length >= 6) return;
+    
+    if (_pinCode.length >= 4) return;
 
     setState(() => _pinCode += value);
     _resetInactivityTimer();

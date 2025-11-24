@@ -243,11 +243,12 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: BasicInputField(
-                              label: isEdit ? "Change PIN" : "PIN (4-6 digits)", 
+                              label: isEdit ? "Change PIN" : "PIN (4 digits)", 
                               controller: pinCtrl, 
                               inputType: TextInputType.number,
                               isPassword: true,
                               isRequired: !isEdit,
+                              maxLength: 4,
                             ),
                           ),
                         ],
