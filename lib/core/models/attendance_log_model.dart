@@ -29,6 +29,8 @@ class AttendanceLogModel extends HiveObject {
   // Snapshot of rate at the time of work (in case their rate changes later)
   @HiveField(8) double hourlyRateSnapshot; 
 
+  @HiveField(9) String? proofImage;
+
   AttendanceLogModel({
     required this.id,
     required this.userId,
@@ -39,6 +41,7 @@ class AttendanceLogModel extends HiveObject {
     this.breakEnd,
     this.status = AttendanceStatus.incomplete,
     this.hourlyRateSnapshot = 0.0,
+    this.proofImage,
   });
 
   // ──────────────── COMPUTED HELPERS ────────────────

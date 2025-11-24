@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:talker_bloc_logger/talker_bloc_logger.dart'; // ✅ Import
 import 'package:talker_flutter/talker_flutter.dart';
 
+import 'package:camera/camera.dart';
+
 import 'core/bloc/connectivity/connectivity_cubit.dart';
 import 'core/services/hive_service.dart';
 import 'core/services/supabase_sync_service.dart';
@@ -20,11 +22,20 @@ import 'screens/inventory/inventory_base_screen.dart';
 import 'screens/attendance/attendance_base_screen.dart';
 import 'screens/pos/bloc/pos_bloc.dart';
 
+List<CameraDescription> cameras = [];
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 0. Initialize Logger
   LoggerService.info("🚀 App Starting...");
+
+  try {
+    cameras = await availableCameras();
+    LoggerService.info("📷 Cameras initialized: ${cameras.length} found");
+  } catch (e) {
+    LoggerService.error("❌ Camera init failed: $e");
+  }
 
   // 1. Initialize Supabase (Cloud Sync)
   await Supabase.initialize(

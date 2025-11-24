@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -39,7 +40,7 @@ class SupabaseSyncService {
   // ─── 1. ADD TO QUEUE (With Debounce) ───
   static Future<void> addToQueue({
     required String table,
-    required String action, // 'UPSERT', 'DELETE'
+    required String action,
     required Map<String, dynamic> data,
   }) async {
     final item = SyncQueueModel(
@@ -52,7 +53,6 @@ class SupabaseSyncService {
     
     await _queueBox?.add(item);
     
-    // Debounce: Wait 500ms before triggering sync to allow more items to accumulate
     if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), () {
       processQueue();
@@ -63,65 +63,62 @@ class SupabaseSyncService {
   static Future<void> processQueue() async {
     if (_isSyncing || _queueBox == null || _queueBox!.isEmpty) return;
 
-    final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity.contains(ConnectivityResult.none)) return;
-
+    // Lock immediately
     _isSyncing = true;
 
     try {
-      // 1. Snapshot current items
+      final connectivity = await Connectivity().checkConnectivity();
+      if (connectivity.contains(ConnectivityResult.none)) return;
+
+      // 1. Snapshot items
       final allPending = _queueBox!.values.toList();
       if (allPending.isEmpty) return;
 
-      // 2. Group by TABLE (This generic logic handles Users, Products, Transactions, everything)
+      // 2. Group by TABLE
       final byTable = groupBy(allPending, (SyncQueueModel item) => item.table);
 
       for (final table in byTable.keys) {
         final tableItems = byTable[table]!;
+
+        // ⚡️ INTERCEPTOR: Handle File Uploads for Attendance
+        // We must do this BEFORE creating the 'upserts' list
+        if (table == 'attendance_logs') {
+           await _handleFileUploads(tableItems);
+        }
         
-        // ─────────────────────────────────────────────────────────
-        // ✅ FIX: SQUASH DUPLICATES (Last Write Wins)
-        // ─────────────────────────────────────────────────────────
-        // We use a Map<ID, Data> to ensure each ID only appears ONCE per batch.
-        // The last item in the list overwrites previous ones, representing the "Final State".
-        
+        // 3. Deduplicate (Squash) Logic
         final Map<String, Map<String, dynamic>> uniqueUpserts = {};
         final Set<String> uniqueDeletes = {};
 
         for (var item in tableItems) {
           final id = item.data['id'];
-          if (id == null) continue; // Safety check
+          if (id == null) continue;
 
           if (item.action == 'UPSERT') {
             uniqueUpserts[id] = item.data;
-            // If we upsert, we shouldn't delete it in the same batch (logic conflict)
             uniqueDeletes.remove(id); 
           } else if (item.action == 'DELETE') {
             uniqueDeletes.add(id);
-            // If we delete, previous upserts are irrelevant
             uniqueUpserts.remove(id);
           }
         }
 
-        // Convert back to lists
         final upserts = uniqueUpserts.values.toList();
         final deletes = uniqueDeletes.toList();
 
         // 4. Execute Batch Requests
         try {
-          // A. Batch UPSERT
           if (upserts.isNotEmpty) {
             await _client.from(table).upsert(upserts);
             LoggerService.info("✅ [Batch] Upserted ${upserts.length} rows to '$table'");
           }
 
-          // B. Batch DELETE
           if (deletes.isNotEmpty) {
             await _client.from(table).delete().inFilter('id', deletes);
             LoggerService.info("🗑️ [Batch] Deleted ${deletes.length} rows from '$table'");
           }
 
-          // 5. Clean up ALL processed items from Hive (even duplicates)
+          // 5. Clean up
           final keysToDelete = tableItems.map((e) => e.key).toList();
           await _queueBox!.deleteAll(keysToDelete);
 
@@ -133,6 +130,56 @@ class SupabaseSyncService {
       LoggerService.error("❌ Critical Sync Error: $e");
     } finally {
       _isSyncing = false;
+    }
+  }
+
+  static Future<void> _handleFileUploads(List<SyncQueueModel> items) async {
+    for (var item in items) {
+      if (item.action != 'UPSERT') continue;
+      
+      // Check for 'proof_image' field
+      final localPath = item.data['proof_image'];
+      
+      // Only process if it exists AND looks like a local path (not already http)
+      if (localPath != null && localPath is String && localPath.isNotEmpty && !localPath.startsWith('http')) {
+        
+        LoggerService.info("📸 Found local proof image. Uploading...");
+        
+        try {
+          final file = File(localPath);
+          if (!await file.exists()) {
+             LoggerService.warning("⚠️ Proof file not found on disk: $localPath");
+             continue; 
+          }
+
+          // Generate a unique filename for storage
+          final fileName = "${item.data['user_id']}_${item.data['date']}_${const Uuid().v4()}.jpg";
+          
+          // Upload to 'attendance_proofs' bucket
+          await _client.storage.from('attendance_proofs').upload(
+            fileName, 
+            file,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+          );
+
+          // Get Public URL
+          final publicUrl = _client.storage.from('attendance_proofs').getPublicUrl(fileName);
+          
+          // ⚡️ UPDATE THE ITEM IN PLACE
+          // This ensures the subsequent batch upsert sends the URL, not the local path
+          item.data['proof_image'] = publicUrl;
+          
+          // Save to Hive so we don't re-upload if the batch fails later
+          await item.save(); 
+
+          LoggerService.info("✅ Proof uploaded: $publicUrl");
+
+        } catch (e) {
+          LoggerService.error("❌ Proof Upload Failed: $e");
+          // We allow the sync to proceed with the local path. 
+          // It's better to have the log (even with broken image) than no log at all.
+        }
+      }
     }
   }
 

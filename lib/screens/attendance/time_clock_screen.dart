@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io'; // ✅ Import IO
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
+import 'package:camera/camera.dart'; // ✅ Import Camera
+import 'package:path_provider/path_provider.dart'; // ✅ Import Path Provider
 
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
@@ -12,9 +15,12 @@ import '../../core/services/hive_service.dart';
 import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/utils/hashing_utils.dart';
+import '../../core/services/logger_service.dart'; // ✅ Import Logger
 import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/container_card.dart';
 import '../../core/widgets/numeric_pad.dart';
+
+import '../../main.dart';
 
 class TimeClockScreen extends StatefulWidget {
   const TimeClockScreen({super.key});
@@ -35,9 +41,42 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
 
   Timer? _inactivityTimer;
 
+  CameraController? _cameraController;
+
+  @override
+  void initState() {
+    super.initState();
+    _initCamera();
+  }
+
+  // ✅ NEW: Initialize Camera
+  Future<void> _initCamera() async {
+    if (cameras.isEmpty) return;
+    
+    // Use the front camera if available
+    final camera = cameras.firstWhere(
+      (c) => c.lensDirection == CameraLensDirection.front,
+      orElse: () => cameras.first,
+    );
+
+    _cameraController = CameraController(
+      camera,
+      ResolutionPreset.low, // Low res is fine for proof thumbnails
+      enableAudio: false,
+    );
+
+    try {
+      await _cameraController!.initialize();
+      if (mounted) setState(() {});
+    } catch (e) {
+      LoggerService.error("Camera Error: $e");
+    }
+  }
+
   @override
   void dispose() {
     _inactivityTimer?.cancel();
+    _cameraController?.dispose();
     super.dispose();
   }
 
@@ -142,6 +181,25 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
 
     final now = DateTime.now();
     final todayDate = DateTime(now.year, now.month, now.day);
+    
+    String? proofImagePath;
+
+    // ✅ NEW: Capture Photo on Time In
+    if (actionType == 'Time In' && _cameraController != null && _cameraController!.value.isInitialized) {
+      try {
+        final image = await _cameraController!.takePicture();
+        
+        // Move to app documents
+        final appDir = await getApplicationDocumentsDirectory();
+        final fileName = "proof_${_activeUser!.username}_${now.millisecondsSinceEpoch}.jpg";
+        final savedImage = await File(image.path).copy('${appDir.path}/$fileName');
+        
+        proofImagePath = savedImage.path;
+        LoggerService.info("📸 Photo Captured: $proofImagePath");
+      } catch (e) {
+        LoggerService.error("Camera Capture Failed: $e");
+      }
+    }
 
     if (actionType == 'Time In') {
       final newLog = AttendanceLogModel(
@@ -151,6 +209,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
         timeIn: now,
         status: AttendanceStatus.onTime,
         hourlyRateSnapshot: _activeUser!.hourlyRate,
+        proofImage: proofImagePath, // ✅ Save Path
       );
       await HiveService.attendanceBox.put(newLog.id, newLog);
       _todayLog = newLog;
@@ -173,7 +232,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
 
     setState(() => _isLoading = false);
     await Future.delayed(const Duration(seconds: 2));
-    if(mounted) _cancelSelection(); // Logout and reset
+    if(mounted) _cancelSelection(); 
   }
 
   void _syncLog(AttendanceLogModel log) {
@@ -190,6 +249,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
         'break_end': log.breakEnd?.toIso8601String(),
         'status': log.status.name,
         'hourly_rate_snapshot': log.hourlyRateSnapshot,
+        'proof_image': log.proofImage, // ✅ Send Local Path (Service will swap it)
       }
     );
   }
@@ -294,58 +354,43 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // ──────────────── TOP SECTION (Status / Info) ────────────────
+        // TOP SECTION
         Expanded(
           child: Center(
             child: _selectedUser == null
-                ? 
-                // 1. IDLE STATE (Compressed Row)
-                Row(
+                ? Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(Icons.touch_app, size: 40, color: Colors.grey),
                       const SizedBox(width: 12),
-                      Text(
-                        "Select your profile\non the right ➜",
-                        style: FontConfig.body(context).copyWith(
-                          color: Colors.grey,
-                          height: 1.2,
-                          fontWeight: FontWeight.bold
-                        ),
-                      ),
+                      Text("Select your profile\non the right ➜", style: FontConfig.body(context).copyWith(color: Colors.grey, height: 1.2, fontWeight: FontWeight.bold)),
                     ],
                   )
-                : 
-                // 2. USER SELECTED STATE (Avatar + Text Side-by-Side)
-                Column(
+                : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircleAvatar(
-                            radius: 26,
-                            backgroundColor: ThemeConfig.primaryGreen,
-                            child: Text(
-                              _selectedUser!.fullName[0], 
-                              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)
-                            ),
+                      // ✅ CAMERA PREVIEW WIDGET
+                      if (_cameraController != null && _cameraController!.value.isInitialized)
+                        Container(
+                          width: 120,
+                          height: 120,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(60),
+                            border: Border.all(color: ThemeConfig.primaryGreen, width: 3),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8)],
                           ),
-                          const SizedBox(width: 16),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                "Hello, ${_selectedUser!.fullName.split(' ').first}", 
-                                style: FontConfig.h2(context).copyWith(fontSize: 22)
-                              ),
-                              const Text("Enter PIN to continue", style: TextStyle(color: Colors.grey, fontSize: 12)),
-                            ],
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(60),
+                            child: CameraPreview(_cameraController!),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
+                        )
+                      else
+                        const Icon(Icons.no_photography, size: 50, color: Colors.grey),
+
+                      Text("Hello, ${_selectedUser!.fullName.split(' ').first}", style: FontConfig.h2(context).copyWith(fontSize: 22)),
+                      const SizedBox(height: 8),
+                      
                       // PIN Dots
                       SizedBox(
                         height: 16,
@@ -369,7 +414,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
           ),
         ),
 
-        // ──────────────── BOTTOM SECTION (Keypad) ────────────────
+        // KEYPAD
         SizedBox(
           width: 400,
           height: 320,
@@ -382,14 +427,10 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
 
         const SizedBox(height: 20),
         
-        // Cancel Button (Only visible when user selected)
         SizedBox(
           height: 40,
           child: _selectedUser != null 
-            ? TextButton(
-                onPressed: _cancelSelection, 
-                child: const Text("Cancel Selection", style: TextStyle(color: Colors.redAccent))
-              )
+            ? TextButton(onPressed: _cancelSelection, child: const Text("Cancel Selection", style: TextStyle(color: Colors.redAccent)))
             : null,
         ),
       ],
