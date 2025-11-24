@@ -48,7 +48,7 @@ class DialogBox extends StatelessWidget {
             opacity: 1,
             duration: const Duration(milliseconds: 150),
             child: Container(
-              color: Colors.black.withOpacity(0.45),
+              color: Colors.black.withValues(alpha: 0.45),
             ),
           ),
 
@@ -68,7 +68,7 @@ class DialogBox extends StatelessWidget {
                     borderRadius: BorderRadius.circular(borderRadius),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.20),
+                        color: Colors.black.withValues(alpha: 0.20),
                         blurRadius: 12,
                         offset: const Offset(0, 4),
                       ),

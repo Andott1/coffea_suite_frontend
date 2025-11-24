@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/inventory/inventory_base_screen.dart>>
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';

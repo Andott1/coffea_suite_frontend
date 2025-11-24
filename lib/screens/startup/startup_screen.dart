@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/startup/startup_screen.dart>>
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../config/font_config.dart';
@@ -166,7 +165,7 @@ class _StartupScreenState extends State<StartupScreen> {
               // Overlay if not logged in (Double security visual)
               if (!isLoggedIn)
                 Container(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   child: const Center(child: CircularProgressIndicator()),
                 )
             ],

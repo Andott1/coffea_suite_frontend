@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/inventory/inventory_logs_tab.dart>>
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
@@ -190,7 +189,7 @@ class _InventoryLogsTabState extends State<InventoryLogsTab> {
                         ),
                         tooltip: "More Actions",
                         style: IconButton.styleFrom(
-                          backgroundColor: _showActions ? ThemeConfig.primaryGreen.withOpacity(0.1) : Colors.transparent,
+                          backgroundColor: _showActions ? ThemeConfig.primaryGreen.withValues(alpha: 0.1) : Colors.transparent,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                       ),
@@ -274,7 +273,7 @@ class _InventoryLogsTabState extends State<InventoryLogsTab> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 12, offset: const Offset(0, 4)),
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4)),
                   ],
                 ),
                 child: ValueListenableBuilder(

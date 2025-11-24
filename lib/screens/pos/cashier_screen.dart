@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/pos/cashier_screen.dart>>
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -343,7 +342,7 @@ class _CashierScreenState extends State<CashierScreen> {
                       decoration: BoxDecoration(
                         color: ThemeConfig.primaryGreen,
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))],
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 4))],
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -361,7 +360,7 @@ class _CashierScreenState extends State<CashierScreen> {
                               ).length;
                               return Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
                                 child: Text("$activeCount Active", style: const TextStyle(color: Colors.white, fontSize: 12)),
                               );
                             }
@@ -426,7 +425,7 @@ class _CashierScreenState extends State<CashierScreen> {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
               ),
               width: double.infinity,
@@ -463,7 +462,7 @@ class _CashierScreenState extends State<CashierScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.grey.shade200),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0,2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0,2))],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,7 +479,7 @@ class _CashierScreenState extends State<CashierScreen> {
                               const SizedBox(height: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
                                 child: Text("Total: ${FormatUtils.formatCurrency(t.totalAmount)}", style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
                               )
                             ],
@@ -636,11 +635,11 @@ class _CashierScreenState extends State<CashierScreen> {
           decoration: BoxDecoration(
             color: activeBg,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [if (!isSelected) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+            boxShadow: [if (!isSelected) BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
           ),
           child: Stack(
             children: [
-              Positioned(right: -10, bottom: -10, child: Icon(icon, size: 80, color: fgColor.withOpacity(0.1))),
+              Positioned(right: -10, bottom: -10, child: Icon(icon, size: 80, color: fgColor.withValues(alpha: 0.1))),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -684,7 +683,7 @@ class _CashierScreenState extends State<CashierScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
@@ -696,7 +695,7 @@ class _CashierScreenState extends State<CashierScreen> {
                       flex: 3,
                       child: Container(
                         color: isAvailable ? color : Colors.grey[400],
-                        child: Icon(product.isDrink ? Icons.local_cafe : Icons.restaurant, color: Colors.white.withOpacity(0.5), size: 40),
+                        child: Icon(product.isDrink ? Icons.local_cafe : Icons.restaurant, color: Colors.white.withValues(alpha: 0.5), size: 40),
                       ),
                     ),
                     Expanded(
@@ -720,7 +719,7 @@ class _CashierScreenState extends State<CashierScreen> {
                 ),
                 if (!isAvailable)
                   Container(
-                    color: Colors.black.withOpacity(0.5),
+                    color: Colors.black.withValues(alpha: 0.5),
                     alignment: Alignment.center,
                     child: const Text("NOT\nAVAILABLE", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                   ),

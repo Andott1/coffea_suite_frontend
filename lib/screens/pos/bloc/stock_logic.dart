@@ -1,7 +1,7 @@
-/// <<FILE: lib/screens/pos/bloc/stock_logic.dart>>
 import '../../../core/models/cart_item_model.dart';
 import '../../../core/services/hive_service.dart';
 import '../../../core/services/inventory_log_service.dart';
+import '../../../core/services/logger_service.dart';
 import '../../../core/services/supabase_sync_service.dart';
 
 class StockLogic {
@@ -73,7 +73,7 @@ class StockLogic {
             );
             
           } catch (e) {
-            print("⚠️ Stock Deduction Error: Ingredient '$ingredientName' not found in Inventory.");
+            LoggerService.warning("⚠️ Stock Deduction Error: Ingredient '$ingredientName' not found in Inventory.");
           }
         }
       }

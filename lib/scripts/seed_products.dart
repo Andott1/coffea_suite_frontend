@@ -1,14 +1,14 @@
-/// <<FILE: lib/scripts/seed_products.dart>>
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive/hive.dart';
 import '../core/models/product_model.dart';
+import '../core/services/logger_service.dart';
 
 /// Seeds the Product Hive box from assets/data/products_list.json
 Future<void> seedProducts() async {
   final box = Hive.box<ProductModel>('products');
   if (box.isNotEmpty) {
-    print('ℹ️ Products already seeded, skipping.');
+    LoggerService.info('ℹ️ Products already seeded, skipping.');
     return;
   }
 
@@ -39,9 +39,9 @@ Future<void> seedProducts() async {
       count++;
     }
 
-    print('✅ Products seeded successfully ($count records).');
+    LoggerService.info('✅ Products seeded successfully ($count records).');
   } catch (e) {
-    print('❌ Failed to seed products: $e');
+    LoggerService.error('❌ Failed to seed products: $e');
   }
 }
 /// <<END FILE>>

@@ -51,7 +51,7 @@ class BasicToggleButton extends StatelessWidget {
               border: Border.all(
                 width: 2,
                 color: isDisabled
-                    ? ThemeConfig.midGray.withOpacity(0.4)
+                    ? ThemeConfig.midGray.withValues(alpha: 0.4)
                     : ThemeConfig.primaryGreen,
               ),
             ),
@@ -64,7 +64,7 @@ class BasicToggleButton extends StatelessWidget {
                         label,
                         style: FontConfig.inputLabel(context).copyWith(
                           color: isDisabled
-                              ? ThemeConfig.midGray.withOpacity(0.4)
+                              ? ThemeConfig.midGray.withValues(alpha: 0.4)
                               : ThemeConfig.primaryGreen,
                           fontWeight: FontWeight.w600,
                         ),
@@ -79,7 +79,7 @@ class BasicToggleButton extends StatelessWidget {
                           "($badgeCount)",
                           style: FontConfig.body(context).copyWith(
                             fontSize: FontConfig.body(context).fontSize! * 0.9,
-                            color: ThemeConfig.primaryGreen.withOpacity(0.9),
+                            color: ThemeConfig.primaryGreen.withValues(alpha: 0.9),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -95,7 +95,7 @@ class BasicToggleButton extends StatelessWidget {
                     Icons.arrow_drop_down,
                     size: 26,
                     color: isDisabled
-                        ? ThemeConfig.midGray.withOpacity(0.4)
+                        ? ThemeConfig.midGray.withValues(alpha: 0.4)
                         : ThemeConfig.primaryGreen,
                   ),
                 ),

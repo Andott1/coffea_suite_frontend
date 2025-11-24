@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/services/session_user.dart>>
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 

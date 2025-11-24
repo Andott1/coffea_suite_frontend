@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/pos/product_builder_dialog.dart>>
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../config/theme_config.dart';
@@ -194,7 +193,7 @@ class _ProductBuilderDialogState extends State<ProductBuilderDialog> {
         shape: BoxShape.circle,
         border: Border.all(color: ThemeConfig.midGray),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))
         ]
       ),
       child: IconButton(

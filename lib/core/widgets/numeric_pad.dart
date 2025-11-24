@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/widgets/numeric_pad.dart>>
 import 'package:flutter/material.dart';
 import '../../config/theme_config.dart';
 import '../../config/font_config.dart';

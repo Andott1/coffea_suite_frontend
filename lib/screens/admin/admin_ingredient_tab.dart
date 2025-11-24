@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/admin/admin_ingredient_tab.dart>>
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 
@@ -445,7 +444,7 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
                       label: Text(opt),
                       selected: isActive,
                       backgroundColor: Colors.white,
-                      selectedColor: ThemeConfig.primaryGreen.withOpacity(0.05),
+                      selectedColor: ThemeConfig.primaryGreen.withValues(alpha: 0.05),
                       labelStyle: TextStyle(
                         color: isActive ? ThemeConfig.primaryGreen : ThemeConfig.midGray,
                         fontWeight: isActive ? FontWeight.w500 : FontWeight.w400,

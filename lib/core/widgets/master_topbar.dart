@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/widgets/master_topbar.dart>>
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -95,7 +94,7 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -176,8 +175,8 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 10.0),
                                     child: InkWell(
-                                      splashColor: ThemeConfig.primaryGreen.withOpacity(0.1),
-                                      hoverColor: ThemeConfig.primaryGreen.withOpacity(0.05),
+                                      splashColor: ThemeConfig.primaryGreen.withValues(alpha: 0.1),
+                                      hoverColor: ThemeConfig.primaryGreen.withValues(alpha: 0.05),
                                       onTap: () => onTabSelected?.call(originalIndex),
                                       child: AnimatedContainer(
                                         duration: const Duration(milliseconds: 150),

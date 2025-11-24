@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/admin/admin_base_screen.dart>>
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/master_topbar.dart';

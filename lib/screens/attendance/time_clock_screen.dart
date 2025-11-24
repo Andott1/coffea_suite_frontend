@@ -453,7 +453,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
                         children: [
                           CircleAvatar(
                             radius: 32,
-                            backgroundColor: isSelected ? Colors.white : ThemeConfig.primaryGreen.withOpacity(0.1),
+                            backgroundColor: isSelected ? Colors.white : ThemeConfig.primaryGreen.withValues(alpha: 0.1),
                             child: Text(
                               user.fullName[0].toUpperCase(),
                               style: TextStyle(

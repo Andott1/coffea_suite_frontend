@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/bloc/auth/auth_bloc.dart>>
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../services/hive_service.dart';
 import '../../services/session_user.dart';

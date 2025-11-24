@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/admin/admin_dashboard_screen.dart>>
 import 'package:flutter/material.dart';
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';

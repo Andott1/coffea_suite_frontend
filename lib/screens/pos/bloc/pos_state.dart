@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/pos/bloc/pos_state.dart>>
 import 'package:equatable/equatable.dart';
 import '../../../core/models/cart_item_model.dart';
 

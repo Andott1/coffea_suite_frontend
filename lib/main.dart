@@ -1,12 +1,14 @@
-/// <<FILE: lib/main.dart>>
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hive/hive.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // ✅ Import 1
-import 'core/bloc/connectivity/connectivity_cubit.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:talker_bloc_logger/talker_bloc_logger.dart'; // ✅ Import
+import 'package:talker_flutter/talker_flutter.dart';
 
+import 'core/bloc/connectivity/connectivity_cubit.dart';
 import 'core/services/hive_service.dart';
-import 'core/services/supabase_sync_service.dart'; // ✅ Import 2
+import 'core/services/supabase_sync_service.dart';
+import 'core/services/logger_service.dart'; // ✅ Import
 import 'core/bloc/auth/auth_bloc.dart';
 import 'config/theme_config.dart';
 
@@ -21,6 +23,9 @@ import 'screens/pos/bloc/pos_bloc.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // 0. Initialize Logger
+  LoggerService.info("🚀 App Starting...");
+
   // 1. Initialize Supabase (Cloud Sync)
   await Supabase.initialize(
     url: 'https://vvbjuezcwyakrnkrmgon.supabase.co', 
@@ -32,6 +37,15 @@ void main() async {
 
   // 3. Start the Sync Service (Background Queue)
   await SupabaseSyncService.init();
+
+  // 4. ✅ Hook into BLoC for automatic state logging
+  Bloc.observer = TalkerBlocObserver(
+    talker: LoggerService.instance,
+    settings: const TalkerBlocLoggerSettings(
+      printEventFullData: false, // Set true to see full event payloads
+      printStateFullData: false,
+    ),
+  );
 
   runApp(
     MultiBlocProvider(
@@ -55,6 +69,10 @@ class CoffeaSuiteApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeConfig.lightTheme,
       initialRoute: '/',
+      // ✅ Add TalkerObserver to Navigator to log screen transitions
+      navigatorObservers: [
+        TalkerRouteObserver(LoggerService.instance),
+      ],
       routes: {
         '/': (context) => const StartupScreen(),
         '/pos': (context) => const POSBaseScreen(),
@@ -65,4 +83,3 @@ class CoffeaSuiteApp extends StatelessWidget {
     );
   }
 }
-/// <<END FILE>>

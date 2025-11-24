@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/inventory/inventory_dashboard_tab.dart>>
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart'; 
 import 'package:hive_flutter/hive_flutter.dart';
@@ -181,7 +180,7 @@ class InventoryDashboardTab extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 32),

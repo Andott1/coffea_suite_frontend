@@ -2242,7 +2242,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
                       label: Text(opt),
                       selected: isActive,
                       backgroundColor: Colors.white,
-                      selectedColor: ThemeConfig.primaryGreen.withOpacity(0.05),
+                      selectedColor: ThemeConfig.primaryGreen.withValues(alpha: 0.05),
                       labelStyle: TextStyle(
                         color: isActive
                             ? ThemeConfig.primaryGreen

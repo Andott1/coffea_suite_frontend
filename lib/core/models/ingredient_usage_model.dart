@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/models/ingredient_usage_model.dart>>
 import 'package:hive/hive.dart';
 part 'ingredient_usage_model.g.dart';
 

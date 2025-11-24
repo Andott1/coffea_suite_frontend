@@ -160,7 +160,7 @@ class _BasicDropdownButtonState<T> extends State<BasicDropdownButton<T>> {
                 border: Border.all(
                   width: 2,
                   color: isDisabled
-                      ? ThemeConfig.midGray.withOpacity(0.4)
+                      ? ThemeConfig.midGray.withValues(alpha: 0.4)
                       : ThemeConfig.primaryGreen,
                 ),
               ),
@@ -187,7 +187,7 @@ class _BasicDropdownButtonState<T> extends State<BasicDropdownButton<T>> {
                       Icons.arrow_drop_down,
                       size: 26,
                       color: isDisabled
-                          ? ThemeConfig.midGray.withOpacity(0.4)
+                          ? ThemeConfig.midGray.withValues(alpha: 0.4)
                           : ThemeConfig.primaryGreen,
                     ),
                   ),

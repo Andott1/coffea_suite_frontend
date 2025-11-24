@@ -20,9 +20,12 @@ dependencies:
   path_provider: ^2.1.5
 
   # --- Networking & API ---
-  dio: ^5.4.3+1
   connectivity_plus: ^7.0.0
   supabase_flutter: ^2.0.0
+
+  # --- Logging (NEW) ---
+  talker_flutter: ^4.0.0
+  talker_bloc_logger: ^4.0.0
 
   # --- Utils ---
   shared_preferences: ^2.5.3

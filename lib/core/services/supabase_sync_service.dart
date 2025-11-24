@@ -11,6 +11,7 @@ import '../models/product_model.dart';
 import '../models/sync_queue_model.dart';
 import '../models/transaction_model.dart';
 import '../models/user_model.dart';
+import 'logger_service.dart';
 
 class SupabaseSyncService {
   static final SupabaseClient _client = Supabase.instance.client;
@@ -62,7 +63,7 @@ class SupabaseSyncService {
     if (connectivity.contains(ConnectivityResult.none)) return;
 
     _isSyncing = true;
-    print("🔄 Syncing ${_queueBox!.length} items to Supabase...");
+    LoggerService.info("🔄 Syncing ${_queueBox!.length} items to Supabase...");
 
     try {
       // Loop until queue is empty (handles items added *during* the sync)
@@ -89,7 +90,7 @@ class SupabaseSyncService {
             }
             
           } catch (e) {
-            print("❌ Sync Error on item ${item.id}: $e");
+            LoggerService.error("❌ Sync Error on item ${item.id}: $e");
             // We leave the item in the box to retry later
             // Optional: You could add a 'retryCount' field to SyncQueueModel to delete after X fails
           }
@@ -117,7 +118,7 @@ class SupabaseSyncService {
     }
 
     _isSyncing = true;
-    print("☁️ Starting Cloud Restore...");
+    LoggerService.info("☁️ Starting Cloud Restore...");
 
     try {
       // 1. USERS
@@ -300,12 +301,12 @@ class SupabaseSyncService {
         );
         await txnBox.put(txn.id, txn);
       }
-      print("✅ Restored ${txnData.length} transactions.");
+      LoggerService.info("✅ Restored ${txnData.length} transactions.");
 
-      print("🎉 FULL CLOUD RESTORE COMPLETE!");
+      LoggerService.info("🎉 FULL CLOUD RESTORE COMPLETE!");
       
     } catch (e) {
-      print("❌ Restore Failed: $e");
+      LoggerService.error("❌ Restore Failed: $e");
       rethrow;
     } finally {
       _isSyncing = false;
@@ -319,7 +320,7 @@ class SupabaseSyncService {
       throw Exception("No internet connection. Cannot sync.");
     }
 
-    print("🚀 Starting Force Push to Cloud...");
+    LoggerService.info("🚀 Starting Force Push to Cloud...");
 
     // Helper to queue without triggering sync immediately
     Future<void> queue(String table, Map<String, dynamic> data) async {
@@ -443,7 +444,7 @@ class SupabaseSyncService {
       });
     }
 
-    print("✅ All local data queued for sync.");
+    LoggerService.info("✅ All local data queued for sync.");
     
     // Trigger the background sync
     processQueue();

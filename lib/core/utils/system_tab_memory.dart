@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/utils/system_tab_memory.dart>>
 import '../../core/widgets/master_topbar.dart';
 
 /// =============================================================

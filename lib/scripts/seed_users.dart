@@ -3,6 +3,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import '../core/models/user_model.dart';
+import '../core/services/logger_service.dart';
 import '../core/utils/hashing_utils.dart'; // we will create this later
 
 final Uuid uuid = Uuid();
@@ -12,11 +13,11 @@ Future<void> seedUsers() async {
     final userBox = Hive.box<UserModel>('users');
 
     if (userBox.isNotEmpty) {
-      print("ℹ️ Users already seeded, skipping.");
+      LoggerService.info("ℹ️ Users already seeded, skipping.");
       return;
     }
 
-    print("⏳ Seeding Users...");
+    LoggerService.info("⏳ Seeding Users...");
 
     final jsonString = await rootBundle.loadString('assets/data/users_list.json');
     final List<dynamic> data = jsonDecode(jsonString);
@@ -54,9 +55,9 @@ Future<void> seedUsers() async {
       count++;
     }
 
-    print("✅ Users seeded successfully ($count records).");
+    LoggerService.info("✅ Users seeded successfully ($count records).");
 
   } catch (e) {
-    print("❌ Error seeding users: $e");
+    LoggerService.error("❌ Error seeding users: $e");
   }
 }
