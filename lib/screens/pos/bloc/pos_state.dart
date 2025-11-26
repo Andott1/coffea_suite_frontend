@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import '../../../core/models/cart_item_model.dart';
+import '../../../core/utils/format_utils.dart';
 
 // ✅ NEW: Enum for Order Type
 enum OrderType { dineIn, takeOut }
@@ -24,15 +25,17 @@ class PosState extends Equatable {
   PosState copyWith({
     List<CartItemModel>? cart,
     bool? isLoading,
-    OrderType? orderType, // ✅ NEW
+    OrderType? orderType,
   }) {
     // Auto-recalc totals whenever cart changes
     final newCart = cart ?? this.cart;
-    final newSubtotal = newCart.fold(0.0, (sum, item) => sum + item.total);
     
-    // Placeholder tax logic (adjust as needed)
+    // ✅ FIX: Round the raw sum immediately
+    final rawSubtotal = newCart.fold(0.0, (sum, item) => sum + item.total);
+    final newSubtotal = FormatUtils.roundDouble(rawSubtotal);
+    
     final newTax = 0.0; 
-    final newTotal = newSubtotal + newTax;
+    final newTotal = FormatUtils.roundDouble(newSubtotal + newTax);
 
     return PosState(
       cart: newCart,
@@ -40,7 +43,7 @@ class PosState extends Equatable {
       tax: newTax,
       total: newTotal,
       isLoading: isLoading ?? this.isLoading,
-      orderType: orderType ?? this.orderType, // ✅ Copy value
+      orderType: orderType ?? this.orderType,
     );
   }
 

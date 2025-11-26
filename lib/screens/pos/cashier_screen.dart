@@ -13,9 +13,9 @@ import 'bloc/pos_bloc.dart';
 import 'bloc/pos_state.dart';
 import 'bloc/pos_event.dart';
 
-import '../../core/models/transaction_model.dart'; // ✅ Import
+import '../../core/models/transaction_model.dart';
 
-import '../../core/widgets/basic_button.dart'; // Used in dialog
+import '../../core/widgets/basic_button.dart'; 
 
 import '../../core/services/supabase_sync_service.dart';
 
@@ -36,7 +36,6 @@ class _CashierScreenState extends State<CashierScreen> {
   String _selectedSubCategory = "Coffee"; 
   String _searchQuery = "";
   
-  // ✅ NEW: Queue Drawer State
   bool _isQueueOpen = false;
 
   // ──────────────── HELPER: DATA FILTERING ────────────────
@@ -44,7 +43,10 @@ class _CashierScreenState extends State<CashierScreen> {
     final box = HiveService.productBox;
     return box.values.where((p) {
       if (p.category != _selectedCategory) return false;
+      
+      // ✅ FIX: Only filter by subCategory if one is actually selected
       if (_selectedSubCategory.isNotEmpty && p.subCategory != _selectedSubCategory) return false;
+      
       if (_searchQuery.isNotEmpty && !p.name.toLowerCase().contains(_searchQuery.toLowerCase())) return false;
       return true;
     }).toList();
@@ -61,46 +63,22 @@ class _CashierScreenState extends State<CashierScreen> {
   // ──────────────── QUEUE LOGIC ────────────────
   
   void _updateStatus(TransactionModel txn, OrderStatus newStatus) async {
-    // 1. Update Local Hive
     txn.status = newStatus;
     await txn.save(); 
 
-    // 2. ✅ Sync to Supabase
     SupabaseSyncService.addToQueue(
       table: 'transactions',
-      action: 'UPSERT',
+      action: 'UPDATE',
       data: {
         'id': txn.id,
-        'date_time': txn.dateTime.toIso8601String(),
-        'total_amount': txn.totalAmount,
-        'tendered_amount': txn.tenderedAmount,
-        'payment_method': txn.paymentMethod,
-        'cashier_name': txn.cashierName,
-        'reference_no': txn.referenceNo,
-        'is_void': txn.isVoid,
-        
-        // ✅ SYNC UPDATED STATUS
-        'status': newStatus.name, 
-        
-        // Don't forget order_type!
-        'order_type': txn.orderType, 
-
-        // We must resend items because UPSERT replaces the row
-        'items': txn.items.map((i) => {
-          'product_name': i.product.name,
-          'variant': i.variant,
-          'qty': i.quantity,
-          'price': i.price,
-          'total': i.total
-        }).toList(),
+        'status': newStatus.name,
       }
     );
 
-    if(mounted) Navigator.pop(context); // Close dialog
+    if(mounted) Navigator.pop(context); 
   }
 
   void _voidTransaction(TransactionModel txn) async {
-    // 1. Create a new copy with isVoid = true
     final newTxn = TransactionModel(
       id: txn.id,
       dateTime: txn.dateTime,
@@ -110,15 +88,13 @@ class _CashierScreenState extends State<CashierScreen> {
       paymentMethod: txn.paymentMethod,
       cashierName: txn.cashierName,
       referenceNo: txn.referenceNo,
-      isVoid: true,               // ✅ FORCE TRUE
-      status: OrderStatus.voided, // ✅ FORCE STATUS
+      isVoid: true,               
+      status: OrderStatus.voided, 
       orderType: txn.orderType,
     );
 
-    // 2. Replace in Local Hive (using the same key to overwrite)
     await HiveService.transactionBox.put(txn.key, newTxn);
 
-    // 3. Sync to Supabase with correct flags
     SupabaseSyncService.addToQueue(
       table: 'transactions',
       action: 'UPSERT',
@@ -130,7 +106,7 @@ class _CashierScreenState extends State<CashierScreen> {
         'payment_method': newTxn.paymentMethod,
         'cashier_name': newTxn.cashierName,
         'reference_no': newTxn.referenceNo,
-        'is_void': true, // ✅ Explicitly sending TRUE
+        'is_void': true, 
         'status': 'voided',
         'order_type': newTxn.orderType,
         'items': newTxn.items.map((i) => {
@@ -144,7 +120,7 @@ class _CashierScreenState extends State<CashierScreen> {
     );
 
     if (mounted) {
-      Navigator.pop(context); // Close dialog
+      Navigator.pop(context); 
       DialogUtils.showToast(context, "Order Voided", accentColor: Colors.red);
     }
   }
@@ -161,19 +137,16 @@ class _CashierScreenState extends State<CashierScreen> {
               Text("Current Status: ${txn.status.name.toUpperCase()}"),
               const SizedBox(height: 20),
               
-              // ACTIONS FOR PENDING
               if (txn.status == OrderStatus.pending) ...[
                 _actionBtn("Mark Ready", Colors.green, () => _updateStatus(txn, OrderStatus.ready)),
                 _actionBtn("Hold Order", Colors.orange, () => _updateStatus(txn, OrderStatus.held)),
               ],
 
-              // ACTIONS FOR READY
               if (txn.status == OrderStatus.ready) ...[
                 _actionBtn("Serve / Complete", Colors.blue, () => _updateStatus(txn, OrderStatus.served)),
                 _actionBtn("Return to Pending", Colors.grey, () => _updateStatus(txn, OrderStatus.pending)),
               ],
 
-              // ACTIONS FOR HELD
               if (txn.status == OrderStatus.held) ...[
                 _actionBtn("Resume (Pending)", Colors.blue, () => _updateStatus(txn, OrderStatus.pending)),
               ],
@@ -181,9 +154,7 @@ class _CashierScreenState extends State<CashierScreen> {
               const Divider(height: 30),
               
               _actionBtn("Void Transaction", Colors.red, () {
-                 // Future: Add logic to refund stock?
                  _voidTransaction(txn);
-                 DialogUtils.showToast(context, "Order Voided");
               }),
             ],
           ),
@@ -200,9 +171,7 @@ class _CashierScreenState extends State<CashierScreen> {
       padding: const EdgeInsets.only(bottom: 8.0),
       child: BasicButton(
         label: label,
-        type: AppButtonType.primary, // Using primary for simplicity, customizing color via container if needed or just rely on text
-        // Since BasicButton wraps logic, let's just use ElevatedButton for custom colors in this specific dialog
-        // or create a custom BasicButton style. For speed, I'll use standard ElevatedButton here.
+        type: AppButtonType.primary, 
         onPressed: onTap,
       ),
     );
@@ -216,14 +185,13 @@ class _CashierScreenState extends State<CashierScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ────────────────────────────────────────────
-          // LEFT SIDE: PRODUCT SELECTION & QUEUE DRAWER (Flex 3)
+          // LEFT SIDE: PRODUCT SELECTION & QUEUE DRAWER
           // ────────────────────────────────────────────
           Expanded(
             flex: 3,
             child: Stack(
               children: [
                 // ─── LAYER 1: THE MAIN CASHIER UI ───
-                // We add padding top so it sits BELOW the handle
                 Padding(
                   padding: const EdgeInsets.only(top: 70), 
                   child: Column(
@@ -285,7 +253,23 @@ class _CashierScreenState extends State<CashierScreen> {
                           valueListenable: HiveService.productBox.listenable(),
                           builder: (context, _, __) {
                             final products = _getFilteredProducts();
-                            if (products.isEmpty) return const Center(child: Text("No products found."));
+                            
+                            // ✅ Graceful Empty State
+                            if (products.isEmpty) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.search_off, size: 48, color: Colors.grey),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      "No products available in this category.", 
+                                      style: FontConfig.body(context).copyWith(color: Colors.grey)
+                                    ),
+                                  ],
+                                )
+                              );
+                            }
 
                             return GridView.builder(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -305,7 +289,7 @@ class _CashierScreenState extends State<CashierScreen> {
                   ),
                 ),
 
-                // ─── LAYER 2: KANBAN OVERLAY (UPDATED) ───
+                // ─── LAYER 2: KANBAN OVERLAY ───
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 350),
                   curve: Curves.easeInOutCubic,
@@ -314,14 +298,10 @@ class _CashierScreenState extends State<CashierScreen> {
                   bottom: _isQueueOpen ? 0 : MediaQuery.of(context).size.height,
                   child: Container(
                     color: const Color(0xFFF5F5F5),
-                    // ✅ FIX: Load Real Data
                     child: ValueListenableBuilder(
                       valueListenable: HiveService.transactionBox.listenable(),
                       builder: (context, Box<TransactionModel> box, _) {
                         final all = box.values.toList();
-                        // Filter active orders (ignore voided/served for this view usually, 
-                        // but you might want served in a separate "Done" column. 
-                        // For now, sticking to your request: Pending / Ready / Held)
                         
                         final pending = all.where((t) => t.status == OrderStatus.pending).toList();
                         final ready = all.where((t) => t.status == OrderStatus.ready).toList();
@@ -333,7 +313,7 @@ class _CashierScreenState extends State<CashierScreen> {
                   ),
                 ),
 
-                // ─── LAYER 3: HANDLE (UPDATED BADGE) ───
+                // ─── LAYER 3: HANDLE ───
                 Positioned(
                   top: 0, left: 0, right: 0, height: 80,
                   child: GestureDetector(
@@ -352,7 +332,6 @@ class _CashierScreenState extends State<CashierScreen> {
                           const SizedBox(width: 12),
                           const Text("ORDER QUEUE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                           const SizedBox(width: 12),
-                          // ✅ Live Badge
                           ValueListenableBuilder(
                             valueListenable: HiveService.transactionBox.listenable(),
                             builder: (context, Box<TransactionModel> box, _) {
@@ -376,7 +355,7 @@ class _CashierScreenState extends State<CashierScreen> {
           ),
 
           // ────────────────────────────────────────────
-          // RIGHT SIDE: CART SIDEBAR (Unchanged)
+          // RIGHT SIDE: CART SIDEBAR
           // ────────────────────────────────────────────
           Container(
             width: 400, 
@@ -399,13 +378,10 @@ class _CashierScreenState extends State<CashierScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
         children: [
-          // Held
           _buildKanbanColumn("Held / Parked", Colors.orange, held),
           const SizedBox(width: 16),
-          // Pending
           _buildKanbanColumn("Pending", Colors.blue, pending),
           const SizedBox(width: 16),
-          // Ready
           _buildKanbanColumn("Ready to Serve", Colors.green, ready),
         ],
       ),
@@ -422,7 +398,6 @@ class _CashierScreenState extends State<CashierScreen> {
         ),
         child: Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
@@ -436,7 +411,6 @@ class _CashierScreenState extends State<CashierScreen> {
                 style: TextStyle(color: color, fontWeight: FontWeight.bold, letterSpacing: 1),
               ),
             ),
-            // List
             Expanded(
               child: transactions.isEmpty 
                 ? Center(child: Text("No orders", style: TextStyle(color: Colors.grey[400])))
@@ -447,7 +421,6 @@ class _CashierScreenState extends State<CashierScreen> {
                     itemBuilder: (context, index) {
                       final t = transactions[index];
                       
-                      // Summarize items
                       String summary = "${t.items.length} Items";
                       if (t.items.isNotEmpty) {
                         summary = "${t.items[0].quantity}x ${t.items[0].product.name}";
@@ -515,7 +488,6 @@ class _CashierScreenState extends State<CashierScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Toggle
             Container(
               height: 45,
               decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
@@ -528,7 +500,6 @@ class _CashierScreenState extends State<CashierScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Items
             Expanded(
               child: state.cart.isEmpty
                 ? Center(child: Text("Cart is empty", style: TextStyle(color: Colors.grey[400])))
@@ -631,7 +602,15 @@ class _CashierScreenState extends State<CashierScreen> {
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() { _selectedCategory = title; _selectedSubCategory = _getSubCategories().first; }),
+        // ✅ FIX: Safely handle empty categories
+        onTap: () {
+          setState(() { 
+            _selectedCategory = title;
+            final subs = _getSubCategories();
+            // If category has subcategories, select first. Else empty string.
+            _selectedSubCategory = subs.isNotEmpty ? subs.first : ""; 
+          });
+        },
         child: Container(
           decoration: BoxDecoration(
             color: activeBg,
@@ -679,11 +658,9 @@ class _CashierScreenState extends State<CashierScreen> {
                     return;
                   }
                   if (!inStock) {
-                    // ✅ Strict Logic: Block Sale
                     DialogUtils.showToast(context, "Item is SOLD OUT (Check Inventory)", icon: Icons.block, accentColor: Colors.red);
                     return;
                   }
-                  // ... existing add logic ...
                   if (product.prices.isNotEmpty) {
                     showDialog(
                       context: context, 
@@ -729,7 +706,6 @@ class _CashierScreenState extends State<CashierScreen> {
                           ),
                         ],
                       ),
-                      // ✅ OVERLAY: SOLD OUT (Computed)
                       if (isVisible && !inStock)
                         Container(
                           color: Colors.black.withValues(alpha: 0.6),
@@ -741,7 +717,6 @@ class _CashierScreenState extends State<CashierScreen> {
                           ),
                         ),
 
-                      // ✅ OVERLAY: INACTIVE (Admin) - (Should technically be hidden from list, but good for debugging)
                       if (!isVisible)
                         Container(
                           color: Colors.red.withValues(alpha: 0.6),

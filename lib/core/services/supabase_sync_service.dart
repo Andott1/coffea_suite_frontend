@@ -1,10 +1,11 @@
 import 'dart:async';
+import 'dart:convert'; // ✅ IMPORTED for jsonEncode
 import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import 'package:collection/collection.dart'; // Required for groupBy
+import 'package:collection/collection.dart';
 
 import '../models/attendance_log_model.dart';
 import '../models/cart_item_model.dart';
@@ -21,7 +22,6 @@ class SupabaseSyncService {
   static Box<SyncQueueModel>? _queueBox;
   static bool _isSyncing = false;
   
-  // Debounce timer to wait for more items before syncing (Network Efficiency)
   static Timer? _debounceTimer;
 
   static Future<void> init() async {
@@ -37,7 +37,6 @@ class SupabaseSyncService {
     });
   }
 
-  // ─── 1. ADD TO QUEUE (With Debounce) ───
   static Future<void> addToQueue({
     required String table,
     required String action,
@@ -59,36 +58,39 @@ class SupabaseSyncService {
     });
   }
 
-  // ─── 2. PROCESS QUEUE (Generic Batching) ───
+  // ─── HELPER: FORMAT SIZE ───
+  static String _formatSize(int bytes) {
+    if (bytes < 1024) return "$bytes B";
+    return "${(bytes / 1024).toStringAsFixed(2)} KB";
+  }
+
+  // ─── PROCESS QUEUE ───
   static Future<void> processQueue() async {
     if (_isSyncing || _queueBox == null || _queueBox!.isEmpty) return;
 
-    // Lock immediately
     _isSyncing = true;
 
     try {
       final connectivity = await Connectivity().checkConnectivity();
       if (connectivity.contains(ConnectivityResult.none)) return;
 
-      // 1. Snapshot items
       final allPending = _queueBox!.values.toList();
       if (allPending.isEmpty) return;
 
-      // 2. Group by TABLE
+      // Group by TABLE
       final byTable = groupBy(allPending, (SyncQueueModel item) => item.table);
 
       for (final table in byTable.keys) {
         final tableItems = byTable[table]!;
 
-        // ⚡️ INTERCEPTOR: Handle File Uploads for Attendance
-        // We must do this BEFORE creating the 'upserts' list
         if (table == 'attendance_logs') {
            await _handleFileUploads(tableItems);
         }
         
-        // 3. Deduplicate (Squash) Logic
+        // 1. Deduplicate Logic
         final Map<String, Map<String, dynamic>> uniqueUpserts = {};
         final Set<String> uniqueDeletes = {};
+        final Map<String, Map<String, dynamic>> uniqueUpdates = {}; 
 
         for (var item in tableItems) {
           final id = item.data['id'];
@@ -96,26 +98,62 @@ class SupabaseSyncService {
 
           if (item.action == 'UPSERT') {
             uniqueUpserts[id] = item.data;
-            uniqueDeletes.remove(id); 
-          } else if (item.action == 'DELETE') {
+            uniqueDeletes.remove(id);
+            uniqueUpdates.remove(id); 
+          } 
+          else if (item.action == 'DELETE') {
             uniqueDeletes.add(id);
             uniqueUpserts.remove(id);
+            uniqueUpdates.remove(id);
+          } 
+          else if (item.action == 'UPDATE') {
+            if (!uniqueUpserts.containsKey(id) && !uniqueDeletes.contains(id)) {
+              final existing = uniqueUpdates[id] ?? {};
+              uniqueUpdates[id] = {...existing, ...item.data};
+            }
           }
         }
 
         final upserts = uniqueUpserts.values.toList();
         final deletes = uniqueDeletes.toList();
+        final updates = uniqueUpdates.entries.toList();
 
-        // 4. Execute Batch Requests
         try {
+          // 2. Execute Batch Upserts
           if (upserts.isNotEmpty) {
+            // ✅ Calculate Size
+            final jsonString = jsonEncode(upserts);
+            final sizeStr = _formatSize(jsonString.length);
+
             await _client.from(table).upsert(upserts);
-            LoggerService.info("✅ [Batch] Upserted ${upserts.length} rows to '$table'");
+            LoggerService.info("✅ [Batch] Upserted ${upserts.length} rows to '$table' ($sizeStr)");
           }
 
+          // 3. Execute Batch Deletes
           if (deletes.isNotEmpty) {
+            // Size is roughly the list of IDs
+            final sizeStr = _formatSize(jsonEncode(deletes).length);
+
             await _client.from(table).delete().inFilter('id', deletes);
-            LoggerService.info("🗑️ [Batch] Deleted ${deletes.length} rows from '$table'");
+            LoggerService.info("🗑️ [Batch] Deleted ${deletes.length} rows from '$table' ($sizeStr)");
+          }
+
+          // 4. Execute Partial Updates (Loop)
+          if (updates.isNotEmpty) {
+            int totalBytes = 0;
+            
+            for (var entry in updates) {
+              final id = entry.key;
+              final data = entry.value;
+              
+              // ✅ Accumulate Size
+              totalBytes += jsonEncode(data).length;
+
+              await _client.from(table).update(data).match({'id': id});
+            }
+            
+            final sizeStr = _formatSize(totalBytes);
+            LoggerService.info("✏️ [Batch] Updated ${updates.length} rows in '$table' (Total: $sizeStr)");
           }
 
           // 5. Clean up
@@ -133,57 +171,33 @@ class SupabaseSyncService {
     }
   }
 
+  // ... _handleFileUploads and other methods remain unchanged ...
+  
   static Future<void> _handleFileUploads(List<SyncQueueModel> items) async {
     for (var item in items) {
       if (item.action != 'UPSERT') continue;
-      
-      // Check for 'proof_image' field
       final localPath = item.data['proof_image'];
-      
-      // Only process if it exists AND looks like a local path (not already http)
       if (localPath != null && localPath is String && localPath.isNotEmpty && !localPath.startsWith('http')) {
-        
-        LoggerService.info("📸 Found local proof image. Uploading...");
-        
         try {
           final file = File(localPath);
-          if (!await file.exists()) {
-             LoggerService.warning("⚠️ Proof file not found on disk: $localPath");
-             continue; 
-          }
-
-          // Generate a unique filename for storage
+          if (!await file.exists()) continue;
           final fileName = "${item.data['user_id']}_${item.data['date']}_${const Uuid().v4()}.jpg";
           
-          // Upload to 'attendance_proofs' bucket
-          await _client.storage.from('attendance_proofs').upload(
-            fileName, 
-            file,
-            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
-          );
+          // ✅ Log Upload Size
+          final fileSize = await file.length();
+          LoggerService.info("📸 Uploading image (${_formatSize(fileSize)})...");
 
-          // Get Public URL
+          await _client.storage.from('attendance_proofs').upload(fileName, file);
           final publicUrl = _client.storage.from('attendance_proofs').getPublicUrl(fileName);
-          
-          // ⚡️ UPDATE THE ITEM IN PLACE
-          // This ensures the subsequent batch upsert sends the URL, not the local path
           item.data['proof_image'] = publicUrl;
-          
-          // Save to Hive so we don't re-upload if the batch fails later
           await item.save(); 
-
-          LoggerService.info("✅ Proof uploaded: $publicUrl");
-
         } catch (e) {
           LoggerService.error("❌ Proof Upload Failed: $e");
-          // We allow the sync to proceed with the local path. 
-          // It's better to have the log (even with broken image) than no log at all.
         }
       }
     }
   }
 
-  // ─── 3. FORCE PUSH (Local -> Cloud) ───
   static Future<void> forceLocalToCloud() async {
     final connectivity = await Connectivity().checkConnectivity();
     if (connectivity.contains(ConnectivityResult.none)) {
@@ -192,7 +206,6 @@ class SupabaseSyncService {
 
     LoggerService.info("🚀 Starting Force Push to Cloud...");
 
-    // Helper: Add to queue without triggering debounce immediately
     Future<void> queueSilent(String table, Map<String, dynamic> data) async {
       final item = SyncQueueModel(
         id: const Uuid().v4(),
@@ -270,6 +283,9 @@ class SupabaseSyncService {
         'break_end': item.breakEnd?.toIso8601String(),
         'status': item.status.name,
         'hourly_rate_snapshot': item.hourlyRateSnapshot,
+        'proof_image': item.proofImage,
+        'is_verified': item.isVerified,
+        'rejection_reason': item.rejectionReason,
       });
     }
 
@@ -290,11 +306,9 @@ class SupabaseSyncService {
 
     LoggerService.info("✅ All local data queued. Triggering batch sync...");
     
-    // Trigger the batched processing for everything we just queued
     processQueue();
   }
 
-  // ─── 4. RESTORE FROM CLOUD (Unchanged Logic) ───
   static Future<void> restoreFromCloud() async {
     final connectivity = await Connectivity().checkConnectivity();
     if (connectivity.contains(ConnectivityResult.none)) {
@@ -403,6 +417,9 @@ class SupabaseSyncService {
           breakEnd: map['break_end'] != null ? DateTime.parse(map['break_end']) : null,
           status: statusEnum,
           hourlyRateSnapshot: (map['hourly_rate_snapshot'] as num?)?.toDouble() ?? 0.0,
+          proofImage: map['proof_image'],
+          isVerified: map['is_verified'] ?? false,
+          rejectionReason: map['rejection_reason'],
         );
         await attBox.put(log.id, log);
       }

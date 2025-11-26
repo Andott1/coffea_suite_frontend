@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'dart:io'; // ✅ Import IO
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
-import 'package:camera/camera.dart'; // ✅ Import Camera
-import 'package:path_provider/path_provider.dart'; // ✅ Import Path Provider
+import 'package:camera/camera.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
@@ -15,7 +15,7 @@ import '../../core/services/hive_service.dart';
 import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/utils/hashing_utils.dart';
-import '../../core/services/logger_service.dart'; // ✅ Import Logger
+import '../../core/services/logger_service.dart';
 import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/container_card.dart';
 import '../../core/widgets/numeric_pad.dart';
@@ -35,8 +35,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
   bool _isLoading = false;
   
   // Selection State
-  UserModel? _selectedUser; // The user attempting to log in
-  UserModel? _activeUser;   // The user successfully logged in
+  UserModel? _selectedUser; 
+  UserModel? _activeUser;   
   AttendanceLogModel? _todayLog;
 
   Timer? _inactivityTimer;
@@ -49,11 +49,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
     _initCamera();
   }
 
-  // ✅ NEW: Initialize Camera
   Future<void> _initCamera() async {
     if (cameras.isEmpty) return;
-    
-    // Use the front camera if available
     final camera = cameras.firstWhere(
       (c) => c.lensDirection == CameraLensDirection.front,
       orElse: () => cameras.first,
@@ -61,7 +58,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
 
     _cameraController = CameraController(
       camera,
-      ResolutionPreset.low, // Low res is fine for proof thumbnails
+      ResolutionPreset.low, 
       enableAudio: false,
     );
 
@@ -83,10 +80,10 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
   // ──────────────── LOGIC: SELECTION ────────────────
 
   void _selectUser(UserModel user) {
-    if (_activeUser != null) return; // Ignore if already logged in
+    if (_activeUser != null) return; 
     setState(() {
       _selectedUser = user;
-      _pinCode = ""; // Clear previous attempts
+      _pinCode = ""; 
     });
     _resetInactivityTimer();
   }
@@ -102,26 +99,23 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
 
   void _resetInactivityTimer() {
     _inactivityTimer?.cancel();
-    // Auto-reset after 30s of idleness
     _inactivityTimer = Timer(const Duration(seconds: 30), _cancelSelection);
   }
 
   // ──────────────── LOGIC: PIN & AUTH ────────────────
   
   void _onKeypadInput(String value) {
-    // If no user selected yet, warn them
     if (_selectedUser == null) {
       DialogUtils.showToast(context, "Please select your profile on the right first.", icon: Icons.touch_app, accentColor: Colors.orange);
       return;
     }
-    if (_activeUser != null) return; // Already logged in
+    if (_activeUser != null) return; 
     
     if (_pinCode.length >= 4) return;
 
     setState(() => _pinCode += value);
     _resetInactivityTimer();
 
-    // Auto-submit check
     if (_pinCode.length >= 4) {
       _attemptUnlock();
     }
@@ -139,7 +133,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
     if (_selectedUser == null) return;
     
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(milliseconds: 300)); // UX Delay
+    await Future.delayed(const Duration(milliseconds: 300)); 
 
     final isValid = HashingUtils.verifyPin(_pinCode, _selectedUser!.pinHash);
 
@@ -147,7 +141,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
       _fetchTodayLog(_selectedUser!);
       setState(() {
         _activeUser = _selectedUser;
-        _selectedUser = null; // Clear selection logic, move to active
+        _selectedUser = null; 
         _pinCode = "";
       });
       _resetInactivityTimer();
@@ -173,7 +167,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
     );
   }
 
-  // ──────────────── LOGIC: ACTIONS (TIME IN/OUT) ────────────────
+  // ──────────────── LOGIC: ACTIONS ────────────────
 
   Future<void> _performAction(String actionType) async {
     _inactivityTimer?.cancel();
@@ -184,16 +178,12 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
     
     String? proofImagePath;
 
-    // ✅ NEW: Capture Photo on Time In
     if (actionType == 'Time In' && _cameraController != null && _cameraController!.value.isInitialized) {
       try {
         final image = await _cameraController!.takePicture();
-        
-        // Move to app documents
         final appDir = await getApplicationDocumentsDirectory();
         final fileName = "proof_${_activeUser!.username}_${now.millisecondsSinceEpoch}.jpg";
         final savedImage = await File(image.path).copy('${appDir.path}/$fileName');
-        
         proofImagePath = savedImage.path;
         LoggerService.info("📸 Photo Captured: $proofImagePath");
       } catch (e) {
@@ -209,7 +199,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
         timeIn: now,
         status: AttendanceStatus.onTime,
         hourlyRateSnapshot: _activeUser!.hourlyRate,
-        proofImage: proofImagePath, // ✅ Save Path
+        proofImage: proofImagePath,
       );
       await HiveService.attendanceBox.put(newLog.id, newLog);
       _todayLog = newLog;
@@ -249,7 +239,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
         'break_end': log.breakEnd?.toIso8601String(),
         'status': log.status.name,
         'hourly_rate_snapshot': log.hourlyRateSnapshot,
-        'proof_image': log.proofImage, // ✅ Send Local Path (Service will swap it)
+        'proof_image': log.proofImage,
       }
     );
   }
@@ -263,58 +253,67 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: Row(
-        children: [
-          // ─── LEFT: CLOCK & PIN (Fixed Control Panel) ───
-          Expanded(
-            flex: 4,
-            child: Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 40),
-              child: Column(
-                children: [
-                  _buildClock(),
-                  const Divider(height: 40),
-                  
-                  Expanded(
-                    child: _activeUser != null 
-                      ? _buildLoggedInProfile() // 3. Logged In View
-                      : _buildPinEntry()        // 2. PIN Pad (Always visible)
-                  ),
-                ],
+      backgroundColor: ThemeConfig.lightGray,
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ─── LEFT: CLOCK & PIN ───
+            Expanded(
+              flex: 4,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 40),
+                child: Column(
+                  children: [
+                    _buildClock(),
+                    const Divider(height: 40),
+                    
+                    Expanded(
+                      child: _activeUser != null 
+                        ? _buildLoggedInProfile() 
+                        : _buildPinEntry()
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
 
-          // ─── RIGHT: USER GRID OR ACTION GRID ───
-          Expanded(
-            flex: 6,
-            child: Container(
-              color: ThemeConfig.lightGray,
-              padding: const EdgeInsets.all(40),
+            const SizedBox(width: 20),
+
+            // ─── RIGHT: USER GRID OR ACTION GRID ───
+            Expanded(
+              flex: 6,
               child: _activeUser != null
-                  ? _buildActionGrid(context) // Logged In: Show Buttons
-                  : _buildUserGrid(),         // Default: Show User List
+                  ? _buildActionGrid(context) 
+                  : _buildUserGrid(),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-
-  // ─── LEFT PANEL WIDGETS ───
 
   Widget _buildClock() {
     return StreamBuilder(
       stream: Stream.periodic(const Duration(seconds: 1)),
       builder: (context, snapshot) {
         return Row(
-          mainAxisAlignment: MainAxisAlignment.center, // Center the whole row
-          crossAxisAlignment: CrossAxisAlignment.baseline, // Align text by baseline
-          textBaseline: TextBaseline.alphabetic, // Required for baseline alignment
+          mainAxisAlignment: MainAxisAlignment.center, 
+          crossAxisAlignment: CrossAxisAlignment.baseline, 
+          textBaseline: TextBaseline.alphabetic, 
           children: [
-            // 1. Time (HH:MM)
             Text(
               DateFormat('hh:mm').format(DateTime.now()),
               style: const TextStyle(
@@ -324,10 +323,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
                 height: 1
               ),
             ),
-            
-            const SizedBox(width: 8), // Spacing
-            
-            // 2. Period (AM/PM)
+            const SizedBox(width: 8), 
             Text(
               DateFormat('a').format(DateTime.now()),
               style: const TextStyle(
@@ -336,10 +332,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
                 color: ThemeConfig.secondaryGreen
               ),
             ),
-
-            const SizedBox(width: 24), // Gap between Time and Date
-
-            // 3. Date
+            const SizedBox(width: 24), 
             Text(
               DateFormat('EEEE, MMMM d').format(DateTime.now()),
               style: const TextStyle(fontSize: 18, color: Colors.grey),
@@ -366,48 +359,50 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
                       Text("Select your profile\non the right ➜", style: FontConfig.body(context).copyWith(color: Colors.grey, height: 1.2, fontWeight: FontWeight.bold)),
                     ],
                   )
-                : Column(
+                : Row( // ✅ CHANGED TO ROW TO PREVENT OVERFLOW
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // ✅ CAMERA PREVIEW WIDGET
-                      if (_cameraController != null && _cameraController!.value.isInitialized)
-                        Container(
-                          width: 120,
-                          height: 120,
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(60),
-                            border: Border.all(color: ThemeConfig.primaryGreen, width: 3),
-                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8)],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(60),
-                            child: CameraPreview(_cameraController!),
-                          ),
-                        )
-                      else
-                        const Icon(Icons.no_photography, size: 50, color: Colors.grey),
-
-                      Text("Hello, ${_selectedUser!.fullName.split(' ').first}", style: FontConfig.h2(context).copyWith(fontSize: 22)),
-                      const SizedBox(height: 8),
-                      
-                      // PIN Dots
-                      SizedBox(
-                        height: 16,
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(4, (index) {
-                            final filled = index < _pinCode.length;
-                            return Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 6),
-                              width: 12, height: 12,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: filled ? ThemeConfig.primaryGreen : Colors.grey[300],
-                              ),
-                            );
-                          }),
+                      // Lock Icon
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          shape: BoxShape.circle,
                         ),
+                        child: const Icon(Icons.lock_outline, size: 28, color: Colors.grey),
+                      ),
+                      const SizedBox(width: 16),
+
+                      // Name & Dots
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            "Hello, ${_selectedUser!.fullName.split(' ').first}", 
+                            style: FontConfig.h2(context).copyWith(fontSize: 20)
+                          ),
+                          const SizedBox(height: 6),
+                          
+                          // PIN Dots
+                          SizedBox(
+                            height: 12,
+                            child: Row(
+                              children: List.generate(4, (index) {
+                                final filled = index < _pinCode.length;
+                                return Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  width: 12, height: 12,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: filled ? ThemeConfig.primaryGreen : Colors.grey[300],
+                                  ),
+                                );
+                              }),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -441,11 +436,52 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.verified_user, size: 80, color: ThemeConfig.primaryGreen),
-        const SizedBox(height: 20),
-        Text(_activeUser!.fullName, style: FontConfig.h2(context)),
-        Text(_activeUser!.role.name.toUpperCase(), style: FontConfig.caption(context)),
-        const Spacer(),
+        // Live Camera Feed
+        if (_cameraController != null && _cameraController!.value.isInitialized)
+          Expanded(
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 20),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: ThemeConfig.primaryGreen, width: 3),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))
+                ],
+                color: Colors.black,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: CameraPreview(_cameraController!),
+              ),
+            ),
+          )
+        else
+          const Expanded(
+            child: Center(child: Icon(Icons.no_photography, size: 50, color: Colors.grey)),
+          ),
+
+        // Profile Info
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,   
+          crossAxisAlignment: CrossAxisAlignment.center, 
+          children: [
+            const Icon(Icons.verified_user, size: 60, color: ThemeConfig.primaryGreen),
+            const SizedBox(width: 16),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center, 
+              children: [
+                Text(_activeUser!.fullName, style: FontConfig.h2(context)),
+                Text(_activeUser!.role.name.toUpperCase(), style: FontConfig.caption(context)),
+              ],
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: 24),
+        
+        // Logout Button
         BasicButton(
           label: "Logout",
           type: AppButtonType.secondary,
@@ -473,7 +509,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
 
               return GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3, // 3 columns for better grid layout
+                  crossAxisCount: 3, 
                   childAspectRatio: 1.1,
                   crossAxisSpacing: 15,
                   mainAxisSpacing: 15,
@@ -592,7 +628,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
           child: GridView.count(
             crossAxisCount: 2,
             mainAxisSpacing: 20, crossAxisSpacing: 20,
-            childAspectRatio: 1.3,
+            childAspectRatio: 1.5,
             children: [
               _buildActionButton("TIME IN", Icons.login, Colors.green, canTimeIn, () => _performAction('Time In')),
               _buildActionButton("TIME OUT", Icons.logout, Colors.redAccent, canTimeOut, () => _performAction('Time Out')),

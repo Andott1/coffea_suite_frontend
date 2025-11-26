@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
@@ -8,8 +9,8 @@ import '../../core/models/attendance_log_model.dart';
 import '../../core/models/user_model.dart';
 import '../../core/services/hive_service.dart';
 import '../../core/services/session_user.dart';
+import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
-import '../../core/utils/format_utils.dart'; // Assuming you have this or remove if unused
 import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/basic_dropdown_button.dart';
 import '../../core/widgets/basic_search_box.dart';
@@ -24,32 +25,30 @@ class AttendanceLogsScreen extends StatefulWidget {
 }
 
 class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
-  // ──────────────── STATE ────────────────
   String _searchQuery = "";
   String? _selectedEmployeeId;
   DateTime? _startDate;
   DateTime? _endDate;
 
-  // ──────────────── FILTERS ────────────────
-  
+  // ──────────────────────────────────────────────────────────────────────────
+  // FILTER LOGIC
+  // ──────────────────────────────────────────────────────────────────────────
+
   List<AttendanceLogModel> _getFilteredLogs(Box<AttendanceLogModel> box) {
     List<AttendanceLogModel> logs = box.values.toList();
     
-    // Sort: Newest first
-    logs.sort((a, b) => b.date.compareTo(a.date));
+    // Sort by Time In (Newest First)
+    logs.sort((a, b) => b.timeIn.compareTo(a.timeIn));
 
-    // 1. Date Filter
     if (_startDate != null && _endDate != null) {
       final end = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
       logs = logs.where((l) => l.date.isAfter(_startDate!) && l.date.isBefore(end)).toList();
     }
 
-    // 2. Employee Filter (Dropdown)
     if (_selectedEmployeeId != null) {
       logs = logs.where((l) => l.userId == _selectedEmployeeId).toList();
     }
 
-    // 3. Search (Employee Name)
     if (_searchQuery.isNotEmpty) {
       final userBox = HiveService.userBox;
       logs = logs.where((l) {
@@ -65,7 +64,7 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 1)), // Allow today
+      lastDate: DateTime.now().add(const Duration(days: 1)), 
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -86,10 +85,65 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
     }
   }
 
-  // ──────────────── EDIT DIALOG ────────────────
+  // ──────────────────────────────────────────────────────────────────────────
+  // DIALOG HANDLERS
+  // ──────────────────────────────────────────────────────────────────────────
   
+  void _showDetailDialog(AttendanceLogModel log) {
+    showDialog(
+      context: context,
+      builder: (_) => _LogDetailDialog(
+        log: log,
+        onEdit: () {
+          Navigator.pop(context); 
+          _showEditDialog(log);   
+        },
+        onApprove: () async {
+          log.isVerified = true;
+          log.rejectionReason = null;
+          await log.save();
+
+          SupabaseSyncService.addToQueue(
+            table: 'attendance_logs', 
+            action: 'UPDATE', 
+            data: {'id': log.id, 'is_verified': true, 'rejection_reason': null}
+          );
+
+          if(mounted) {
+            Navigator.pop(context);
+            DialogUtils.showToast(context, "Proof Verified ✅");
+          }
+        },
+        onReject: () {
+          Navigator.pop(context);
+          _showRejectionDialog(log);
+        },
+      ),
+    );
+  }
+
+  void _showRejectionDialog(AttendanceLogModel log) {
+    showDialog(
+      context: context,
+      builder: (_) => _RejectionReasonDialog(
+        onConfirm: (reason) async {
+          log.isVerified = false;
+          log.rejectionReason = reason;
+          await log.save();
+
+          SupabaseSyncService.addToQueue(
+            table: 'attendance_logs', 
+            action: 'UPDATE', 
+            data: {'id': log.id, 'is_verified': false, 'rejection_reason': reason}
+          );
+
+          if(mounted) DialogUtils.showToast(context, "Proof Rejected ❌", accentColor: Colors.red);
+        }
+      )
+    );
+  }
+
   void _showEditDialog(AttendanceLogModel log) {
-    // Only Admins or Managers can edit logs
     if (!SessionUser.isManager) {
       DialogUtils.showToast(context, "Only Managers can edit logs.", icon: Icons.lock, accentColor: Colors.red);
       return;
@@ -101,7 +155,9 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
     );
   }
 
-  // ──────────────── UI ────────────────
+  // ──────────────────────────────────────────────────────────────────────────
+  // MAIN UI BUILD
+  // ──────────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -111,12 +167,11 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // ─── CONTROL PANEL ───
+            // ─── HEADER CONTROLS ───
             ContainerCard(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               child: Row(
                 children: [
-                  // Search
                   Expanded(
                     flex: 2,
                     child: BasicSearchBox(
@@ -125,14 +180,11 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
                     ),
                   ),
                   const SizedBox(width: 16),
-
-                  // Employee Dropdown (Dynamic)
                   Expanded(
                     flex: 2,
                     child: ValueListenableBuilder(
                       valueListenable: HiveService.userBox.listenable(),
                       builder: (context, Box<UserModel> box, _) {
-                        // Create a map for the dropdown
                         final users = box.values.toList();
                         return DropdownButtonFormField<String>(
                           value: _selectedEmployeeId,
@@ -151,8 +203,6 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
                     ),
                   ),
                   const SizedBox(width: 16),
-
-                  // Date Picker
                   BasicButton(
                     label: _startDate == null 
                         ? "Date Range" 
@@ -175,7 +225,7 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
 
             const SizedBox(height: 20),
 
-            // ─── TABLE ───
+            // ─── LOGS TABLE ───
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
@@ -187,7 +237,6 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
                 ),
                 child: Column(
                   children: [
-                    // Header
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                       decoration: const BoxDecoration(
@@ -202,12 +251,11 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
                           _headerCell("Time Out", 2),
                           _headerCell("Total Hrs", 2),
                           _headerCell("Status", 2),
-                          const SizedBox(width: 48), // Action spacer
+                          const SizedBox(width: 50), // Space for indicators
                         ],
                       ),
                     ),
 
-                    // List
                     Expanded(
                       child: ValueListenableBuilder(
                         valueListenable: HiveService.attendanceBox.listenable(),
@@ -225,7 +273,6 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
                               final log = logs[index];
                               final user = HiveService.userBox.get(log.userId);
                               
-                              // Calculated Break Duration
                               String breakStr = "-";
                               if (log.breakStart != null && log.breakEnd != null) {
                                 final diff = log.breakEnd!.difference(log.breakStart!);
@@ -234,47 +281,57 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
                                 breakStr = "On Break";
                               }
 
-                              return Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                child: Row(
-                                  children: [
-                                    _textCell(DateFormat('MMM dd').format(log.date), 2, isDim: true),
-                                    
-                                    // Employee Name + Role
-                                    Expanded(
-                                      flex: 3,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(user?.fullName ?? "Unknown", style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen)),
-                                          Text(user?.role.name.toUpperCase() ?? "", style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                        ],
-                                      ),
-                                    ),
+                              return Material(
+                                color: Colors.white,
+                                child: InkWell(
+                                  onTap: () => _showDetailDialog(log),
+                                  hoverColor: ThemeConfig.primaryGreen.withValues(alpha: 0.05),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    child: Row(
+                                      children: [
+                                        _textCell(DateFormat('MMM dd').format(log.date), 2, isDim: true),
+                                        
+                                        Expanded(
+                                          flex: 3,
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(user?.fullName ?? "Unknown", style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen)),
+                                              Text(user?.role.name.toUpperCase() ?? "", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                            ],
+                                          ),
+                                        ),
 
-                                    _textCell(DateFormat('hh:mm a').format(log.timeIn), 2),
-                                    
-                                    _textCell(breakStr, 2, color: breakStr == "On Break" ? Colors.orange : null),
-                                    
-                                    _textCell(log.timeOut != null ? DateFormat('hh:mm a').format(log.timeOut!) : "--", 2),
-                                    
-                                    _textCell(log.totalHoursWorked > 0 ? "${log.totalHoursWorked.toStringAsFixed(1)} hrs" : "-", 2, isBold: true),
-                                    
-                                    // Status Badge
-                                    Expanded(
-                                      flex: 2,
-                                      child: Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: _buildStatusBadge(log),
-                                      ),
-                                    ),
+                                        _textCell(DateFormat('hh:mm a').format(log.timeIn), 2),
+                                        _textCell(breakStr, 2, color: breakStr == "On Break" ? Colors.orange : null),
+                                        _textCell(log.timeOut != null ? DateFormat('hh:mm a').format(log.timeOut!) : "--", 2),
+                                        _textCell(log.totalHoursWorked > 0 ? "${log.totalHoursWorked.toStringAsFixed(1)} hrs" : "-", 2, isBold: true),
+                                        
+                                        Expanded(
+                                          flex: 2,
+                                          child: Align(
+                                            alignment: Alignment.centerLeft,
+                                            child: _buildVerificationBadge(log),
+                                          ),
+                                        ),
 
-                                    // Edit Action
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined, color: Colors.grey, size: 20),
-                                      onPressed: () => _showEditDialog(log),
-                                    )
-                                  ],
+                                        SizedBox(
+                                          width: 50,
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.end,
+                                            children: [
+                                              if (log.proofImage != null && log.proofImage!.isNotEmpty)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(right: 4),
+                                                  child: Icon(Icons.photo_camera, size: 16, color: Colors.grey[400]),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               );
                             },
@@ -292,7 +349,9 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
     );
   }
 
-  // ──────────────── HELPERS ────────────────
+  // ──────────────────────────────────────────────────────────────────────────
+  // TABLE HELPERS
+  // ──────────────────────────────────────────────────────────────────────────
 
   Widget _headerCell(String label, int flex) {
     return Expanded(
@@ -318,42 +377,358 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
     );
   }
 
-  Widget _buildStatusBadge(AttendanceLogModel log) {
-    Color bg;
-    Color text;
-    String label;
-
-    if (log.timeOut == null) {
-      // Check if it's from a previous day (Incomplete)
-      final isToday = DateUtils.isSameDay(log.date, DateTime.now());
-      if (!isToday) {
-        bg = Colors.red.shade50; text = Colors.red; label = "MISSING OUT";
-      } else {
-        bg = Colors.blue.shade50; text = Colors.blue; label = "ACTIVE";
-      }
-    } else {
-      // Completed logs
-      switch (log.status) {
-        case AttendanceStatus.late:
-          bg = Colors.orange.shade50; text = Colors.orange; label = "LATE";
-          break;
-        case AttendanceStatus.overtime:
-          bg = Colors.purple.shade50; text = Colors.purple; label = "OVERTIME";
-          break;
-        default:
-          bg = Colors.green.shade50; text = Colors.green; label = "ON TIME";
-      }
+  Widget _buildVerificationBadge(AttendanceLogModel log) {
+    if (log.rejectionReason != null) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.red.shade200)),
+        child: const Text("REJECTED", style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+      );
     }
-
+    if (log.isVerified) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.green.shade200)),
+        child: const Text("VERIFIED", style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold)),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
-      child: Text(label, style: TextStyle(color: text, fontSize: 10, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+      child: const Text("PENDING", style: TextStyle(color: Colors.grey, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
 }
 
-// ──────────────── PRIVATE: EDIT DIALOG ────────────────
+// ──────────────────────────────────────────────────────────────────────────
+// SPLIT-VIEW AUDIT DIALOG
+// ──────────────────────────────────────────────────────────────────────────
+
+class _LogDetailDialog extends StatelessWidget {
+  final AttendanceLogModel log;
+  final VoidCallback onEdit;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  const _LogDetailDialog({
+    required this.log, 
+    required this.onEdit,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final user = HiveService.userBox.get(log.userId);
+    final bool hasProof = log.proofImage != null && log.proofImage!.isNotEmpty;
+
+    // Image Loader Logic
+    Widget imageWidget;
+    if (hasProof) {
+      if (log.proofImage!.startsWith('http')) {
+        imageWidget = Image.network(log.proofImage!, fit: BoxFit.cover);
+      } else {
+        imageWidget = Image.file(File(log.proofImage!), fit: BoxFit.cover);
+      }
+    } else {
+      imageWidget = Container(
+        color: Colors.grey[200],
+        alignment: Alignment.center,
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.no_photography, size: 48, color: Colors.grey),
+            SizedBox(height: 8),
+            Text("No photo evidence", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      );
+    }
+
+    return DialogBoxTitled(
+      title: "Log Details",
+      width: 900, // ✅ Wide split view
+      actions: [
+        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context))
+      ],
+      child: SizedBox(
+        height: 420, // Fixed height container for consistent layout
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ─── LEFT PANE: EVIDENCE & DATE ───
+            Expanded(
+              flex: 5,
+              child: Column(
+                children: [
+                  // Photo Container
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.grey.shade300),
+                        color: Colors.black,
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: imageWidget,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Date Caption
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.calendar_today, color: ThemeConfig.primaryGreen, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        DateFormat('EEEE, MMMM dd, yyyy').format(log.date),
+                        style: FontConfig.h2(context).copyWith(color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8), // Bottom padding
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 30),
+
+            // ─── RIGHT PANE: RECORD & ACTIONS ───
+            Expanded(
+              flex: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. User Header
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: ThemeConfig.primaryGreen,
+                        child: Text(user?.fullName[0] ?? "?", style: const TextStyle(color: Colors.white, fontSize: 20)),
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user?.fullName ?? "Unknown User", style: FontConfig.h3(context)),
+                          Text(user?.role.name.toUpperCase() ?? "STAFF", style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  
+                  const Divider(height: 40),
+
+                  // 2. Time Card Section
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: ThemeConfig.lightGray,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      children: [
+                        _timeRow("Clock In", DateFormat('hh:mm a').format(log.timeIn)),
+                        const Divider(height: 24),
+                        _timeRow("Clock Out", log.timeOut != null ? DateFormat('hh:mm a').format(log.timeOut!) : "-- : --"),
+                        const Divider(height: 24),
+                        _timeRow(
+                          "Total Worked", 
+                          log.totalHoursWorked > 0 ? "${log.totalHoursWorked.toStringAsFixed(1)} hrs" : "-", 
+                          isBold: true
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // 3. Modify Button (Contextual)
+                  if (SessionUser.isManager)
+                    SizedBox(
+                      width: double.infinity,
+                      child: BasicButton(
+                        label: "Modify Times",
+                        type: AppButtonType.secondary,
+                        height: 40,
+                        icon: Icons.edit,
+                        onPressed: onEdit,
+                      ),
+                    ),
+
+                  const Spacer(),
+
+                  // 4. Status & Verification
+                  if (log.rejectionReason != null)
+                    _statusBanner("REJECTED: ${log.rejectionReason}", Colors.red)
+                  else if (log.isVerified)
+                    _statusBanner("VERIFIED RECORD", Colors.green)
+                  else ...[
+                    const Text("Verification Required:", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: BasicButton(
+                            label: "Reject",
+                            icon: Icons.close,
+                            type: AppButtonType.danger,
+                            onPressed: SessionUser.isManager ? onReject : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: BasicButton(
+                            label: "Approve",
+                            icon: Icons.check,
+                            type: AppButtonType.primary,
+                            onPressed: SessionUser.isManager ? onApprove : null,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ]
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _timeRow(String label, String value, {bool isBold = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: TextStyle(color: Colors.grey[700], fontSize: 16)),
+        Text(
+          value, 
+          style: TextStyle(
+            fontSize: 18, 
+            fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
+            color: isBold ? ThemeConfig.primaryGreen : Colors.black87
+          )
+        ),
+      ],
+    );
+  }
+
+  Widget _statusBanner(String text, Color color) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 16),
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// REJECTION REASON DIALOG
+// ──────────────────────────────────────────────────────────────────────────
+
+class _RejectionReasonDialog extends StatefulWidget {
+  final Function(String) onConfirm;
+  const _RejectionReasonDialog({required this.onConfirm});
+
+  @override
+  State<_RejectionReasonDialog> createState() => _RejectionReasonDialogState();
+}
+
+class _RejectionReasonDialogState extends State<_RejectionReasonDialog> {
+  final TextEditingController _customCtrl = TextEditingController();
+  String? _selectedReason;
+
+  final List<String> _reasons = [
+    "No face visible",
+    "Blurry photo",
+    "Wrong location",
+    "Wearing unauthorized gear",
+    "Duplicate submission"
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Reject Proof"),
+      content: SizedBox(
+        width: 400,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Select a reason:", style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _reasons.map((reason) {
+                final isSelected = _selectedReason == reason;
+                return FilterChip(
+                  label: Text(reason),
+                  selected: isSelected,
+                  onSelected: (v) => setState(() {
+                    _selectedReason = v ? reason : null;
+                    if(v) _customCtrl.clear();
+                  }),
+                  checkmarkColor: Colors.white,
+                  selectedColor: Colors.redAccent,
+                  labelStyle: TextStyle(color: isSelected ? Colors.white : Colors.black87),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 20),
+            const Text("Or type custom reason:", style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _customCtrl,
+              onChanged: (v) => setState(() => _selectedReason = null),
+              decoration: const InputDecoration(
+                hintText: "Enter reason...",
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+          onPressed: () {
+            final reason = _customCtrl.text.isNotEmpty ? _customCtrl.text : _selectedReason;
+            if (reason == null || reason.isEmpty) {
+              DialogUtils.showToast(context, "Please select or type a reason.", icon: Icons.warning, accentColor: Colors.orange);
+              return;
+            }
+            Navigator.pop(context);
+            widget.onConfirm(reason);
+          },
+          child: const Text("Reject Log", style: TextStyle(color: Colors.white)),
+        )
+      ],
+    );
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// EDIT TIME DIALOG (Existing)
+// ──────────────────────────────────────────────────────────────────────────
 
 class _EditLogDialog extends StatefulWidget {
   final AttendanceLogModel log;
@@ -400,9 +775,6 @@ class _EditLogDialogState extends State<_EditLogDialog> {
   void _save() async {
     widget.log.timeIn = _timeIn;
     widget.log.timeOut = _timeOut;
-    // Recalculate status based on simple 9AM rule logic if needed, 
-    // or just leave as manual override.
-    // For now, just save.
     await widget.log.save();
     if(mounted) {
       Navigator.pop(context);

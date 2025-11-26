@@ -72,7 +72,8 @@ class _InventoryLogsTabState extends State<InventoryLogsTab> {
 
   // ──────────────── FILTER LOGIC ────────────────
   List<InventoryLogModel> _getFilteredLogs(Box<InventoryLogModel> box) {
-    List<InventoryLogModel> logs = box.values.toList().reversed.toList();
+    List<InventoryLogModel> logs = box.values.toList();
+    logs.sort((a, b) => b.dateTime.compareTo(a.dateTime));
 
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();

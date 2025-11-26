@@ -1,16 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../core/widgets/master_topbar.dart';
-import '../../core/services/session_user.dart'; // Updated import
+import '../../core/services/session_user.dart';
+import '../../core/bloc/auth/auth_bloc.dart';
+import '../../core/bloc/auth/auth_state.dart';
+import '../../core/models/user_model.dart';
+
+// Screens
+import 'admin_dashboard_screen.dart'; // ✅ Import Dashboard
 import 'admin_ingredient_tab.dart';
 import 'admin_product_tab.dart';
-
-import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ Import Bloc
-import '../../core/bloc/auth/auth_bloc.dart';      // ✅ Import AuthBloc
-import '../../core/bloc/auth/auth_state.dart';     // ✅ Import AuthState
-import '../../core/models/user_model.dart';
 import 'employee_management_screen.dart';
-import 'settings_screen.dart';        // ✅ Import UserRoleLevel
+import 'settings_screen.dart';
 
 class AdminBaseScreen extends StatefulWidget {
   const AdminBaseScreen({super.key});
@@ -22,9 +23,8 @@ class AdminBaseScreen extends StatefulWidget {
 class _AdminBaseScreenState extends State<AdminBaseScreen> {
   int _activeIndex = 0;
   
-  // Tabs configuration
   final List<String> _tabs = const [
-    "Analytics",
+    "Dashboard", // ✅ Renamed from Analytics
     "Employees",
     "Products",
     "Ingredients",
@@ -37,14 +37,13 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
   void initState() {
     super.initState();
     _screens = const [
-      AdminAnalyticsScreen(),
+      AdminDashboardScreen(), // ✅ Use Real Dashboard
       EmployeeManagementScreen(),
       AdminProductTab(),
       AdminIngredientTab(),
       SettingsScreen(),
     ];
 
-    // Security Check on Init
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkAccess();
     });
@@ -52,7 +51,6 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
 
   void _checkAccess() {
     if (!SessionUser.isAdmin) {
-       // Kick user out if they are not admin
        if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
     }
   }
@@ -63,16 +61,13 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Listen to session changes
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         
         if (state is! AuthAuthenticated || state.user.role != UserRoleLevel.admin) {
-           // If user logs out or switches to non-admin, kick them out
            WidgetsBinding.instance.addPostFrameCallback((_) {
              if (mounted) Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
            });
-           // Return loading/empty while redirecting
            return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
 
@@ -81,7 +76,6 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
           appBar: MasterTopBar(
             system: CoffeaSystem.admin,
             tabs: _tabs,
-            // All tabs here are technically admin-only, passing true ensures logic holds
             adminOnlyTabs: const [true, true, true, true, true], 
             activeIndex: _activeIndex,
             onTabSelected: _onTabChanged,
@@ -95,22 +89,5 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
         );
       }
     );
-  }
-}
-
-// ... (Placeholders for Analytics, Employees, Products, Settings remain unchanged) ...
-class AdminAnalyticsScreen extends StatelessWidget {
-  const AdminAnalyticsScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text("Analytics Placeholder"));
-  }
-}
-
-class AdminProductsScreen extends StatelessWidget {
-  const AdminProductsScreen({super.key});
-  @override
-  Widget build(BuildContext context) {
-    return const Center(child: Text("Products Placeholder"));
   }
 }

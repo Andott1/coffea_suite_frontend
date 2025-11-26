@@ -30,6 +30,8 @@ class AttendanceLogModel extends HiveObject {
   @HiveField(8) double hourlyRateSnapshot; 
 
   @HiveField(9) String? proofImage;
+  @HiveField(10) bool isVerified;
+  @HiveField(11) String? rejectionReason;
 
   AttendanceLogModel({
     required this.id,
@@ -42,6 +44,8 @@ class AttendanceLogModel extends HiveObject {
     this.status = AttendanceStatus.incomplete,
     this.hourlyRateSnapshot = 0.0,
     this.proofImage,
+    this.isVerified = false,
+    this.rejectionReason,
   });
 
   // ──────────────── COMPUTED HELPERS ────────────────

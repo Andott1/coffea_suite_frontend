@@ -38,35 +38,23 @@ class StockLogic {
               (i) => i.name == ingredientName
             );
 
-            // 5. Perform Deduction
+            // 5. Perform Deduction Locally
             ingredient.quantity -= totalDeduction;
             ingredient.updatedAt = DateTime.now();
             await ingredient.save();
 
+            // ✅ 6. Sync ONLY Quantity (Efficient Partial Update)
             SupabaseSyncService.addToQueue(
               table: 'ingredients',
-              action: 'UPSERT',
+              action: 'UPDATE', // <--- Changed from UPSERT
               data: {
                 'id': ingredient.id,
-                'name': ingredient.name,
-                'category': ingredient.category,
-                'unit': ingredient.unit,
-                'quantity': ingredient.quantity,
-
-                // ✅ MANUAL MAPPING TO SNAKE_CASE
-                'reorder_level': ingredient.reorderLevel,
-                'unit_cost': ingredient.unitCost,
-                'purchase_size': ingredient.purchaseSize,
-                'base_unit': ingredient.baseUnit,
-                'conversion_factor': ingredient.conversionFactor,
-                'is_custom_conversion': ingredient.isCustomConversion,
+                'quantity': ingredient.quantity, // Only sending the new value
                 'updated_at': ingredient.updatedAt.toIso8601String(),
               },
             );
 
-            // 6. Log it (Silent log, or maybe grouped log later)
-            // Logging every single bean deduction might spam the logs. 
-            // Ideally, we log 1 entry per order, but for detailed tracking:
+            // 7. Log it
             await InventoryLogService.log(
               ingredientName: ingredient.name,
               action: "Sale",

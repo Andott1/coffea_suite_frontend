@@ -59,7 +59,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     // 1. VALIDATION
     if (_selectedMethod == PaymentMethod.cash) {
       final tendered = double.tryParse(_tenderedStr) ?? 0;
-      if (tendered < totalAmount) {
+      if (tendered < FormatUtils.roundDouble(totalAmount)) { 
         DialogUtils.showToast(context, "Insufficient cash tendered.", icon: Icons.error, accentColor: Colors.red);
         return;
       }

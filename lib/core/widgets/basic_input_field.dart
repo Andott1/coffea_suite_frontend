@@ -12,7 +12,7 @@ class BasicInputField extends StatefulWidget {
   final bool isCurrency;
   final bool isPassword;
   final FocusNode? focusNode;
-  final int? maxLength; // ✅ NEW PARAMETER
+  final int? maxLength;
 
   const BasicInputField({
     super.key,
@@ -23,7 +23,7 @@ class BasicInputField extends StatefulWidget {
     this.isCurrency = false,
     this.isPassword = false,
     this.focusNode,
-    this.maxLength, // ✅ Initialize
+    this.maxLength,
   });
 
   @override
@@ -40,7 +40,6 @@ class _BasicInputFieldState extends State<BasicInputField> {
     _isObscured = widget.isPassword;
     
     _formatters = [];
-    // ✅ Add LengthLimitingTextInputFormatter if maxLength is set
     if (widget.maxLength != null) {
       _formatters.add(LengthLimitingTextInputFormatter(widget.maxLength));
     }
@@ -68,7 +67,6 @@ class _BasicInputFieldState extends State<BasicInputField> {
       decoration: InputDecoration(
         labelText: widget.label,
         labelStyle: FontConfig.inputLabel(context),
-        // ✅ Hide the default character counter (e.g. 0/4) for cleaner UI
         counterText: "", 
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -101,11 +99,14 @@ class _BasicInputFieldState extends State<BasicInputField> {
             : null,
       ),
       validator: (v) {
+        // 1. Check Required Status
         if (widget.isRequired && (v == null || v.trim().isEmpty)) {
           return "${widget.label} is required";
         }
-        // ✅ Optional: Add specific length validation error
-        if (widget.maxLength != null && v != null && v.length != widget.maxLength) {
+
+        // 2. Check Fixed Length (Only if value is NOT empty)
+        // This ensures optional fields (like Edit PIN) don't fail when left blank.
+        if (widget.maxLength != null && v != null && v.isNotEmpty && v.length != widget.maxLength) {
            return "${widget.label} must be ${widget.maxLength} digits";
         }
         return null;
