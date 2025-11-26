@@ -29,7 +29,7 @@ class TimeClockScreen extends StatefulWidget {
   State<TimeClockScreen> createState() => _TimeClockScreenState();
 }
 
-class _TimeClockScreenState extends State<TimeClockScreen> {
+class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingObserver {
   // ──────────────── STATE ────────────────
   String _pinCode = "";
   bool _isLoading = false;
@@ -42,36 +42,65 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
   Timer? _inactivityTimer;
 
   CameraController? _cameraController;
+  bool _isCameraInitialized = false; // ✅ Added flag for safer UI rendering
 
   @override
   void initState() {
     super.initState();
-    _initCamera();
+    WidgetsBinding.instance.addObserver(this); // ✅ Observe Lifecycle
+    // ✅ Delay init to prevent navigation race conditions
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initCamera();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // ✅ Handle App Backgrounding (Release Camera)
+    final CameraController? cameraController = _cameraController;
+
+    if (cameraController == null || !cameraController.value.isInitialized) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      cameraController.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      _initCamera();
+    }
   }
 
   Future<void> _initCamera() async {
     if (cameras.isEmpty) return;
-    final camera = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras.first,
-    );
-
-    _cameraController = CameraController(
-      camera,
-      ResolutionPreset.low, 
-      enableAudio: false,
-    );
-
+    
     try {
+      final camera = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+
+      _cameraController = CameraController(
+        camera,
+        ResolutionPreset.medium, // ✅ CHANGED: 'low' causes crashes on some Android CameraX implementations
+        enableAudio: false,
+        imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.jpeg : ImageFormatGroup.bgra8888,
+      );
+
       await _cameraController!.initialize();
-      if (mounted) setState(() {});
+      
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = true;
+        });
+      }
     } catch (e) {
-      LoggerService.error("Camera Error: $e");
+      LoggerService.error("Camera Init Error: $e");
     }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _inactivityTimer?.cancel();
     _cameraController?.dispose();
     super.dispose();
@@ -178,7 +207,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
     
     String? proofImagePath;
 
-    if (actionType == 'Time In' && _cameraController != null && _cameraController!.value.isInitialized) {
+    // ✅ CHECK: Only take picture if initialized
+    if (actionType == 'Time In' && _cameraController != null && _isCameraInitialized) {
       try {
         final image = await _cameraController!.takePicture();
         final appDir = await getApplicationDocumentsDirectory();
@@ -359,7 +389,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
                       Text("Select your profile\non the right ➜", style: FontConfig.body(context).copyWith(color: Colors.grey, height: 1.2, fontWeight: FontWeight.bold)),
                     ],
                   )
-                : Row( // ✅ CHANGED TO ROW TO PREVENT OVERFLOW
+                : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       // Lock Icon
@@ -436,8 +466,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Live Camera Feed
-        if (_cameraController != null && _cameraController!.value.isInitialized)
+        // Live Camera Feed (Safe Check)
+        if (_cameraController != null && _isCameraInitialized)
           Expanded(
             child: Container(
               margin: const EdgeInsets.only(bottom: 20),

@@ -29,13 +29,14 @@ class AttendanceLogModelAdapter extends TypeAdapter<AttendanceLogModel> {
       proofImage: fields[9] as String?,
       isVerified: fields[10] as bool,
       rejectionReason: fields[11] as String?,
+      payrollId: fields[12] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, AttendanceLogModel obj) {
     writer
-      ..writeByte(12)
+      ..writeByte(13)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -59,7 +60,9 @@ class AttendanceLogModelAdapter extends TypeAdapter<AttendanceLogModel> {
       ..writeByte(10)
       ..write(obj.isVerified)
       ..writeByte(11)
-      ..write(obj.rejectionReason);
+      ..write(obj.rejectionReason)
+      ..writeByte(12)
+      ..write(obj.payrollId);
   }
 
   @override

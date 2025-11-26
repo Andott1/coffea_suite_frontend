@@ -32,6 +32,7 @@ class AttendanceLogModel extends HiveObject {
   @HiveField(9) String? proofImage;
   @HiveField(10) bool isVerified;
   @HiveField(11) String? rejectionReason;
+  @HiveField(12) String? payrollId;
 
   AttendanceLogModel({
     required this.id,
@@ -46,6 +47,7 @@ class AttendanceLogModel extends HiveObject {
     this.proofImage,
     this.isVerified = false,
     this.rejectionReason,
+    this.payrollId,
   });
 
   // ──────────────── COMPUTED HELPERS ────────────────
