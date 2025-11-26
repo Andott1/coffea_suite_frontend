@@ -97,21 +97,10 @@ class _StockAdjustmentDialogState extends State<StockAdjustmentDialog> {
 
     SupabaseSyncService.addToQueue(
       table: 'ingredients',
-      action: 'UPSERT',
+      action: 'UPDATE',
       data: {
         'id': widget.ingredient.id,
-        'name': widget.ingredient.name,
-        'category': widget.ingredient.category,
-        'unit': widget.ingredient.unit,
         'quantity': widget.ingredient.quantity,
-
-        // ✅ MANUAL MAPPING TO SNAKE_CASE
-        'reorder_level': widget.ingredient.reorderLevel,
-        'unit_cost': widget.ingredient.unitCost,
-        'purchase_size': widget.ingredient.purchaseSize,
-        'base_unit': widget.ingredient.baseUnit,
-        'conversion_factor': widget.ingredient.conversionFactor,
-        'is_custom_conversion': widget.ingredient.isCustomConversion,
         'updated_at': widget.ingredient.updatedAt.toIso8601String(),
       },
     );
@@ -160,6 +149,17 @@ class _StockAdjustmentDialogState extends State<StockAdjustmentDialog> {
     widget.ingredient.quantity -= qtyToReduce;
     widget.ingredient.updatedAt = DateTime.now();
     await widget.ingredient.save();
+
+
+    SupabaseSyncService.addToQueue(
+      table: 'ingredients',
+      action: 'UPDATE',
+      data: {
+        'id': widget.ingredient.id,
+        'quantity': widget.ingredient.quantity,
+        'updated_at': widget.ingredient.updatedAt.toIso8601String(),
+      },
+    );
 
     // ✅ FIX: Determine Action Category dynamically
     // If the reason is a count correction, label it "Correction".
