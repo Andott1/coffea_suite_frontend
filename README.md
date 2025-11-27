@@ -66,3 +66,64 @@ lib/
 │   ├── pos/            # Cashier & Transaction handling
 │   └── startup/        # Initial Setup & Splash
 └── scripts/            # Data seeding scripts
+````
+
+---
+
+## ⚙️ Setup & Installation
+
+1. **Prerequisites:**
+
+      - Flutter SDK (Latest Stable)
+      - Dart SDK
+
+2. **Clone the repository:**
+
+    ```bash
+    git clone [https://github.com/yourusername/coffea-suite.git](https://github.com/yourusername/coffea-suite.git)
+    cd coffea-suite
+    ```
+
+3. **Install Dependencies:**
+
+    ```bash
+    flutter pub get
+    ```
+
+4. **Code Generation (for Hive Adapters):**
+    If you modify models, run the build runner:
+
+    ```bash
+    flutter pub run build_runner build --delete-conflicting-outputs
+    ```
+
+5. **Run the App:**
+
+    ```bash
+    flutter run
+    ```
+
+---
+
+## 🔄 Synchronization Logic
+
+The app uses an **Offline-First** approach.
+
+1. **Local Writes:** All actions (Sales, Stock Updates, Attendance) are written immediately to **Hive**.
+2. **Sync Queue:** Operations are added to a local `SyncQueueModel`.
+3. **Background Sync:** `SupabaseSyncService` monitors connectivity and flushes the queue to the cloud when online.
+4. **Conflict Resolution:** The system uses UUIDs for all records to prevent collision between offline devices.
+
+---
+
+## 🔐 Credentials & Security
+
+- **Default Admin Setup:** On the first launch, the app prompts to create an Owner/Admin account if the local database is empty.
+- **PIN Security:** Sensitive actions (Voiding orders, Manager verification) require elevated permissions via PIN or Password.
+- **Data Privacy:** Passwords and PINs are hashed using **BCrypt** before storage.
+
+---
+
+## 📝 License
+
+This project is proprietary software. Unauthorized copying or distribution is strictly prohibited.
