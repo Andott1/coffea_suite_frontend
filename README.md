@@ -1,129 +1,132 @@
-# Coffea Suite (Tablet Version)
+# Coffea Suite (Tablet POS)
 
-**Coffea Suite** is a comprehensive, tablet-first Point of Sale (POS) and management system designed for coffee shops and restaurants. Built with **Flutter**, it features an offline-first architecture using **Hive** for local storage and **Supabase** for cloud synchronization.
+![Flutter](https://img.shields.io/badge/Flutter-3.32%2B-blue?logo=flutter)
+![Dart](https://img.shields.io/badge/Dart-3.8%2B-blue?logo=dart)
+![Hive](https://img.shields.io/badge/Hive-Local%20Storage-yellow)
+![Supabase](https://img.shields.io/badge/Supabase-Cloud%20Sync-green)
+![License](https://img.shields.io/badge/License-MIT-green)
+![Status](https://img.shields.io/badge/Version-1.3.1-brightgreen)
 
-## 🚀 Key Features
+**Coffea Suite** is a comprehensive, offline-first Point of Sale and Resource Management system tailored for the food and beverage industry. Built with **Flutter** and **Supabase**, it delivers professional-grade reliability for managing sales, inventory, and staff attendance without relying on continuous internet connectivity.
 
-### 🛒 Point of Sale (POS)
+## 🚀 Core Features
 
-- **Cashier Interface:** Visual product grid with category/sub-category filtering (`CashierScreen`).
-- **Dynamic Product Builder:** Handle product variants (sizes, sugar levels) and real-time stock availability checks (`ProductBuilderDialog`).
-- **Order Queue (Kanban):** Drag-and-drop or status-based workflow for Pending, Preparing, Ready, and Served orders.
-- **Payment Processing:** Support for Cash (with change calculation), Card, and E-Wallet payments (`PaymentScreen`).
-- **Transaction History:** View past orders, reprint receipts, and void transactions (`TransactionHistoryScreen`).
+### 🛒 Smart Point of Sale
+- **Dynamic Cashier:** Visual grid with category filtering (Drinks, Meals, Desserts) and real-time search.
+- **Recipe Engine:** Automatically deducts inventory ingredients based on product recipes (e.g., *1 Latte = 30ml Espresso + 150ml Milk*).
+- **Order Queue (Kanban):** Drag-and-drop status board for kitchen/bar coordination (Pending → Preparing → Ready → Served).
+- **Payment Processing:** Support for Cash (with change calculation), Card, and E-Wallet with reference tracking.
 
-### 📦 Inventory Management
+### 📦 Inventory Control
+- **Granular Tracking:** Supports unit conversions (e.g., Purchase in **Liters**, Usage in **Milliliters**).
+- **Audit Trails:** Logs every stock movement (Restock, Waste, Sale, Correction) with user attribution.
+- **Stock Alerts:** Visual indicators for Low Stock and Out-of-Stock items.
+- **Local Backups:** Export logs to CSV and create local JSON snapshots of inventory data.
 
-- **Ingredient Tracking:** Monitor stock levels with visual status indicators (Good, Low, Critical).
-- **Recipe Matrix:** Link products to ingredients (e.g., "Latte" uses "Milk" + "Coffee Beans") for automatic stock deduction upon sale (`StockLogic`).
-- **Stock Adjustments:** Handle restocks, wastage, and corrections with unit conversion support (e.g., input in Liters, store in mL).
-- **Audit Logs:** Track every stock movement with reasons and user attribution (`InventoryLogsTab`).
+### 👥 Workforce Management
+- **Biometric-Ready Clock:** Time clock with **Camera Photo Verification** to prevent "buddy punching."
+- **Payroll Calculator:** Automated computation of gross/net pay based on hourly rates and custom adjustments.
+- **Role-Based Access:** Granular permissions for Admins (Full Access), Managers (Edit Logs), and Staff (POS Only).
 
-### 🕒 Attendance & Payroll
-
-- **Time Clock:** Employee Clock In/Out with **Photo Proof** verification (`TimeClockScreen`).
-- **Smart Status:** Auto-detects breaks and shift completion.
-- **Payroll Calculator:** Generate payroll reports based on hourly rates, total hours worked, and custom adjustments (bonuses/deductions) (`PayrollScreen`).
-- **Manager Verification:** Admins can approve or reject attendance logs based on photo evidence.
-
-### 🛡️ Admin & Analytics
-
-- **Dashboard:** Real-time sales metrics, top-selling products, and inventory health alerts (`AdminDashboardScreen`).
-- **Employee Management:** Manage users, roles (Admin, Manager, Employee), and secure PIN access.
-- **Cloud Sync Control:** Manual force-push and restore capabilities for data synchronization (`SupabaseSyncService`).
-- **Local Backups:** Export logs to CSV and create local JSON snapshots of critical data.
+### 📊 Admin & Analytics
+- **Live Dashboard:** Real-time sales metrics, top-selling products, and attendance monitoring.
+- **Employee Management:** Create users, assign roles, and manage secure PIN access.
+- **Data Seeding:** Automated bootstrapping of Products and Ingredients from JSON assets on first install.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Framework:** [Flutter](https://flutter.dev/) (Tablet Optimized)
-- **Language:** Dart
-- **State Management:** [flutter_bloc](https://pub.dev/packages/flutter_bloc) (BLoC & Cubit patterns)
-- **Local Database:** [Hive](https://docs.hivedb.dev/) (NoSQL, fast key-value storage)
-- **Cloud Backend:** [Supabase](https://supabase.com/) (PostgreSQL, Realtime, Storage)
-- **Architecture:** Feature-first directory structure with separated Core services.
+| Component | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Framework** | Flutter (Dart) | Tablet-optimized UI |
+| **State Management** | `flutter_bloc` | Predictable state & business logic |
+| **Local DB** | `Hive` (NoSQL) | Offline capability & high-performance reads |
+| **Backend** | `Supabase` | PostgreSQL, Auth, and Realtime Sync |
+| **Observability** | `Talker` | Centralized logging for errors, navigation, and state changes |
+| **Hardware** | `camera` | Employee verification |
 
 ---
 
 ## 📂 Project Structure
 
-The project follows a modular structure organized by feature (`screens`) and shared resources (`core`).
+The project follows a **Feature-First** directory structure with a shared core layer.
 
 ```text
 lib/
-├── config/             # Theme, Fonts, and UI Constants
+├── config/            # Design tokens (ThemeConfig, FontConfig)
 ├── core/
-│   ├── bloc/           # Global BLoCs (Auth, Connectivity)
-│   ├── models/         # Hive Types & Data Models
-│   ├── services/       # Hive, Supabase, Logger, Backup services
-│   ├── utils/          # Formatting, Hashing, Responsive helpers
-│   └── widgets/        # Reusable UI components (Buttons, Cards, Dialogs)
+│   ├── bloc/          # Global App State (Auth, Connectivity)
+│   ├── models/        # Hive Adapters & Data Models
+│   ├── services/      # Singletons (Sync, Logger, Hardware)
+│   └── widgets/       # Atomic UI Components
 ├── screens/
-│   ├── admin/          # Admin Dashboard & Management
-│   ├── attendance/     # Time Clock & Payroll
-│   ├── inventory/      # Stock List & Logs
-│   ├── pos/            # Cashier & Transaction handling
-│   └── startup/        # Initial Setup & Splash
-└── scripts/            # Data seeding scripts
+│   ├── startup/       # Splash, Login, & Data Seeding
+│   ├── pos/           # Cashier, Payment, & Order Queue
+│   ├── inventory/     # Stock, Recipes, & Adjustments
+│   ├── attendance/    # Time Clock & Payroll
+│   └── admin/         # Dashboard & User Management
+└── scripts/           # JSON parsers for DB seeding
 ````
 
----
+-----
 
-## ⚙️ Setup & Installation
+## ⚙️ Installation & Setup
 
-1. **Prerequisites:**
+### Prerequisites
 
-      - Flutter SDK (Latest Stable)
-      - Dart SDK
+  - Flutter SDK `3.32` or higher
+  - Dart SDK `3.8`
 
-2. **Clone the repository:**
+### Deployment Steps
+
+1.  **Clone the Repository:**
 
     ```bash
     git clone [https://github.com/yourusername/coffea-suite.git](https://github.com/yourusername/coffea-suite.git)
     cd coffea-suite
     ```
 
-3. **Install Dependencies:**
+2.  **Install Dependencies:**
 
     ```bash
     flutter pub get
     ```
 
-4. **Code Generation (for Hive Adapters):**
-    If you modify models, run the build runner:
+3.  **Run Code Generation:**
+    *Required for Hive TypeAdapters.*
 
     ```bash
-    flutter pub run build_runner build --delete-conflicting-outputs
+    dart run build_runner build --delete-conflicting-outputs
     ```
 
-5. **Run the App:**
+4.  **Launch the App:**
 
     ```bash
-    flutter run
+    flutter run --dart-define=SUPABASE_URL=[HIDDEN URL] --dart-define=SUPABASE_ANON_KEY=[HIDDEN KEY]
     ```
 
----
+### Initial Device Setup
+
+On the first launch, the application will:
+
+1.  **Detect** an empty local database.
+2.  **Seed Data:** Import default Products and Ingredients from `assets/data/`.
+3.  **Admin Setup:** Redirect to `InitialSetupScreen` to create the first Owner/Admin account if no users exist.
+
+-----
 
 ## 🔄 Synchronization Logic
 
-The app uses an **Offline-First** approach.
+The app uses a robust **Offline-First** architecture:
 
-1. **Local Writes:** All actions (Sales, Stock Updates, Attendance) are written immediately to **Hive**.
-2. **Sync Queue:** Operations are added to a local `SyncQueueModel`.
-3. **Background Sync:** `SupabaseSyncService` monitors connectivity and flushes the queue to the cloud when online.
-4. **Conflict Resolution:** The system uses UUIDs for all records to prevent collision between offline devices.
+1.  **Local Writes:** All actions (Sales, Stock Updates, Attendance) are written immediately to **Hive**.
+2.  **Sync Queue:** A `SyncQueueModel` entry is created for every mutation.
+3.  **Background Sync:** `SupabaseSyncService` monitors connectivity. When online, it processes the queue and pushes changes to the cloud.
+4.  **Manual Control:** Admins can trigger a "Force Push" or "Restore from Cloud" via the Settings screen or "Force Pull" via the topbar.
 
----
-
-## 🔐 Credentials & Security
-
-- **Default Admin Setup:** On the first launch, the app prompts to create an Owner/Admin account if the local database is empty.
-- **PIN Security:** Sensitive actions (Voiding orders, Manager verification) require elevated permissions via PIN or Password.
-- **Data Privacy:** Passwords and PINs are hashed using **BCrypt** before storage.
-
----
+-----
 
 ## 📝 License
 
-This project is proprietary software. Unauthorized copying or distribution is strictly prohibited.
+This project is licensed under the MIT License - see the [LICENSE](https://www.google.com/search?q=LICENSE) file for details.
