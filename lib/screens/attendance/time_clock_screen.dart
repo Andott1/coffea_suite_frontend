@@ -72,6 +72,10 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
 
   Future<void> _initCamera() async {
     if (cameras.isEmpty) return;
+
+    await Future.delayed(const Duration(milliseconds: 500)); 
+
+    if (!mounted) return; // Check mounted again after delay
     
     try {
       final camera = cameras.firstWhere(
@@ -102,7 +106,9 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _inactivityTimer?.cancel();
-    _cameraController?.dispose();
+    final camera = _cameraController;
+    _cameraController = null;
+    camera?.dispose();
     super.dispose();
   }
 
