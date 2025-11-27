@@ -38,9 +38,16 @@ void main() async {
   }
 
   // 1. Initialize Supabase (Cloud Sync)
+  const supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  const supabaseKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+
+  if (supabaseUrl.isEmpty || supabaseKey.isEmpty) {
+    LoggerService.error('❌ Supabase credentials missing! Run with --dart-define');
+  }
+
   await Supabase.initialize(
-    url: 'https://vvbjuezcwyakrnkrmgon.supabase.co', 
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2Ymp1ZXpjd3lha3Jua3JtZ29uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMzI1ODUsImV4cCI6MjA3ODYwODU4NX0.MBloBPZdwfjit4N5heAxdWwRMOGHF3mPHsTkk-zZkWM', 
+    url: supabaseUrl, 
+    anonKey: supabaseKey, 
   );
 
   // 2. Initialize Local Database (Hive)
