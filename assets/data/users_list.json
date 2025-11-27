@@ -1,0 +1,26 @@
+[
+  {
+    "id": "user_employee_1",
+    "fullName": "Employee Test",
+    "username": "employee1",
+    "password": "1234",
+    "pin": "1111",
+    "role": 1
+  },
+  {
+    "id": "user_manager_1",
+    "fullName": "Manager Test",
+    "username": "manager1",
+    "password": "1234",
+    "pin": "2222",
+    "role": 2
+  },
+  {
+    "id": "user_admin_1",
+    "fullName": "Admin Test",
+    "username": "admin1",
+    "password": "1234",
+    "pin": "3333",
+    "role": 3
+  }
+]

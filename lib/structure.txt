@@ -1,1 +1,132 @@
-// structure.txt generated
+assets/
+│
+├── data/
+│   ├── ingredients_list.json
+│   ├── ingredients_usage.json
+│   ├── products_list.json
+│   └── users_list.json
+│
+└── logo/
+    └── coffea.png
+
+lib/
+├── config/
+│   ├── font_config.dart
+│   ├── pricing_config.dart
+│   └── theme_config.dart
+│
+├── core/
+│   ├── bloc/
+│   │   ├── auth/
+│   │   │   ├── auth_bloc.dart
+│   │   │   ├── auth_event.dart
+│   │   │   └── auth_state.dart
+│   │   │
+│   │   ├── connectivity/
+│   │   │   └── connectivity_cubit.dart
+│   │
+│   ├── models/
+│   │   ├── attendance_log_model.dart
+│   │   ├── attendance_log_model.g.dart
+│   │   ├── cart_item_model.dart
+│   │   ├── cart_item_model.g.dart
+│   │   ├── ingredient_model.dart
+│   │   ├── ingredient_model.g.dart
+│   │   ├── ingredient_usage_model.dart
+│   │   ├── ingredient_usage_model.g.dart
+│   │   ├── inventory_log_model.dart
+│   │   ├── inventory_log_model.g.dart
+│   │   ├── product_model.dart
+│   │   ├── product_model.g.dart
+│   │   ├── sync_queue_model.dart
+│   │   ├── sync_queue_model.g.dart
+│   │   ├── transaction_model.dart
+│   │   ├── transaction_model.g.dart
+│   │   ├── user_model.dart
+│   │   └── user_model.g.dart
+│   │
+│   ├── services/
+│   │   ├── backup_service.dart
+│   │   ├── hive_service.dart
+│   │   ├── inventory_log_service.dart
+│   │   ├── session_user.dart
+│   │   └── supabase_sync_service.dart
+│   │
+│   ├── utils/
+│   │   ├── date_utils.dart
+│   │   ├── dialog_utils.dart
+│   │   ├── format_utils.dart
+│   │   ├── hashing_utils.dart
+│   │   ├── responsive.dart
+│   │   └── system_tab_memory.dart
+│   │
+│   └── widgets/
+│       ├── backups_list_dialog.dart
+│       ├── basic_button.dart
+│       ├── basic_chip_display.dart
+│       ├── basic_dropdown_button.dart
+│       ├── basic_input_field.dart
+│       ├── basic_search_box.dart
+│       ├── basic_toggle_button.dart
+│       ├── container_card.dart
+│       ├── container_card_titled.dart
+│       ├── dialog_box.dart
+│       ├── dialog_box_editable.dart
+│       ├── dialog_box_titled.dart
+│       ├── hybrid_dropdown_field.dart
+│       ├── item_card.dart
+│       ├── item_grid_view.dart
+│       ├── login_dialog.dart
+│       ├── master_topbar.dart
+│       └── numeric_pad.dart
+│
+├── screens/
+│   ├── admin/
+│   │   ├── admin_base_screen.dart
+│   │   ├── admin_dashboard_screen.dart
+│   │   ├── admin_ingredient_tab.dart
+│   │   ├── admin_product_tab.dart
+│   │   ├── analytics_screen.dart
+│   │   ├── employee_management_screen.dart
+│   │   └── settings_screen.dart
+│   │
+│   ├── attendance/
+│   │   ├── attendance_base_screen.dart
+│   │   ├── attendance_dashboard_tab.dart
+│   │   ├── attendance_logs_screen.dart
+│   │   ├── payroll_screen.dart
+│   │   └── time_clock_screen.dart
+│   │
+│   ├── inventory/
+│   │   ├── inventory_base_screen.dart
+│   │   ├── inventory_dashboard_tab.dart
+│   │   ├── inventory_list_tab.dart
+│   │   ├── inventory_logs_tab.dart
+│   │   ├── product_edit_screen.dart
+│   │   ├── product_list_screen.dart
+│   │   └── stock_adjustment_dialog.dart
+│   │
+│   ├── pos/
+│   │   ├── bloc/
+│   │   │   ├── pos_bloc.dart
+│   │   │   ├── pos_event.dart
+│   │   │   ├── pos_state.dart
+│   │   │   └── stock_logic.dart
+│   │   │
+│   │   ├── cashier_screen.dart
+│   │   ├── payment_screen.dart
+│   │   ├── pos_base_screen.dart
+│   │   ├── pos_dashboard_screen.dart
+│   │   ├── product_builder_dialog.dart
+│   │   └── transaction_history_screen.dart
+│   │
+│   └── startup/
+│       └── startup_screen.dart
+│
+├── scripts/
+│   ├── seed_ingredient_usage.dart
+│   ├── seed_ingredients.dart
+│   ├── seed_products.dart
+│   └── seed_users.dart
+│
+└── main.dart

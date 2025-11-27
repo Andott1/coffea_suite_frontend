@@ -1,0 +1,250 @@
+[
+  {
+    "id": "coffee_americano",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Americano",
+    "prices": { "12oz": 75, "16oz": 105, "22oz": 115, "HOT": 105 }
+  },
+  {
+    "id": "coffee_latte",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Latte",
+    "prices": { "12oz": 75, "16oz": 105, "22oz": 115, "HOT": 105 }
+  },
+  {
+    "id": "coffee_flat_white",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Flat White",
+    "prices": { "12oz": 75, "16oz": 105, "22oz": 115, "HOT": 105 }
+  },
+  {
+    "id": "coffee_vanilla_latte",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Vanilla Latte",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "coffee_caramel_machiato",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Caramel Machiatto",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "coffee_white_mocha_latte",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "White Mocha Latte",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "coffee_mocha_latte",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Mocha Latte",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "coffee_spanish_latte",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Spanish Latte",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "coffee_hazelnut_latte",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Hazelnut Latte",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "coffee_dirty_matcha",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Dirty Matcha",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "coffee_strawberry_latte",
+    "category": "Drinks",
+    "subCategory": "Coffee",
+    "pricingType": "size",
+    "name": "Strawberry Latte",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "noncoffee_milky_matcha",
+    "category": "Drinks",
+    "subCategory": "Non-Coffee",
+    "pricingType": "size",
+    "name": "Milky Matcha",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "noncoffee_signature_cocoa",
+    "category": "Drinks",
+    "subCategory": "Non-Coffee",
+    "pricingType": "size",
+    "name": "Signature Cocoa",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "noncoffee_strawberry_matcha",
+    "category": "Drinks",
+    "subCategory": "Non-Coffee",
+    "pricingType": "size",
+    "name": "Strawberry Matcha",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "noncoffee_milky_strawberry",
+    "category": "Drinks",
+    "subCategory": "Non-Coffee",
+    "pricingType": "size",
+    "name": "Milky Strawberry",
+    "prices": { "12oz": 75, "16oz": 115, "22oz": 130, "HOT": 115 }
+  },
+  {
+    "id": "carbonated_strawberry_lime",
+    "category": "Drinks",
+    "subCategory": "Carbonated",
+    "pricingType": "size",
+    "name": "Strawberry Lime",
+    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 }
+  },
+  {
+    "id": "carbonated_greeny_apple",
+    "category": "Drinks",
+    "subCategory": "Carbonated",
+    "pricingType": "size",
+    "name": "Greeny Apple",
+    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 }
+  },
+  {
+    "id": "carbonated_honey_peach",
+    "category": "Drinks",
+    "subCategory": "Carbonated",
+    "pricingType": "size",
+    "name": "Honey Peach",
+    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 }
+  },
+  {
+    "id": "carbonated_mango_twist",
+    "category": "Drinks",
+    "subCategory": "Carbonated",
+    "pricingType": "size",
+    "name": "Mango Twist",
+    "prices": { "12oz": 60, "16oz": 105, "22oz": 115 }
+  },
+  {
+    "id": "frappe_matcha",
+    "category": "Drinks",
+    "subCategory": "Frappe",
+    "pricingType": "size",
+    "name": "Matcha Frappe",
+    "prices": { "16oz": 129, "22oz": 149 }
+  },
+  {
+    "id": "frappe_dulce_de_leche",
+    "category": "Drinks",
+    "subCategory": "Frappe",
+    "pricingType": "size",
+    "name": "Dulce de Leche Frappe",
+    "prices": { "16oz": 129, "22oz": 149 }
+  },
+  {
+    "id": "frappe_mocha_java_chips",
+    "category": "Drinks",
+    "subCategory": "Frappe",
+    "pricingType": "size",
+    "name": "Mocha Java Chips Frappe",
+    "prices": { "16oz": 129, "22oz": 149 }
+  },
+  {
+    "id": "frappe_coffee_jelly",
+    "category": "Drinks",
+    "subCategory": "Frappe",
+    "pricingType": "size",
+    "name": "Coffee Jelly Frappe",
+    "prices": { "16oz": 129, "22oz": 149 }
+  },
+  {
+    "id": "meal_pork_sisig",
+    "category": "Meals",
+    "subCategory": "Ricemeal",
+    "pricingType": "variant",
+    "name": "Pork Sisig",
+    "prices": { "Regular": 129 }
+  },
+  {
+    "id": "meal_chicken_adobo",
+    "category": "Meals",
+    "subCategory": "Ricemeal",
+    "pricingType": "variant",
+    "name": "Chicken Adobo",
+    "prices": { "Regular": 125 }
+  },
+  {
+    "id": "meal_club_sandwich",
+    "category": "Meals",
+    "subCategory": "Snacks",
+    "pricingType": "variant",
+    "name": "Club Sandwich",
+    "prices": { "Single": 95 }
+  },
+  {
+    "id": "meal_crispy_fries",
+    "category": "Meals",
+    "subCategory": "Snacks",
+    "pricingType": "variant",
+    "name": "Crispy Fries",
+    "prices": { "Regular": 75 }
+  },
+  {
+    "id": "dessert_chocolate_brownie",
+    "category": "Desserts",
+    "subCategory": "Pastry",
+    "pricingType": "variant",
+    "name": "Chocolate Brownie",
+    "prices": { "Piece": 65 }
+  },
+  {
+    "id": "dessert_blueberry_muffin",
+    "category": "Desserts",
+    "subCategory": "Pastry",
+    "pricingType": "variant",
+    "name": "Blueberry Muffin",
+    "prices": { "Piece": 70 }
+  },
+  {
+    "id": "dessert_coffee_jelly",
+    "category": "Desserts",
+    "subCategory": "Chilled Desserts",
+    "pricingType": "variant",
+    "name": "Coffee Jelly",
+    "prices": { "Cup": 60 }
+  },
+  {
+    "id": "dessert_mango_graham",
+    "category": "Desserts",
+    "subCategory": "Chilled Desserts",
+    "pricingType": "variant",
+    "name": "Mango Graham",
+    "prices": { "Cup": 85 }
+  }
+]
