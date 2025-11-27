@@ -1,34 +1,31 @@
-/// <<FILE: lib/screens/admin/admin_ingredient_tab.dart>>
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
 
 import '../../core/models/ingredient_model.dart';
+import '../../core/models/product_model.dart'; // ✅ NEW IMPORT
+import '../../core/services/hive_service.dart';
 import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/utils/format_utils.dart';
 
-import '../../core/services/backup_service.dart';
-import '../../core/widgets/backups_list_dialog.dart';
-import '../../core/widgets/basic_input_field.dart';
-
 import '../../core/widgets/basic_search_box.dart';
 import '../../core/widgets/basic_toggle_button.dart';
 import '../../core/widgets/container_card.dart';
-import '../../core/widgets/container_card_titled.dart';
-
-import '../../core/widgets/hybrid_dropdown_field.dart';
 
 import '../../core/widgets/item_card.dart';
 import '../../core/widgets/item_grid_view.dart';
-
 import '../../core/widgets/dialog_box_titled.dart';
 import '../../core/widgets/dialog_box_editable.dart';
 
 import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/basic_dropdown_button.dart';
+import '../../core/widgets/basic_input_field.dart'; 
+import '../../core/widgets/hybrid_dropdown_field.dart';
+
+import 'ingredient_form_dialog.dart';
 
 class AdminIngredientTab extends StatefulWidget {
   const AdminIngredientTab({super.key});
@@ -38,182 +35,64 @@ class AdminIngredientTab extends StatefulWidget {
 }
 
 class _AdminIngredientTabState extends State<AdminIngredientTab> {
-  // ──────────────── Search, Filter & Sort State ────────────────
   String _searchQuery = '';
   String? _selectedCategory;
   String? _selectedUnit;
   String _selectedSort = 'Name (A–Z)';
-
-  final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _categoryController = TextEditingController();
-  final _unitController = TextEditingController();
-  final _quantityController = TextEditingController();
-  final _costController = TextEditingController();
-  final _purchaseSizeController = TextEditingController(text: '1');
+  bool _showFilters = false;
+  String _filterType = "Category";
   
-  // ✅ NEW: Reorder Point Controller
-  final _reorderPointController = TextEditingController(text: '0');
+  bool _isEditMode = false;
 
   late Box<IngredientModel> ingredientBox;
 
   @override
   void initState() {
     super.initState();
-    ingredientBox = Hive.box<IngredientModel>('ingredients');
+    ingredientBox = HiveService.ingredientBox;
   }
 
-  void _addIngredient() async {
-    if (!_formKey.currentState!.validate()) return;
+  // ──────────────── ACTIONS ────────────────
 
-    final id = _nameController.text.toLowerCase().replaceAll(' ', '_');
-    final unit = _unitController.text.trim();
-    
-    // Helper to get conversion factor locally to apply to reorder level
-    // (Logic copied from IngredientModel presets for consistency)
-    double factor = 1.0;
-    if (unit == 'kg' || unit == 'L') factor = 1000.0;
-
-    final rawReorderInput = double.tryParse(_reorderPointController.text.trim()) ?? 0;
-
-    final ingredient = IngredientModel.auto(
-      id: id,
-      name: _nameController.text.trim(),
-      category: _categoryController.text.trim().isEmpty
-          ? 'Uncategorized'
-          : _categoryController.text.trim(),
-      unit: unit,
-      quantity: double.parse(_quantityController.text.trim()),
-      unitCost: double.tryParse(_costController.text.replaceAll(',', '')) ?? 0,
-      purchaseSize: double.tryParse(_purchaseSizeController.text.replaceAll(',', '')) ?? 1.0,
-      
-      // ✅ FIX: Save Reorder Level in Base Units (e.g. Input 2L -> Save 2000mL)
-      // We manually apply factor here because .auto() doesn't automatically convert this specific field
-      reorderLevel: rawReorderInput * factor, 
+  void _openAddDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const IngredientFormDialog(),
     );
-
-    await ingredientBox.put(id, ingredient);
-
-    SupabaseSyncService.addToQueue(
-      table: 'ingredients',
-      action: 'UPSERT',
-      data: {
-        'id': ingredient.id,
-        'name': ingredient.name,
-        'category': ingredient.category,
-        'unit': ingredient.unit,
-        'quantity': ingredient.quantity,
-        
-        // ✅ MANUAL MAPPING TO SNAKE_CASE
-        'reorder_level': ingredient.reorderLevel,
-        'unit_cost': ingredient.unitCost,
-        'purchase_size': ingredient.purchaseSize,
-        'base_unit': ingredient.baseUnit,             // Map baseUnit -> base_unit
-        'conversion_factor': ingredient.conversionFactor,
-        'is_custom_conversion': ingredient.isCustomConversion,
-        'updated_at': ingredient.updatedAt.toIso8601String(),
-      },
-    );
-
-    DialogUtils.showToast(context, "Ingredient added successfully!");
-    _clearForm();
-    setState(() {});
-  }
-
-  void _clearForm() {
-    _nameController.clear();
-    _categoryController.clear();
-    _unitController.clear();
-    _quantityController.clear();
-    _costController.clear();
-    _purchaseSizeController.text = "1";
-    _reorderPointController.text = "0"; // Reset
   }
 
   void _showIngredientDetails(IngredientModel ingredient) {
     showDialog(
       context: context,
-      barrierDismissible: false, 
       builder: (_) {
         return DialogBoxTitled(
           title: ingredient.name,
+          subtitle: ingredient.category,
           width: 480, 
           actions: [
             IconButton(
-              icon: const Icon(Icons.close, size: 24, color: ThemeConfig.primaryGreen),
-              padding: EdgeInsets.zero,
-              splashRadius: 18,
+              icon: const Icon(Icons.edit, color: Colors.grey),
+              tooltip: "Edit Item",
+              onPressed: () {
+                Navigator.pop(context);
+                _showEditDialog(ingredient);
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: ThemeConfig.primaryGreen),
               onPressed: () => Navigator.pop(context),
             )
           ],
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
             children: [
-              _detailRow("Category", ingredient.category),
               _detailRow("Unit", ingredient.unit),
-              _detailRow(
-                "Quantity",
-                "${FormatUtils.formatQuantity(ingredient.displayQuantity)} ${ingredient.unit}",
-              ),
-              _detailRow("Standard Size", "${FormatUtils.formatQuantity(ingredient.purchaseSize)} per unit"),
-              
-              // ✅ Show Low Stock Alert
-              _detailRow(
-                "Low Stock Alert", 
-                "${FormatUtils.formatQuantity(ingredient.reorderLevel / ingredient.conversionFactor)} ${ingredient.unit}"
-              ),
-              
+              _detailRow("Purchase Size", "${FormatUtils.formatQuantity(ingredient.purchaseSize)} ${ingredient.unit}"),
+              _detailRow("Base Unit", ingredient.baseUnit),
               const Divider(),
-
-              // ✅ UPDATE: Clearer Cost Labels
-              _detailRow(
-                "Cost per Item", // Changed from "Unit Cost"
-                "${FormatUtils.formatCurrency(ingredient.unitCost)} / ${FormatUtils.formatQuantity(ingredient.purchaseSize)} ${ingredient.unit}",
-              ),
-              
-              // ✅ OPTIONAL: Show Cost per specific unit for sanity check
-              _detailRow(
-                "Cost Logic",
-                "${FormatUtils.formatCurrency(ingredient.costPerBaseUnit * ingredient.conversionFactor)} per 1 ${ingredient.unit}",
-              ),
-              
-              const SizedBox(height: 8),
-              
-              _detailRow(
-                "Total Value",
-                FormatUtils.formatCurrency(ingredient.totalValue),
-              ),
-
-              const SizedBox(height: 20),
-
-              Row(
-                children: [
-                  Expanded(
-                    child: BasicButton(
-                      label: "Edit",
-                      type: AppButtonType.secondary,
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showEditDialog(ingredient);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 24),
-                  Expanded(
-                    child: BasicButton(
-                      label: "Delete",
-                      type: AppButtonType.danger,
-                      onPressed: () async {
-                        await ingredient.delete();
-                        DialogUtils.showToast(context, "${ingredient.name} deleted.");
-                        Navigator.pop(context);
-                        setState(() {});
-                      },
-                    ),
-                  ),
-                ],
-              ),
+              _detailRow("Unit Cost", FormatUtils.formatCurrency(ingredient.unitCost)),
+              _detailRow("Cost Logic", "${FormatUtils.formatCurrency(ingredient.costPerBaseUnit * ingredient.conversionFactor)} / 1 ${ingredient.unit}"),
             ],
           ),
         );
@@ -230,31 +109,21 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
     final editCost = TextEditingController(text: ingredient.unitCost.toStringAsFixed(2));
     final editPurchaseSize = TextEditingController(text: FormatUtils.formatQuantity(ingredient.purchaseSize));
     
-    // ✅ Load existing Alert Level (Convert Base -> Main Unit for display)
-    // e.g., Stored 2000 -> Display 2
     final displayReorder = ingredient.reorderLevel / ingredient.conversionFactor;
     final editReorder = TextEditingController(text: FormatUtils.formatQuantity(displayReorder));
 
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) {
-        return DialogBoxEditable(
+      builder: (_) => DialogBoxEditable(
           title: "Edit Ingredient",
           formKey: formKey,
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.close, size: 24, color: ThemeConfig.primaryGreen),
-              padding: EdgeInsets.zero,
-              splashRadius: 18,
-              onPressed: () => Navigator.pop(context),
-            )
-          ],
+          width: 600,
+          onCancel: () => Navigator.pop(context),
           child: Column(
             children: [
               BasicInputField(label: "Name", controller: editName),
               const SizedBox(height: 10),
-              
               Row(
                 children: [
                    Expanded(
@@ -274,85 +143,139 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
                   ),
                 ],
               ),
-              
               const SizedBox(height: 10),
-              
               Row(
                 children: [
-                  Expanded(
-                    child: BasicInputField(
-                      label: "Quantity", 
-                      controller: editQuantity, 
-                      inputType: TextInputType.number
-                    )
-                  ),
+                  Expanded(child: BasicInputField(label: "Current Stock", controller: editQuantity, inputType: TextInputType.number)),
                   const SizedBox(width: 10),
-                  // ✅ Reorder Level Input
-                  Expanded(
-                    child: BasicInputField(
-                      label: "Alert @", 
-                      controller: editReorder, 
-                      inputType: TextInputType.number
-                    )
-                  ),
+                  Expanded(child: BasicInputField(label: "Alert @", controller: editReorder, inputType: TextInputType.number)),
                 ],
               ),
-              
               const SizedBox(height: 10),
-
               Row(
                 children: [
-                  Expanded(
-                    child: BasicInputField(
-                      label: "Purchase Size", 
-                      controller: editPurchaseSize, 
-                      inputType: TextInputType.number
-                    )
-                  ),
+                  Expanded(child: BasicInputField(label: "Purchase Size", controller: editPurchaseSize, inputType: TextInputType.number)),
                   const SizedBox(width: 10),
-                  Expanded(
-                    child: BasicInputField(
-                      label: "Unit Cost ₱", 
-                      controller: editCost, 
-                      inputType: TextInputType.number, 
-                      isCurrency: true
-                    )
-                  ),
+                  Expanded(child: BasicInputField(label: "Unit Cost ₱", controller: editCost, inputType: TextInputType.number, isCurrency: true)),
                 ],
               ),
             ],
           ),
           onSave: () async {
-            // Recalculate conversion in case Unit changed
-            // Note: Changing unit on existing items is risky logic-wise, but we handle simple cases here.
-            double factor = ingredient.conversionFactor; 
-            
-            // Update fields
+            double factor = ingredient.conversionFactor;
             ingredient
               ..name = editName.text.trim()
               ..category = editCategory.text.trim()
               ..unit = editUnit.text.trim()
-              ..quantity = (double.tryParse(editQuantity.text) ?? 0) * factor // Store as Base
+              ..quantity = (double.tryParse(editQuantity.text) ?? 0) * factor
               ..unitCost = double.tryParse(editCost.text.replaceAll(',', '')) ?? 0
               ..purchaseSize = double.tryParse(editPurchaseSize.text) ?? 1.0
-              // ✅ Save Reorder Level (Display Input * Factor = Base Storage)
               ..reorderLevel = (double.tryParse(editReorder.text) ?? 0) * factor
               ..updatedAt = DateTime.now();
 
             await ingredient.save();
-            DialogUtils.showToast(context, "Ingredient updated.");
-            Navigator.pop(context);
-            setState(() {});
+            
+            SupabaseSyncService.addToQueue(
+                table: 'ingredients',
+                action: 'UPSERT',
+                data: ingredient.toJson()
+            );
+
+            if (mounted) {
+              DialogUtils.showToast(context, "Ingredient updated.");
+              Navigator.pop(context);
+            }
           },
-        );
-      },
+      ),
     );
   }
 
-  // ... (Filtering, Sorting, Builders remain unchanged below) ...
-  
+  // ✅ NEW: Safer Delete with Dependency Check
+  Future<void> _deleteIngredient(IngredientModel ingredient) async {
+    // 1. CHECK DEPENDENCIES
+    final products = HiveService.productBox.values;
+    final affectedProducts = products.where((p) {
+      return p.ingredientUsage.containsKey(ingredient.name); 
+    }).toList();
+
+    // 2. SHOW WARNING IF USED
+    bool? confirm;
+    if (affectedProducts.isNotEmpty) {
+       confirm = await showDialog<bool>(
+         context: context,
+         builder: (ctx) => AlertDialog(
+           title: const Text("⚠️ Dependency Warning"),
+           content: Text(
+             "This ingredient is used in ${affectedProducts.length} products.\n\n"
+             "Deleting it will mark the following products as UNAVAILABLE:\n"
+             "${affectedProducts.take(3).map((p) => "- ${p.name}").join("\n")}"
+             "${affectedProducts.length > 3 ? "\n...and ${affectedProducts.length - 3} more." : ""}\n\n"
+             "Do you want to proceed?"
+           ),
+           actions: [
+             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+             ElevatedButton(
+               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+               onPressed: () => Navigator.pop(ctx, true),
+               child: const Text("Delete & Disable Products", style: TextStyle(color: Colors.white))
+             )
+           ],
+         )
+       );
+    } else {
+       confirm = await showDialog<bool>(
+         context: context,
+         builder: (ctx) => AlertDialog(
+           title: const Text("Confirm Delete"),
+           content: Text("Are you sure you want to delete ${ingredient.name}?"),
+           actions: [
+             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+             ElevatedButton(
+               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+               onPressed: () => Navigator.pop(ctx, true),
+               child: const Text("Delete", style: TextStyle(color: Colors.white))
+             )
+           ],
+         )
+       );
+    }
+     
+    if (confirm != true) return;
+
+    // 3. EXECUTE DELETION AND CASCADING UPDATES
+    final id = ingredient.id;
+    await ingredient.delete();
+    
+    // A. Queue Ingredient Deletion
+    SupabaseSyncService.addToQueue(
+      table: 'ingredients', 
+      action: 'DELETE', 
+      data: {'id': id}
+    );
+
+    // B. Disable Affected Products & Queue Updates
+    for (var product in affectedProducts) {
+      product.available = false;
+      await product.save();
+      
+      SupabaseSyncService.addToQueue(
+         table: 'products', 
+         action: 'UPSERT', 
+         data: product.toJson()
+      );
+    }
+
+    if(mounted) {
+      DialogUtils.showToast(
+        context, 
+        affectedProducts.isNotEmpty 
+            ? "Deleted. ${affectedProducts.length} products marked unavailable."
+            : "Ingredient deleted."
+      );
+    }
+  }
+
   List<IngredientModel> _getFilteredIngredients() {
-    // ... (Same as before)
     List<IngredientModel> list = ingredientBox.values.toList();
     if (_searchQuery.isNotEmpty) {
       list = list.where((ing) => ing.name.toLowerCase().contains(_searchQuery)).toList();
@@ -372,8 +295,158 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
     return list;
   }
 
-  bool _showFilters = false;
-  String _filterType = "Category";
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ThemeConfig.lightGray,
+      body: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // ──────────────── HEADER SECTION ────────────────
+            ContainerCard(
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(flex: 3, child: _buildSearchBar(context)),
+                      const SizedBox(width: 16),
+                      Expanded(flex: 2, child: _buildSortDropdown(context)),
+                      const SizedBox(width: 16),
+                      Expanded(flex: 1, child: _buildFilterButton(context)),
+                      const SizedBox(width: 16),
+                      
+                      BasicButton(
+                        label: _isEditMode ? "Done" : "Manage",
+                        icon: _isEditMode ? Icons.check : Icons.edit,
+                        type: _isEditMode ? AppButtonType.secondary : AppButtonType.neutral,
+                        fullWidth: false,
+                        onPressed: () => setState(() => _isEditMode = !_isEditMode),
+                      ),
+                      const SizedBox(width: 12),
+
+                      BasicButton(
+                        label: "New Item",
+                        icon: Icons.add,
+                        type: AppButtonType.primary,
+                        fullWidth: false,
+                        onPressed: _openAddDialog,
+                      ),
+                    ],
+                  ),
+                  AnimatedCrossFade(
+                    firstChild: const SizedBox.shrink(),
+                    secondChild: _buildFilterRow(context),
+                    crossFadeState: _showFilters ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+                    duration: const Duration(milliseconds: 250),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            // ──────────────── LIST HEADERS ────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+              child: Row(
+                children: [
+                  const SizedBox(width: 50), 
+                  Expanded(flex: 4, child: Text("INGREDIENT NAME", style: FontConfig.caption(context))),
+                  Expanded(flex: 2, child: Text("CATEGORY", style: FontConfig.caption(context))),
+                  Expanded(flex: 3, child: Text("CONFIG (SIZE / UNIT)", style: FontConfig.caption(context))),
+                  Expanded(flex: 2, child: Text("UNIT COST", style: FontConfig.caption(context))),
+                  SizedBox(width: _isEditMode ? 96 : 48), 
+                ],
+              ),
+            ),
+
+            // ──────────────── FULL WIDTH LIST ────────────────
+            Expanded(
+              child: ValueListenableBuilder(
+                valueListenable: ingredientBox.listenable(),
+                builder: (context, _, __) {
+                  final ingredients = _getFilteredIngredients();
+
+                  if (ingredients.isEmpty) {
+                    return Center(
+                      child: Text("No ingredients found.", style: FontConfig.body(context)),
+                    );
+                  }
+
+                  return ListView.separated(
+                    itemCount: ingredients.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final ing = ingredients[index];
+                      return _buildIngredientRow(ing);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildIngredientRow(IngredientModel ing) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: () => _showIngredientDetails(ing), 
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+          child: Row(
+            children: [
+              Container(
+                width: 40, 
+                height: 40,
+                decoration: BoxDecoration(
+                  color: ThemeConfig.primaryGreen.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.science, color: ThemeConfig.primaryGreen, size: 20),
+              ),
+              const SizedBox(width: 16),
+              Expanded(flex: 4, child: Text(ing.name, style: FontConfig.body(context).copyWith(fontWeight: FontWeight.bold))),
+              Expanded(flex: 2, child: Text(ing.category, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w500))),
+              Expanded(
+                flex: 3,
+                child: Row(
+                  children: [
+                    const Icon(Icons.straighten, size: 14, color: Colors.grey),
+                    const SizedBox(width: 6),
+                    Text("${FormatUtils.formatQuantity(ing.purchaseSize)} ${ing.unit}", style: const TextStyle(color: Colors.black87)),
+                  ],
+                ),
+              ),
+              Expanded(flex: 2, child: Text(FormatUtils.formatCurrency(ing.unitCost), style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen))),
+
+              if (_isEditMode) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                  tooltip: "Edit",
+                  onPressed: () => _showEditDialog(ing),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: "Delete",
+                  onPressed: () => _deleteIngredient(ing),
+                ),
+              ] else ...[
+                 const SizedBox(width: 48),
+              ]
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildSearchBar(BuildContext context) {
     return BasicSearchBox(
@@ -381,12 +454,10 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
       onChanged: (value) => setState(() => _searchQuery = value),
     );
   }
-  
-  // ... (Sort Dropdown, Filter Button, Filter Row, Detail Row remain same) ...
-  
+
   Widget _buildSortDropdown(BuildContext context) {
     return BasicDropdownButton<String>(
-      width: 200,
+      width: double.infinity,
       value: _selectedSort,
       items: const ["Name (A-Z)", "Name (Z-A)", "Unit Cost (L-H)", "Unit Cost (H-L)"],
       onChanged: (value) => setState(() => _selectedSort = value!),
@@ -476,294 +547,14 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
 
   Widget _detailRow(String title, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(title, style: FontConfig.h2(context).copyWith(fontWeight: FontWeight.w500, color: ThemeConfig.primaryGreen)),
-          Text(value, style: FontConfig.body(context).copyWith(fontWeight: FontWeight.w400, color: ThemeConfig.secondaryGreen)),
+          Text(title, style: FontConfig.body(context).copyWith(fontWeight: FontWeight.w600, color: ThemeConfig.primaryGreen)),
+          Text(value, style: FontConfig.body(context).copyWith(color: Colors.black87)),
         ],
       ),
     );
   }
-
-  @override
-  Widget build(BuildContext context) {
-    final isBackupEnabled = ingredientBox.isNotEmpty;
-
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      backgroundColor: ThemeConfig.lightGray,
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ──────────────── LEFT: FORM PANEL ────────────────
-            Expanded(
-              flex: 3,
-              child: SingleChildScrollView(
-                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom + 20, right: 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ContainerCardTitled(
-                      title: "Add New Ingredient",
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Name
-                            BasicInputField(label: "Ingredient Name", controller: _nameController),
-                            const SizedBox(height: 14),
-
-                            // Category + Unit Row
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: HybridDropdownField(
-                                    label: "Category",
-                                    controller: _categoryController,
-                                    options: ingredientBox.values.map((e) => e.category).where((c) => c.isNotEmpty).toSet().toList(),
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: HybridDropdownField(
-                                    label: "Unit",
-                                    controller: _unitController,
-                                    options: ingredientBox.values.map((e) => e.unit).where((u) => u.isNotEmpty).toSet().toList(),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-                            
-                            // ✅ Reorder Level Row
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: BasicInputField(
-                                    label: "Quantity",
-                                    controller: _quantityController,
-                                    inputType: TextInputType.number,
-                                  ),
-                                ),
-                                const SizedBox(width: 14),
-                                Expanded(
-                                  child: BasicInputField(
-                                    label: "Low Stock Alert @",
-                                    controller: _reorderPointController,
-                                    inputType: TextInputType.number,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 14),
-
-                            // Purchase Size + Cost Row
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: BasicInputField(
-                                    label: "Std. Purchase Size", // e.g. 750
-                                    controller: _purchaseSizeController,
-                                    inputType: TextInputType.number,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: BasicInputField(
-                                    label: "Unit Cost ₱",
-                                    controller: _costController,
-                                    inputType: TextInputType.number,
-                                    isCurrency: true,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 20),
-
-                            // Buttons
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: BasicButton(
-                                    label: "Clear", type: AppButtonType.secondary, onPressed: _clearForm
-                                  ),
-                                ),
-                                Container(width: 3, height: 44, margin: const EdgeInsets.symmetric(horizontal: 20), color: ThemeConfig.lightGray),
-                                Expanded(
-                                  child: BasicButton(
-                                    label: "Add", type: AppButtonType.primary, onPressed: _addIngredient
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Backup Panel (Unchanged)
-                    ContainerCard(
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: BasicButton(
-                                  label: "Backup", type: AppButtonType.secondary, icon: Icons.save_outlined,
-                                  onPressed: isBackupEnabled ? () async {
-                                      final service = BackupService();
-                                      final filename = await showDialog<String?>(
-                                        context: context,
-                                        builder: (ctx) {
-                                          final c = TextEditingController();
-                                          return AlertDialog(
-                                            title: const Text('Create Backup'),
-                                            content: TextField(controller: c, decoration: const InputDecoration(hintText: 'Enter file name (optional)')),
-                                            actions: [
-                                              TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancel')),
-                                              ElevatedButton(onPressed: () => Navigator.of(ctx).pop(c.text.trim()), child: const Text('Save')),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      if (filename != null) {
-                                        try {
-                                          final entry = await service.createBackup(fileName: filename);
-                                          DialogUtils.showToast(context, 'Backup created: ${entry.filename}');
-                                        } catch (e) {
-                                          DialogUtils.showToast(context, 'Backup failed: $e');
-                                        }
-                                      }
-                                    } : null,
-                                ),
-                              ),
-                              Container(width: 3, height: 44, margin: const EdgeInsets.symmetric(horizontal: 20), color: ThemeConfig.lightGray),
-                              Expanded(
-                                child: BasicButton(
-                                  label: "Restore", type: AppButtonType.secondary, icon: Icons.restore,
-                                  onPressed: () async {
-                                    final service = BackupService();
-                                    final restored = await showDialog<bool?>(
-                                      context: context, 
-                                      builder: (_) => BackupsListDialog(
-                                        backupService: service, 
-                                        type: 'ingredients' // ✅ Specify type
-                                      )
-                                    );
-                                    if (restored == true) {
-                                      DialogUtils.showToast(context, "Restore completed successfully.");
-                                      setState(() {});
-                                    }
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 20),
-                          BasicButton(
-                            label: "Delete All", type: AppButtonType.danger,
-                            onPressed: () async {
-                              await ingredientBox.clear();
-                              DialogUtils.showToast(context, "All ingredients deleted.");
-                              setState(() {});
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 20),
-
-            // ──────────────── RIGHT: INGREDIENT LIST ────────────────
-            Expanded(
-              flex: 5,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ContainerCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(flex: 9, child: _buildSearchBar(context)),
-                            const SizedBox(width: 20),
-                            Expanded(flex: 5, child: _buildSortDropdown(context)),
-                            const SizedBox(width: 20),
-                            Expanded(flex: 3, child: _buildFilterButton(context)),
-                          ],
-                        ),
-                        AnimatedCrossFade(
-                          firstChild: const SizedBox.shrink(),
-                          secondChild: _buildFilterRow(context),
-                          crossFadeState: _showFilters ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-                          duration: const Duration(milliseconds: 250),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: Builder(
-                      builder: (context) {
-                        final ingredients = _getFilteredIngredients();
-                        return ItemGridView<IngredientModel>(
-                          items: ingredients,
-                          crossAxisSpacing: 14, mainAxisSpacing: 14,
-                          minItemWidth: 360, childAspectRatio: 370 / 116,
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          itemBuilder: (context, ing) {
-                            return ItemCard(
-                              onTap: () => _showIngredientDetails(ing),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 6,
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Text(ing.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: ThemeConfig.primaryGreen)),
-                                        Text(ing.category, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: ThemeConfig.secondaryGreen)),
-                                        Text(
-                                          "${FormatUtils.formatQuantity(ing.displayQuantity)} ${ing.unit}",
-                                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Colors.black54),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 4,
-                                    child: Align(
-                                      alignment: Alignment.bottomRight,
-                                      child: Text(FormatUtils.formatCurrency(ing.unitCost), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: ThemeConfig.primaryGreen)),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
-/// <<END FILE>>

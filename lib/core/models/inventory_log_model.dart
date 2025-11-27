@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/models/inventory_log_model.dart>>
 import 'package:hive/hive.dart';
 
 part 'inventory_log_model.g.dart';
@@ -40,4 +39,3 @@ class InventoryLogModel extends HiveObject {
     required this.reason,
   });
 }
-/// <<END FILE>>

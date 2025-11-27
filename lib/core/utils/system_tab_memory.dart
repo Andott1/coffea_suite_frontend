@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/utils/system_tab_memory.dart>>
 import '../../core/widgets/master_topbar.dart';
 
 /// =============================================================
@@ -22,4 +21,3 @@ class SystemTabMemory {
   /// Optional: Clear all saved tabs (useful for logout or reset)
   static void clearAll() => _lastTabs.clear();
 }
-/// <<END FILE>>

@@ -1,242 +1,129 @@
-# ☕ COFFEA POS Suite
+# Coffea Suite (Tablet Version)
 
-## A Modular Point-of-Sale and Business Management System for Coffea
+**Coffea Suite** is a comprehensive, tablet-first Point of Sale (POS) and management system designed for coffee shops and restaurants. Built with **Flutter**, it features an offline-first architecture using **Hive** for local storage and **Supabase** for cloud synchronization.
 
-![Flutter](https://img.shields.io/badge/Flutter-3.19%2B-blue?logo=flutter)
-![Hive](https://img.shields.io/badge/Hive-Local%20Storage-yellow)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Status](https://img.shields.io/badge/Version-1.0.1-brightgreen)
+## 🚀 Key Features
 
----
+### 🛒 Point of Sale (POS)
 
-## 📖 Overview
-
-**COFFEA POS** is an integrated café management suite built with **Flutter** and **Hive**. It unifies **Point of Sale**, **Inventory**, **Attendance**, and **Admin Tools** into a single responsive application optimized for tablet and desktop screens.
-
-### 🎯 Key Objectives
-
-* Provide a unified POS ecosystem with **role-based access** (Admin/Employee)
-* Enable **offline-first** data storage using Hive
-* Simplify **inventory updates** through ingredient usage tracking
-* Maintain modularity for **future BLoC state management integration**
-
----
-
-## 🧩 Project Structure
-
-```plaintext
-assets/
-├── data/
-│   ├── ingredients_list.json
-│   ├── ingredients_usage.json
-│   └── products_list.json
-├── fonts/
-├── icons/
-└── logo/
-    └── coffea.png
-
-lib/
-├── config/              # Global configuration (theme, fonts, roles)
-├── core/                # Models, services, utils, widgets
-├── screens/             # UI modules (POS, Inventory, Attendance, Admin)
-├── scripts/             # Hive seeding scripts
-└── main.dart            # Entry point
-```
-
----
-
-## 🚀 Core Features
-
-### 💰 Point of Sale
-
-* Intuitive cashier interface with dynamic product grid
-* Supports **multi-size** and **variant-based** pricing
-* Designed for **offline and online** operation
+- **Cashier Interface:** Visual product grid with category/sub-category filtering (`CashierScreen`).
+- **Dynamic Product Builder:** Handle product variants (sizes, sugar levels) and real-time stock availability checks (`ProductBuilderDialog`).
+- **Order Queue (Kanban):** Drag-and-drop or status-based workflow for Pending, Preparing, Ready, and Served orders.
+- **Payment Processing:** Support for Cash (with change calculation), Card, and E-Wallet payments (`PaymentScreen`).
+- **Transaction History:** View past orders, reprint receipts, and void transactions (`TransactionHistoryScreen`).
 
 ### 📦 Inventory Management
 
-* Tracks stock levels via `IngredientUsageModel`
-* Auto-seeds initial data from JSON sources
-* Unit conversion-ready (e.g., `kg → g`, `L → mL`)
+- **Ingredient Tracking:** Monitor stock levels with visual status indicators (Good, Low, Critical).
+- **Recipe Matrix:** Link products to ingredients (e.g., "Latte" uses "Milk" + "Coffee Beans") for automatic stock deduction upon sale (`StockLogic`).
+- **Stock Adjustments:** Handle restocks, wastage, and corrections with unit conversion support (e.g., input in Liters, store in mL).
+- **Audit Logs:** Track every stock movement with reasons and user attribution (`InventoryLogsTab`).
 
-### ⏱️ Attendance & Payroll
+### 🕒 Attendance & Payroll
 
-* Time-in/time-out with employee cards
-* Placeholder modules for upcoming payroll automation
+- **Time Clock:** Employee Clock In/Out with **Photo Proof** verification (`TimeClockScreen`).
+- **Smart Status:** Auto-detects breaks and shift completion.
+- **Payroll Calculator:** Generate payroll reports based on hourly rates, total hours worked, and custom adjustments (bonuses/deductions) (`PayrollScreen`).
+- **Manager Verification:** Admins can approve or reject attendance logs based on photo evidence.
 
-### 🛠️ Admin Tools
+### 🛡️ Admin & Analytics
 
-* Access to analytics, product, and employee management
-* Restricted by **Admin Role Only** via reactive role switching
-
----
-
-## 🗄️ Local Storage Schema (Hive)
-
-| Box Name            | Model                  | Stored Data                        |
-| ------------------- | ---------------------- | ---------------------------------- |
-| `ingredients`       | `IngredientModel`      | Ingredient stock and metadata      |
-| `products`          | `ProductModel`         | Café menu items and pricing        |
-| `ingredient_usages` | `IngredientUsageModel` | Ingredient consumption per product |
-
-Data is auto-seeded on the first run via `HiveService.init()`.
+- **Dashboard:** Real-time sales metrics, top-selling products, and inventory health alerts (`AdminDashboardScreen`).
+- **Employee Management:** Manage users, roles (Admin, Manager, Employee), and secure PIN access.
+- **Cloud Sync Control:** Manual force-push and restore capabilities for data synchronization (`SupabaseSyncService`).
+- **Local Backups:** Export logs to CSV and create local JSON snapshots of critical data.
 
 ---
 
-## 🧠 Architecture Overview
+## 🛠️ Tech Stack
 
-### Clean Modular Structure
+- **Framework:** [Flutter](https://flutter.dev/) (Tablet Optimized)
+- **Language:** Dart
+- **State Management:** [flutter_bloc](https://pub.dev/packages/flutter_bloc) (BLoC & Cubit patterns)
+- **Local Database:** [Hive](https://docs.hivedb.dev/) (NoSQL, fast key-value storage)
+- **Cloud Backend:** [Supabase](https://supabase.com/) (PostgreSQL, Realtime, Storage)
+- **Architecture:** Feature-first directory structure with separated Core services.
 
-```plaintext
+---
+
+## 📂 Project Structure
+
+The project follows a modular structure organized by feature (`screens`) and shared resources (`core`).
+
+```text
 lib/
-├── config/        → Global app settings
+├── config/             # Theme, Fonts, and UI Constants
 ├── core/
-│   ├── models/    → Data layer (Hive models)
-│   ├── providers/ → Lightweight reactive state
-│   ├── services/  → Business logic & data sync
-│   ├── utils/     → Helper functions
-│   └── widgets/   → Shared UI components
-├── screens/       → UI modules per system
-└── scripts/       → Hive data seeding
-```
-
-### Module Interconnection
-
-| Module     | Dependencies                       | Description                    |
-| ---------- | ---------------------------------- | ------------------------------ |
-| POS        | ProductModel, IngredientUsageModel | Order creation, sales tracking |
-| Inventory  | IngredientModel, ProductModel      | Stock management, analytics    |
-| Attendance | EmployeeModel, AttendanceModel     | Employee time tracking         |
-| Admin      | All Modules                        | Analytics, configuration       |
+│   ├── bloc/           # Global BLoCs (Auth, Connectivity)
+│   ├── models/         # Hive Types & Data Models
+│   ├── services/       # Hive, Supabase, Logger, Backup services
+│   ├── utils/          # Formatting, Hashing, Responsive helpers
+│   └── widgets/        # Reusable UI components (Buttons, Cards, Dialogs)
+├── screens/
+│   ├── admin/          # Admin Dashboard & Management
+│   ├── attendance/     # Time Clock & Payroll
+│   ├── inventory/      # Stock List & Logs
+│   ├── pos/            # Cashier & Transaction handling
+│   └── startup/        # Initial Setup & Splash
+└── scripts/            # Data seeding scripts
+````
 
 ---
 
-## ⚙️ Initialization & Seeding
+## ⚙️ Setup & Installation
 
-### Workflow
+1. **Prerequisites:**
 
-```plaintext
-main.dart
-└──> HiveService.init()
-      ├── Registers Hive adapters
-      ├── Opens Hive boxes
-      ├── Seeds data from /assets/data if empty
-```
+      - Flutter SDK (Latest Stable)
+      - Dart SDK
 
-### Scripts
+2. **Clone the repository:**
 
-| Script                        | Source                               | Description                       |
-| ----------------------------- | ------------------------------------ | --------------------------------- |
-| `seed_ingredients.dart`       | `assets/data/ingredients_list.json`  | Seeds all ingredients             |
-| `seed_products.dart`          | `assets/data/products_list.json`     | Seeds products & pricing          |
-| `seed_ingredients_usage.dart` | `assets/data/ingredients_usage.json` | Maps ingredient usage per product |
+    ```bash
+    git clone [https://github.com/yourusername/coffea-suite.git](https://github.com/yourusername/coffea-suite.git)
+    cd coffea-suite
+    ```
 
----
+3. **Install Dependencies:**
 
-## 🧰 Tech Stack
+    ```bash
+    flutter pub get
+    ```
 
-| Layer                 | Technology            |
-| --------------------- | --------------------- |
-| **Frontend**          | Flutter 3.32+         |
-| **Database**          | Hive (Offline-first)  |
-| **Networking**        | Dio (API-ready)       |
-| **State**             | Provider (BLoC-ready) |
-| **Backend (Planned)** | Supabase              |
+4. **Code Generation (for Hive Adapters):**
+    If you modify models, run the build runner:
 
----
+    ```bash
+    flutter pub run build_runner build --delete-conflicting-outputs
+    ```
 
-## 🧾 Versioning
+5. **Run the App:**
 
-| File              | Version | Description                |
-| ----------------- | ------- | -------------------------- |
-| `data_master.txt` | 1.0.1   | Central dataset reference  |
-| `lib_master.txt`  | 1.0.2h  | Flutter codebase reference |
+    ```bash
+    flutter run
+    ```
 
 ---
 
-## 🧠 Developer Setup
+## 🔄 Synchronization Logic
 
-### Installation
+The app uses an **Offline-First** approach.
 
-```bash
-git clone https://github.com/yourusername/coffea-pos-suite.git
-cd coffea-pos-suite
-flutter pub get
-```
-
-### Run
-
-```bash
-flutter run
-```
-
-### Clean Build
-
-```bash
-flutter clean && flutter pub get
-```
+1. **Local Writes:** All actions (Sales, Stock Updates, Attendance) are written immediately to **Hive**.
+2. **Sync Queue:** Operations are added to a local `SyncQueueModel`.
+3. **Background Sync:** `SupabaseSyncService` monitors connectivity and flushes the queue to the cloud when online.
+4. **Conflict Resolution:** The system uses UUIDs for all records to prevent collision between offline devices.
 
 ---
 
-## 💅 UI Design Guidelines
+## 🔐 Credentials & Security
 
-* Consistent `Roboto` typography
-* Adaptive sizing using `Responsive` class
-* Shared color palette from `theme_config.dart`
-* Unified navigation via `MasterTopBar`
-
----
-
-## 🤝 Contributing
-
-1. **Create a new branch**
-
-   ```bash
-   git checkout -b feature/inventory-improvements
-   ```
-
-2. **Commit your changes**
-
-   ```bash
-   git commit -m "Add ingredient stock auto-deduction"
-   ```
-
-3. **Push and open PR**
-
-   ```bash
-   git push origin feature/inventory-improvements
-   ```
-
-4. **After merge**, clean up local branches
-
-   ```bash
-   git fetch -p
-   ```
+- **Default Admin Setup:** On the first launch, the app prompts to create an Owner/Admin account if the local database is empty.
+- **PIN Security:** Sensitive actions (Voiding orders, Manager verification) require elevated permissions via PIN or Password.
+- **Data Privacy:** Passwords and PINs are hashed using **BCrypt** before storage.
 
 ---
 
-## 🧭 Roadmap
+## 📝 License
 
-* [x] Modular structure for POS, Inventory, Attendance, Admin
-* [x] Data seeding from `data_master.txt`
-* [x] Role-based UI switching
-* [ ] Setup Admin Tools Products Tab
-* [ ] Setup POS System
-* [ ] Setup Inventory Management System
-* [ ] Setup Attendance Monitoring System
-
----
-
-## 📜 License Summary (MIT)
-
-The **MIT License** allows anyone to freely use, modify, and distribute this software — even commercially — provided they credit the original author. The software is provided *as is* without any warranty or liability.
-
-```bash
-MIT License
-Copyright (c) 2025
-Kurt Andre Olaer
-```
-
----
-
-> *“Brewing a smarter way to manage cafés — one cup, one system, one suite.”* ☕
+This project is proprietary software. Unauthorized copying or distribution is strictly prohibited.

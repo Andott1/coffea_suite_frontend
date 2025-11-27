@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/widgets/basic_input_field.dart>>
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../config/theme_config.dart';
@@ -12,7 +11,8 @@ class BasicInputField extends StatefulWidget {
   final bool isRequired;
   final bool isCurrency;
   final bool isPassword;
-  final FocusNode? focusNode; // ✅ Added for explicit focus control
+  final FocusNode? focusNode;
+  final int? maxLength;
 
   const BasicInputField({
     super.key,
@@ -23,6 +23,7 @@ class BasicInputField extends StatefulWidget {
     this.isCurrency = false,
     this.isPassword = false,
     this.focusNode,
+    this.maxLength,
   });
 
   @override
@@ -38,8 +39,11 @@ class _BasicInputFieldState extends State<BasicInputField> {
     super.initState();
     _isObscured = widget.isPassword;
     
-    // ✅ Optimization: Initialize formatters once, not on every build
     _formatters = [];
+    if (widget.maxLength != null) {
+      _formatters.add(LengthLimitingTextInputFormatter(widget.maxLength));
+    }
+
     if (widget.isCurrency) {
       _formatters.add(CurrencyInputFormatter());
     } else if (widget.inputType == TextInputType.number) {
@@ -51,7 +55,7 @@ class _BasicInputFieldState extends State<BasicInputField> {
   Widget build(BuildContext context) {
     return TextFormField(
       controller: widget.controller,
-      focusNode: widget.focusNode, // ✅ Use passed node if available
+      focusNode: widget.focusNode,
       keyboardType: widget.inputType,
       inputFormatters: _formatters,
       obscureText: widget.isPassword ? _isObscured : false,
@@ -63,6 +67,7 @@ class _BasicInputFieldState extends State<BasicInputField> {
       decoration: InputDecoration(
         labelText: widget.label,
         labelStyle: FontConfig.inputLabel(context),
+        counterText: "", 
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: Colors.grey),
@@ -94,12 +99,18 @@ class _BasicInputFieldState extends State<BasicInputField> {
             : null,
       ),
       validator: (v) {
+        // 1. Check Required Status
         if (widget.isRequired && (v == null || v.trim().isEmpty)) {
           return "${widget.label} is required";
+        }
+
+        // 2. Check Fixed Length (Only if value is NOT empty)
+        // This ensures optional fields (like Edit PIN) don't fail when left blank.
+        if (widget.maxLength != null && v != null && v.isNotEmpty && v.length != widget.maxLength) {
+           return "${widget.label} must be ${widget.maxLength} digits";
         }
         return null;
       },
     );
   }
 }
-/// <<END FILE>>

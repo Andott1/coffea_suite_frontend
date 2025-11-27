@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/models/product_model.dart>>
 import 'package:hive/hive.dart';
 part 'product_model.g.dart';
 
@@ -70,23 +69,30 @@ class ProductModel extends HiveObject {
     }
 
     return ProductModel(
-      id: json['id'] ?? json['product_id'],
+      // Support both 'id' (local) and 'product_id' (legacy/db) if needed
+      id: json['id'] ?? json['product_id'], 
       name: json['name'] ?? '',
       category: json['category'] ?? '',
-      subCategory: json['subCategory'] ?? json['subcategory'] ?? '',
-      pricingType: json['pricingType'] ?? json['pricing_type'] ?? 'size',
+      
+      // ✅ MAP SNAKE_CASE (DB) -> CAMELCASE (DART)
+      subCategory: json['sub_category'] ?? json['subCategory'] ?? '',
+      pricingType: json['pricing_type'] ?? json['pricingType'] ?? 'size',
+      
       prices: priceMap,
-      ingredientUsage: (json['ingredientUsage'] as Map?)?.map(
+      
+      // ✅ MAP SNAKE_CASE (DB) -> CAMELCASE (DART)
+      ingredientUsage: (json['ingredient_usage'] ?? json['ingredientUsage'] as Map?)?.map(
             (k, v) => MapEntry(
               k,
               Map<String, double>.from(v as Map),
             ),
           ) ??
           {},
+          
       available: json['available'] ?? true,
-      updatedAt: json['updatedAt'] != null
-          ? DateTime.parse(json['updatedAt'])
-          : DateTime.now(),
+      updatedAt: json['updated_at'] != null 
+          ? DateTime.parse(json['updated_at']) 
+          : (json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now()),
     );
   }
 
@@ -96,12 +102,14 @@ class ProductModel extends HiveObject {
       'id': id,
       'name': name,
       'category': category,
-      'subCategory': subCategory,
-      'pricingType': pricingType,
-      'prices': prices,
-      'ingredientUsage': ingredientUsage,
+      
+      // ✅ CONVERT CAMELCASE (DART) -> SNAKE_CASE (DB)
+      'sub_category': subCategory,
+      'pricing_type': pricingType,
+      'prices': prices, // JSONB map inside is fine
+      'ingredient_usage': ingredientUsage,
       'available': available,
-      'updatedAt': updatedAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
 
@@ -112,4 +120,4 @@ class ProductModel extends HiveObject {
   bool get isMeal => category.toLowerCase() == 'meals';
   bool get isDessert => category.toLowerCase() == 'desserts';
 }
-/// <<END FILE>>
+

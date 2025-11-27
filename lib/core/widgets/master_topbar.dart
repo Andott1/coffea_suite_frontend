@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/widgets/master_topbar.dart>>
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,11 +9,12 @@ import '../bloc/connectivity/connectivity_cubit.dart';
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../core/services/session_user.dart';
+import '../../core/services/supabase_sync_service.dart'; // ✅ Added Import
+import '../../core/utils/dialog_utils.dart'; // ✅ Added Import
 import '../../core/models/user_model.dart';
 import 'login_dialog.dart'; 
 import 'basic_button.dart';
 
-// ... (CoffeaSystem Enum and TopBarLayout class remain unchanged) ...
 enum CoffeaSystem { startup, pos, attendance, inventory, admin }
 
 class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
@@ -66,15 +66,12 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final double statusBarHeight = MediaQuery.of(context).padding.top;
 
-    // 1. Wrap with SessionUserNotifier Consumer
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
-        // Default values
         String userLabel = "GUEST";
         String roleLabel = "";
         bool isAdmin = false;
 
-        // Extract data from state
         if (state is AuthAuthenticated) {
           userLabel = state.user.username.toUpperCase();
           roleLabel = state.user.role.name.toUpperCase();
@@ -95,7 +92,7 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -127,7 +124,7 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                     ),
                   ),
 
-                  // CENTER SECTION (Tabs, Session-Aware)
+                  // CENTER SECTION (Tabs)
                   if (showTabs && tabs.isNotEmpty)
                     Expanded(
                       child: Align(
@@ -136,21 +133,17 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                           scrollDirection: Axis.horizontal,
                           child: Builder(
                             builder: (context) {
-                              // Filter visible tabs based on ROLE
                               final visibleTabs = <String>[];
                               final visibleIndices = <int>[];
 
                               for (int i = 0; i < tabs.length; i++) {
                                 final isRestricted = (adminOnlyTabs.isNotEmpty && i < adminOnlyTabs.length && adminOnlyTabs[i]);
-                                
-                                // Show if NOT restricted OR if user IS admin
                                 if (!isRestricted || isAdmin) {
                                   visibleTabs.add(tabs[i]);
                                   visibleIndices.add(i);
                                 }
                               }
 
-                              // Security Check: If current tab is restricted and user lost admin rights, force switch to tab 0
                               if (!isAdmin && adminOnlyTabs.isNotEmpty && activeIndex < adminOnlyTabs.length && adminOnlyTabs[activeIndex]) {
                                 WidgetsBinding.instance.addPostFrameCallback((_) {
                                   onTabSelected?.call(0);
@@ -176,8 +169,8 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                                   return Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 10.0),
                                     child: InkWell(
-                                      splashColor: ThemeConfig.primaryGreen.withOpacity(0.1),
-                                      hoverColor: ThemeConfig.primaryGreen.withOpacity(0.05),
+                                      splashColor: ThemeConfig.primaryGreen.withValues(alpha: 0.1),
+                                      hoverColor: ThemeConfig.primaryGreen.withValues(alpha: 0.05),
                                       onTap: () => onTabSelected?.call(originalIndex),
                                       child: AnimatedContainer(
                                         duration: const Duration(milliseconds: 150),
@@ -221,13 +214,12 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                   else
                     const Spacer(),
 
-                  // RIGHT SECTION: User Switcher
+                  // RIGHT SECTION: Status & User
                   Align(
                     alignment: Alignment.centerRight,
                     child: Row(
                       children: [
-                        // ✅ UPDATED: Global Connectivity Check
-                        if (showOnlineStatus)
+                        if (showOnlineStatus) ...[
                           BlocBuilder<ConnectivityCubit, bool>(
                             builder: (context, isOnline) {
                               final color = isOnline ? ThemeConfig.primaryGreen : Colors.redAccent;
@@ -249,17 +241,20 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
                               );
                             }
                           ),
+                          const SizedBox(width: 12),
+                          // ✅ ADDED: Manual Sync Button
+                          const _ManualSyncButton(),
+                        ],
                         
                         const SizedBox(width: 12),
 
                         if (showUserMode)
-                          // ✅ FIX: Using BasicButton for standard styling
                           BasicButton(
                             label: "$userLabel • $roleLabel",
                             icon: isAdmin ? Icons.admin_panel_settings : Icons.person,
                             type: AppButtonType.secondary,
                             fullWidth: false,
-                            height: 40, // Compact for TopBar
+                            height: 40,
                             fontSize: 14,
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                             onPressed: () {
@@ -293,4 +288,67 @@ class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
     }
   }
 }
-/// <<END FILE>>
+
+// ───────────────────────────────────────────────
+// ✅ NEW COMPONENT: Manual Sync Button
+// ───────────────────────────────────────────────
+class _ManualSyncButton extends StatefulWidget {
+  const _ManualSyncButton();
+
+  @override
+  State<_ManualSyncButton> createState() => _ManualSyncButtonState();
+}
+
+class _ManualSyncButtonState extends State<_ManualSyncButton> {
+  bool _isLoading = false;
+
+  Future<void> _handleSync() async {
+    if (_isLoading) return;
+    
+    setState(() => _isLoading = true);
+    
+    try {
+      // This method pulls all tables from Supabase and overwrites local Hive boxes
+      // It effectively forces a "fresh pull" of the database.
+      await SupabaseSyncService.restoreFromCloud();
+      
+      if (mounted) {
+        DialogUtils.showToast(context, "Sync Complete! Data refreshed.");
+      }
+    } catch (e) {
+      if (mounted) {
+        DialogUtils.showToast(
+          context, 
+          "Sync Failed: $e", 
+          icon: Icons.error, 
+          accentColor: Colors.red
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: _isLoading ? null : _handleSync,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.blue.shade50,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue.shade200),
+        ),
+        child: _isLoading 
+          ? const SizedBox(
+              width: 18, 
+              height: 18, 
+              child: CircularProgressIndicator(strokeWidth: 2)
+            )
+          : const Icon(Icons.sync, size: 20, color: Colors.blue),
+      ),
+    );
+  }
+}

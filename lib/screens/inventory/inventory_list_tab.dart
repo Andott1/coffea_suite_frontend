@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/inventory/inventory_list_tab.dart>>
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../config/font_config.dart';
@@ -308,7 +307,7 @@ class _InventoryListTabState extends State<InventoryListTab> {
         selected: isSelected,
         onSelected: (_) => setState(() => _selectedFilterValue = value),
         backgroundColor: Colors.white,
-        selectedColor: ThemeConfig.primaryGreen.withOpacity(0.15),
+        selectedColor: ThemeConfig.primaryGreen.withValues(alpha: 0.15),
         labelStyle: TextStyle(
           color: isSelected ? ThemeConfig.primaryGreen : ThemeConfig.midGray,
           fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
@@ -332,7 +331,7 @@ class _InventoryListTabState extends State<InventoryListTab> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.1) : Colors.transparent,
+          color: isSelected ? color.withValues(alpha: 0.1) : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: isSelected ? Border.all(color: color) : null,
         ),
@@ -421,7 +420,7 @@ class _InventoryListTabState extends State<InventoryListTab> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.1),
+                    color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -454,4 +453,3 @@ class _InventoryListTabState extends State<InventoryListTab> {
     );
   }
 }
-/// <<END FILE>>

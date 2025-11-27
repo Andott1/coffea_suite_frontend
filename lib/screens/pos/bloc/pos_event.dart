@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/pos/bloc/pos_event.dart>>
 import 'package:equatable/equatable.dart';
 import '../../../core/models/product_model.dart';
 // ignore: unused_import
@@ -72,4 +71,3 @@ class PosConfirmPayment extends PosEvent {
   List<Object?> get props => [totalAmount, tenderedAmount, paymentMethod, referenceNo];
 }
 
-/// <<END FILE>>

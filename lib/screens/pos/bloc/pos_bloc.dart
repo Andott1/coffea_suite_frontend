@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/pos/bloc/pos_bloc.dart>>
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/services/supabase_sync_service.dart';
 import 'pos_event.dart';
@@ -78,23 +77,27 @@ class PosBloc extends Bloc<PosEvent, PosState> {
   void _onConfirmPayment(PosConfirmPayment event, Emitter<PosState> emit) async {
     emit(state.copyWith(isLoading: true));
 
-    final transactionId = const Uuid().v4().substring(0, 8).toUpperCase(); // Short ID for POS
+    final transactionId = const Uuid().v4().substring(0, 8).toUpperCase();
 
     // 1. Create Transaction Record
     final transaction = TransactionModel(
       id: transactionId,
       dateTime: DateTime.now(),
-      items: List.from(state.cart), // Snapshot of current cart
+      items: List.from(state.cart),
       totalAmount: event.totalAmount,
       tenderedAmount: event.tenderedAmount,
       paymentMethod: event.paymentMethod,
       cashierName: SessionUser.current?.username ?? "Unknown",
       referenceNo: event.referenceNo,
+      
+      // ✅ SAVE ORDER TYPE FROM STATE
+      orderType: state.orderType.name, // "dineIn" or "takeOut"
     );
 
     // 2. Save to Hive History
     await HiveService.transactionBox.add(transaction);
 
+    // 3. Sync to Supabase
     SupabaseSyncService.addToQueue(
       table: 'transactions',
       action: 'UPSERT',
@@ -102,11 +105,16 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         'id': transaction.id,
         'date_time': transaction.dateTime.toIso8601String(),
         'total_amount': transaction.totalAmount,
+        'tendered_amount': transaction.tenderedAmount, // Don't forget this one too if missing
         'payment_method': transaction.paymentMethod,
         'cashier_name': transaction.cashierName,
-        'status': transaction.status.name, // 'pending', 'completed'
+        'status': transaction.status.name,
         'is_void': transaction.isVoid,
-        // Store items as JSON string for simple history reference
+        'reference_no': transaction.referenceNo,
+        
+        // ✅ SYNC ORDER TYPE
+        'order_type': transaction.orderType, 
+
         'items': transaction.items.map((i) => {
           'product_name': i.product.name,
           'variant': i.variant,
@@ -127,4 +135,3 @@ class PosBloc extends Bloc<PosEvent, PosState> {
   }
 
 }
-/// <<END FILE>>

@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/pos/cashier_screen.dart>>
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -14,10 +13,13 @@ import 'bloc/pos_bloc.dart';
 import 'bloc/pos_state.dart';
 import 'bloc/pos_event.dart';
 
-import '../../core/models/transaction_model.dart'; // ✅ Import
+import '../../core/models/transaction_model.dart';
 
-import '../../core/widgets/basic_button.dart'; // Used in dialog
+import '../../core/widgets/basic_button.dart'; 
 
+import '../../core/services/supabase_sync_service.dart';
+
+import 'bloc/stock_logic.dart';
 import 'product_builder_dialog.dart';
 import 'payment_screen.dart';
 
@@ -34,7 +36,6 @@ class _CashierScreenState extends State<CashierScreen> {
   String _selectedSubCategory = "Coffee"; 
   String _searchQuery = "";
   
-  // ✅ NEW: Queue Drawer State
   bool _isQueueOpen = false;
 
   // ──────────────── HELPER: DATA FILTERING ────────────────
@@ -42,7 +43,10 @@ class _CashierScreenState extends State<CashierScreen> {
     final box = HiveService.productBox;
     return box.values.where((p) {
       if (p.category != _selectedCategory) return false;
+      
+      // ✅ FIX: Only filter by subCategory if one is actually selected
       if (_selectedSubCategory.isNotEmpty && p.subCategory != _selectedSubCategory) return false;
+      
       if (_searchQuery.isNotEmpty && !p.name.toLowerCase().contains(_searchQuery.toLowerCase())) return false;
       return true;
     }).toList();
@@ -60,8 +64,65 @@ class _CashierScreenState extends State<CashierScreen> {
   
   void _updateStatus(TransactionModel txn, OrderStatus newStatus) async {
     txn.status = newStatus;
-    await txn.save();
-    if(mounted) Navigator.pop(context); // Close dialog
+    await txn.save(); 
+
+    SupabaseSyncService.addToQueue(
+      table: 'transactions',
+      action: 'UPDATE',
+      data: {
+        'id': txn.id,
+        'status': newStatus.name,
+      }
+    );
+
+    if(mounted) Navigator.pop(context); 
+  }
+
+  void _voidTransaction(TransactionModel txn) async {
+    final newTxn = TransactionModel(
+      id: txn.id,
+      dateTime: txn.dateTime,
+      items: txn.items,
+      totalAmount: txn.totalAmount,
+      tenderedAmount: txn.tenderedAmount,
+      paymentMethod: txn.paymentMethod,
+      cashierName: txn.cashierName,
+      referenceNo: txn.referenceNo,
+      isVoid: true,               
+      status: OrderStatus.voided, 
+      orderType: txn.orderType,
+    );
+
+    await HiveService.transactionBox.put(txn.key, newTxn);
+
+    SupabaseSyncService.addToQueue(
+      table: 'transactions',
+      action: 'UPSERT',
+      data: {
+        'id': newTxn.id,
+        'date_time': newTxn.dateTime.toIso8601String(),
+        'total_amount': newTxn.totalAmount,
+        'tendered_amount': newTxn.tenderedAmount,
+        'payment_method': newTxn.paymentMethod,
+        'cashier_name': newTxn.cashierName,
+        'reference_no': newTxn.referenceNo,
+        'is_void': true, 
+        'status': 'voided',
+        'order_type': newTxn.orderType,
+        'items': newTxn.items.map((i) => {
+          'product_name': i.product.name,
+          'variant': i.variant,
+          'qty': i.quantity,
+          'price': i.price,
+          'total': i.total
+        }).toList(),
+      }
+    );
+
+    if (mounted) {
+      Navigator.pop(context); 
+      DialogUtils.showToast(context, "Order Voided", accentColor: Colors.red);
+    }
   }
 
   void _showOrderOptions(TransactionModel txn) {
@@ -76,19 +137,16 @@ class _CashierScreenState extends State<CashierScreen> {
               Text("Current Status: ${txn.status.name.toUpperCase()}"),
               const SizedBox(height: 20),
               
-              // ACTIONS FOR PENDING
               if (txn.status == OrderStatus.pending) ...[
                 _actionBtn("Mark Ready", Colors.green, () => _updateStatus(txn, OrderStatus.ready)),
                 _actionBtn("Hold Order", Colors.orange, () => _updateStatus(txn, OrderStatus.held)),
               ],
 
-              // ACTIONS FOR READY
               if (txn.status == OrderStatus.ready) ...[
                 _actionBtn("Serve / Complete", Colors.blue, () => _updateStatus(txn, OrderStatus.served)),
                 _actionBtn("Return to Pending", Colors.grey, () => _updateStatus(txn, OrderStatus.pending)),
               ],
 
-              // ACTIONS FOR HELD
               if (txn.status == OrderStatus.held) ...[
                 _actionBtn("Resume (Pending)", Colors.blue, () => _updateStatus(txn, OrderStatus.pending)),
               ],
@@ -96,9 +154,7 @@ class _CashierScreenState extends State<CashierScreen> {
               const Divider(height: 30),
               
               _actionBtn("Void Transaction", Colors.red, () {
-                 // Future: Add logic to refund stock?
-                 _updateStatus(txn, OrderStatus.voided);
-                 DialogUtils.showToast(context, "Order Voided");
+                 _voidTransaction(txn);
               }),
             ],
           ),
@@ -115,9 +171,7 @@ class _CashierScreenState extends State<CashierScreen> {
       padding: const EdgeInsets.only(bottom: 8.0),
       child: BasicButton(
         label: label,
-        type: AppButtonType.primary, // Using primary for simplicity, customizing color via container if needed or just rely on text
-        // Since BasicButton wraps logic, let's just use ElevatedButton for custom colors in this specific dialog
-        // or create a custom BasicButton style. For speed, I'll use standard ElevatedButton here.
+        type: AppButtonType.primary, 
         onPressed: onTap,
       ),
     );
@@ -131,14 +185,13 @@ class _CashierScreenState extends State<CashierScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ────────────────────────────────────────────
-          // LEFT SIDE: PRODUCT SELECTION & QUEUE DRAWER (Flex 3)
+          // LEFT SIDE: PRODUCT SELECTION & QUEUE DRAWER
           // ────────────────────────────────────────────
           Expanded(
             flex: 3,
             child: Stack(
               children: [
                 // ─── LAYER 1: THE MAIN CASHIER UI ───
-                // We add padding top so it sits BELOW the handle
                 Padding(
                   padding: const EdgeInsets.only(top: 70), 
                   child: Column(
@@ -200,7 +253,23 @@ class _CashierScreenState extends State<CashierScreen> {
                           valueListenable: HiveService.productBox.listenable(),
                           builder: (context, _, __) {
                             final products = _getFilteredProducts();
-                            if (products.isEmpty) return const Center(child: Text("No products found."));
+                            
+                            // ✅ Graceful Empty State
+                            if (products.isEmpty) {
+                              return Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Icon(Icons.search_off, size: 48, color: Colors.grey),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      "No products available in this category.", 
+                                      style: FontConfig.body(context).copyWith(color: Colors.grey)
+                                    ),
+                                  ],
+                                )
+                              );
+                            }
 
                             return GridView.builder(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -220,7 +289,7 @@ class _CashierScreenState extends State<CashierScreen> {
                   ),
                 ),
 
-                // ─── LAYER 2: KANBAN OVERLAY (UPDATED) ───
+                // ─── LAYER 2: KANBAN OVERLAY ───
                 AnimatedPositioned(
                   duration: const Duration(milliseconds: 350),
                   curve: Curves.easeInOutCubic,
@@ -229,14 +298,10 @@ class _CashierScreenState extends State<CashierScreen> {
                   bottom: _isQueueOpen ? 0 : MediaQuery.of(context).size.height,
                   child: Container(
                     color: const Color(0xFFF5F5F5),
-                    // ✅ FIX: Load Real Data
                     child: ValueListenableBuilder(
                       valueListenable: HiveService.transactionBox.listenable(),
                       builder: (context, Box<TransactionModel> box, _) {
                         final all = box.values.toList();
-                        // Filter active orders (ignore voided/served for this view usually, 
-                        // but you might want served in a separate "Done" column. 
-                        // For now, sticking to your request: Pending / Ready / Held)
                         
                         final pending = all.where((t) => t.status == OrderStatus.pending).toList();
                         final ready = all.where((t) => t.status == OrderStatus.ready).toList();
@@ -248,7 +313,7 @@ class _CashierScreenState extends State<CashierScreen> {
                   ),
                 ),
 
-                // ─── LAYER 3: HANDLE (UPDATED BADGE) ───
+                // ─── LAYER 3: HANDLE ───
                 Positioned(
                   top: 0, left: 0, right: 0, height: 80,
                   child: GestureDetector(
@@ -258,7 +323,7 @@ class _CashierScreenState extends State<CashierScreen> {
                       decoration: BoxDecoration(
                         color: ThemeConfig.primaryGreen,
                         borderRadius: BorderRadius.circular(12),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))],
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 8, offset: const Offset(0, 4))],
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -267,7 +332,6 @@ class _CashierScreenState extends State<CashierScreen> {
                           const SizedBox(width: 12),
                           const Text("ORDER QUEUE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                           const SizedBox(width: 12),
-                          // ✅ Live Badge
                           ValueListenableBuilder(
                             valueListenable: HiveService.transactionBox.listenable(),
                             builder: (context, Box<TransactionModel> box, _) {
@@ -276,7 +340,7 @@ class _CashierScreenState extends State<CashierScreen> {
                               ).length;
                               return Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(8)),
                                 child: Text("$activeCount Active", style: const TextStyle(color: Colors.white, fontSize: 12)),
                               );
                             }
@@ -291,7 +355,7 @@ class _CashierScreenState extends State<CashierScreen> {
           ),
 
           // ────────────────────────────────────────────
-          // RIGHT SIDE: CART SIDEBAR (Unchanged)
+          // RIGHT SIDE: CART SIDEBAR
           // ────────────────────────────────────────────
           Container(
             width: 400, 
@@ -314,13 +378,10 @@ class _CashierScreenState extends State<CashierScreen> {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Row(
         children: [
-          // Held
           _buildKanbanColumn("Held / Parked", Colors.orange, held),
           const SizedBox(width: 16),
-          // Pending
           _buildKanbanColumn("Pending", Colors.blue, pending),
           const SizedBox(width: 16),
-          // Ready
           _buildKanbanColumn("Ready to Serve", Colors.green, ready),
         ],
       ),
@@ -337,11 +398,10 @@ class _CashierScreenState extends State<CashierScreen> {
         ),
         child: Column(
           children: [
-            // Header
             Container(
               padding: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
               ),
               width: double.infinity,
@@ -351,7 +411,6 @@ class _CashierScreenState extends State<CashierScreen> {
                 style: TextStyle(color: color, fontWeight: FontWeight.bold, letterSpacing: 1),
               ),
             ),
-            // List
             Expanded(
               child: transactions.isEmpty 
                 ? Center(child: Text("No orders", style: TextStyle(color: Colors.grey[400])))
@@ -362,7 +421,6 @@ class _CashierScreenState extends State<CashierScreen> {
                     itemBuilder: (context, index) {
                       final t = transactions[index];
                       
-                      // Summarize items
                       String summary = "${t.items.length} Items";
                       if (t.items.isNotEmpty) {
                         summary = "${t.items[0].quantity}x ${t.items[0].product.name}";
@@ -378,7 +436,7 @@ class _CashierScreenState extends State<CashierScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: Colors.grey.shade200),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0,2))],
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0,2))],
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,7 +453,7 @@ class _CashierScreenState extends State<CashierScreen> {
                               const SizedBox(height: 8),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
                                 child: Text("Total: ${FormatUtils.formatCurrency(t.totalAmount)}", style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
                               )
                             ],
@@ -430,7 +488,6 @@ class _CashierScreenState extends State<CashierScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Toggle
             Container(
               height: 45,
               decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
@@ -443,7 +500,6 @@ class _CashierScreenState extends State<CashierScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Items
             Expanded(
               child: state.cart.isEmpty
                 ? Center(child: Text("Cart is empty", style: TextStyle(color: Colors.grey[400])))
@@ -546,16 +602,24 @@ class _CashierScreenState extends State<CashierScreen> {
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => setState(() { _selectedCategory = title; _selectedSubCategory = _getSubCategories().first; }),
+        // ✅ FIX: Safely handle empty categories
+        onTap: () {
+          setState(() { 
+            _selectedCategory = title;
+            final subs = _getSubCategories();
+            // If category has subcategories, select first. Else empty string.
+            _selectedSubCategory = subs.isNotEmpty ? subs.first : ""; 
+          });
+        },
         child: Container(
           decoration: BoxDecoration(
             color: activeBg,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [if (!isSelected) BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
+            boxShadow: [if (!isSelected) BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
           ),
           child: Stack(
             children: [
-              Positioned(right: -10, bottom: -10, child: Icon(icon, size: 80, color: fgColor.withOpacity(0.1))),
+              Positioned(right: -10, bottom: -10, child: Icon(icon, size: 80, color: fgColor.withValues(alpha: 0.1))),
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -575,84 +639,111 @@ class _CashierScreenState extends State<CashierScreen> {
 
   Widget _buildProductCard(ProductModel product) {
     final color = _getProductColor(product);
-    final bool isAvailable = product.available;
+    final bool isVisible = product.available;
 
-    return BlocBuilder<PosBloc, PosState>(
-      builder: (context, state) {
-        final qtyInCart = state.cart.where((item) => item.product.id == product.id).fold(0, (sum, item) => sum + item.quantity);
+    return ValueListenableBuilder(
+      valueListenable: HiveService.ingredientBox.listenable(),
+      builder: (context, _, __) {
+          final bool inStock = StockLogic.isProductAvailable(product);
+          final bool isSellable = isVisible && inStock;
 
-        return GestureDetector(
-          onTap: () {
-            if (!isAvailable) {
-              DialogUtils.showToast(context, "Item is unavailable", icon: Icons.block, accentColor: Colors.red);
-              return;
-            }
-            // TEMPORARY: Direct Add (Simulate selecting first variant)
-            if (product.prices.isNotEmpty) {
-              showDialog(
-                context: context, 
-                builder: (_) => ProductBuilderDialog(product: product)
+          return BlocBuilder<PosBloc, PosState>(
+            builder: (context, state) {
+              final qtyInCart = state.cart.where((item) => item.product.id == product.id).fold(0, (sum, item) => sum + item.quantity);
+
+              return GestureDetector(
+                onTap: () {
+                  if (!isVisible) {
+                    DialogUtils.showToast(context, "Item is INACTIVE (Check Products)", icon: Icons.block, accentColor: Colors.red);
+                    return;
+                  }
+                  if (!inStock) {
+                    DialogUtils.showToast(context, "Item is SOLD OUT (Check Inventory)", icon: Icons.block, accentColor: Colors.red);
+                    return;
+                  }
+                  if (product.prices.isNotEmpty) {
+                    showDialog(
+                      context: context, 
+                      builder: (_) => ProductBuilderDialog(product: product)
+                    );
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Container(
+                              color: isSellable ? color : Colors.grey[400],
+                              child: Icon(product.isDrink ? Icons.local_cafe : Icons.restaurant, color: Colors.white.withValues(alpha: 0.5), size: 40),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.all(10),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                                  Text(
+                                    FormatUtils.formatCurrency(product.prices.values.isEmpty ? 0 : product.prices.values.reduce((a, b) => a < b ? a : b)),
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (isVisible && !inStock)
+                        Container(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            "SOLD OUT", 
+                            textAlign: TextAlign.center, 
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                          ),
+                        ),
+
+                      if (!isVisible)
+                        Container(
+                          color: Colors.red.withValues(alpha: 0.6),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            "INACTIVE", 
+                            textAlign: TextAlign.center, 
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)
+                          ),
+                        ),
+                      if (qtyInCart > 0)
+                        Positioned(
+                          top: 8, right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: const BoxDecoration(color: ThemeConfig.primaryGreen, shape: BoxShape.circle),
+                            child: Text("$qtyInCart", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                      ],
+                  ),
+                ),
               );
             }
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Stack(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      flex: 3,
-                      child: Container(
-                        color: isAvailable ? color : Colors.grey[400],
-                        child: Icon(product.isDrink ? Icons.local_cafe : Icons.restaurant, color: Colors.white.withOpacity(0.5), size: 40),
-                      ),
-                    ),
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.all(10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                            Text(
-                              FormatUtils.formatCurrency(product.prices.values.isEmpty ? 0 : product.prices.values.reduce((a, b) => a < b ? a : b)),
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                if (!isAvailable)
-                  Container(
-                    color: Colors.black.withOpacity(0.5),
-                    alignment: Alignment.center,
-                    child: const Text("NOT\nAVAILABLE", textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                  ),
-                if (qtyInCart > 0)
-                  Positioned(
-                    top: 8, right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: const BoxDecoration(color: ThemeConfig.primaryGreen, shape: BoxShape.circle),
-                      child: Text("$qtyInCart", style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        );
-      }
+          );
+        
+      },
     );
   }
 
@@ -691,4 +782,3 @@ class _CashierScreenState extends State<CashierScreen> {
     return HiveService.productBox.values.where((p) => p.category == _selectedCategory).map((p) => p.subCategory).toSet().toList()..sort();
   }
 }
-/// <<END FILE>>

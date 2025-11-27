@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/services/inventory_log_service.dart>>
 import 'package:uuid/uuid.dart';
 import 'hive_service.dart';
 import 'session_user.dart';
@@ -48,4 +47,3 @@ class InventoryLogService {
     );
   }
 }
-/// <<END FILE>>

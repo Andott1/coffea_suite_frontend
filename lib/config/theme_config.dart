@@ -1,4 +1,3 @@
-/// <<FILE: lib/config/theme_config.dart>>
 import 'package:flutter/material.dart';
 
 class ThemeConfig {
@@ -53,4 +52,3 @@ class ThemeConfig {
     fontFamily: 'Roboto',
   );
 }	
-/// <<END FILE>>

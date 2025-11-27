@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
@@ -21,6 +23,11 @@ class FormatUtils {
       return value.toInt().toString();
     }
     return value.toStringAsFixed(2);
+  }
+  
+  static double roundDouble(double value) {
+    double mod = pow(10.0, 2).toDouble();
+    return ((value * mod).round().toDouble() / mod);
   }
 }
 

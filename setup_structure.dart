@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:coffea_suite_frontend/core/services/logger_service.dart';
+
 void main() async {
   final directories = [
     'lib/config',
@@ -93,7 +95,7 @@ void main() async {
     final d = Directory(dir);
     if (!await d.exists()) {
       await d.create(recursive: true);
-      print('📁 Created directory: $dir');
+      LoggerService.info('📁 Created directory: $dir');
     }
   }
 
@@ -101,9 +103,9 @@ void main() async {
     final file = File(entry.key);
     if (!await file.exists()) {
       await file.writeAsString('// ${entry.key.split('/').last} generated\n');
-      print('📝 Created file: ${entry.key}');
+      LoggerService.info('📝 Created file: ${entry.key}');
     }
   }
 
-  print('\n✅ Project structure generated successfully!\n');
+  LoggerService.info('\n✅ Project structure generated successfully!\n');
 }

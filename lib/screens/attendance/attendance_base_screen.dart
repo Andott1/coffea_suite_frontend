@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/attendance/attendance_base_screen.dart>>
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
@@ -74,4 +73,3 @@ class _AttendanceBaseScreenState extends State<AttendanceBaseScreen> {
     );
   }
 }
-/// <<END FILE>>

@@ -1,54 +1,22 @@
-/// <<FILE: lib/core/models/ingredient_model.dart>>
 import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart';
+
 part 'ingredient_model.g.dart';
 
 @HiveType(typeId: 1)
 class IngredientModel extends HiveObject {
-  // ──────────────── CORE FIELDS ────────────────
-  @HiveField(0)
-  String id;
-
-  @HiveField(1)
-  String name;
-
-  /// Ingredient category (e.g., "Core Ingredients", "Syrups", "Packaging Supplies")
-  @HiveField(2)
-  String category;
-
-  /// Purchase/display unit (e.g., kg, L, pcs)
-  @HiveField(3)
-  String unit;
-
-  /// Quantity stored internally in base units (e.g., g, mL, pcs)
-  @HiveField(4)
-  double quantity;
-
-  /// Minimum allowed stock (in base units)
-  @HiveField(5)
-  double reorderLevel;
-
-  @HiveField(6)
-  DateTime updatedAt;
-
-  /// Base unit (auto-determined from `unit`)
-  @HiveField(7)
-  String baseUnit;
-
-  /// Conversion factor between `unit` → `baseUnit`
-  @HiveField(8)
-  double conversionFactor;
-
-  /// Optional flag for custom overrides (future-use)
-  @HiveField(9)
-  bool isCustomConversion;
-
-  // ──────────────── NEW COSTING FIELD ────────────────
-  /// 💰 Cost per purchased unit (e.g., ₱250 per kg)
-  @HiveField(10)
-  double unitCost;
-
-  @HiveField(11) 
-  double purchaseSize;
+  @HiveField(0) String id;
+  @HiveField(1) String name;
+  @HiveField(2) String category;
+  @HiveField(3) String unit;
+  @HiveField(4) double quantity;
+  @HiveField(5) double reorderLevel;
+  @HiveField(6) DateTime updatedAt;
+  @HiveField(7) String baseUnit;
+  @HiveField(8) double conversionFactor;
+  @HiveField(9) bool isCustomConversion;
+  @HiveField(10) double unitCost;
+  @HiveField(11) double purchaseSize;
 
   // ──────────────── AUTO-CONVERSION PRESETS ────────────────
   static const Map<String, Map<String, dynamic>> _autoConversionPresets = {
@@ -59,7 +27,11 @@ class IngredientModel extends HiveObject {
     'pcs': {'base': 'pcs', 'factor': 1.0},
   };
 
-  // ──────────────── CONSTRUCTOR ────────────────
+  // ✅ NEW: Public Helper to get factor
+  static double getFactor(String unit) {
+    return _autoConversionPresets[unit]?['factor']?.toDouble() ?? 1.0;
+  }
+
   IngredientModel({
     required this.id,
     required this.name,
@@ -71,34 +43,53 @@ class IngredientModel extends HiveObject {
     String? baseUnit,
     double? conversionFactor,
     this.isCustomConversion = false,
-    this.unitCost = 0.0, // 💰 new default
+    this.unitCost = 0.0,
     this.purchaseSize = 1.0,
   })  : baseUnit = baseUnit ?? _autoConversionPresets[unit]?['base'] ?? unit,
-        conversionFactor =
-            conversionFactor ?? _autoConversionPresets[unit]?['factor'] ?? 1.0;
+        conversionFactor = conversionFactor ?? _autoConversionPresets[unit]?['factor'] ?? 1.0;
 
-  // ──────────────── COMPUTED GETTERS ────────────────
   double get displayQuantity => quantity / conversionFactor;
   String get displayString => "${displayQuantity.toStringAsFixed(2)} $unit";
 
-  /// ✅ FIX 1: Cost per Base Unit (e.g., Cost per mL)
-  /// Logic: (Cost per Bottle) / (Size of Bottle in Base Units)
   double get costPerBaseUnit {
-    // Convert purchaseSize (which is in 'unit', e.g., L) to Base Unit (e.g., mL)
     double sizeInBaseUnits = purchaseSize * conversionFactor;
-    
     if (sizeInBaseUnits == 0) return 0;
     return unitCost / sizeInBaseUnits;
   }
 
-  /// ✅ FIX 2: Total Value
-  /// Logic: (Total Quantity / Bottle Size) * Cost per Bottle
   double get totalValue {
     if (purchaseSize == 0) return 0;
     return (displayQuantity / purchaseSize) * unitCost;
   }
 
-  // ──────────────── SERIALIZATION ────────────────
+  // ✅ NEW: Factory that handles ID and Reorder Logic internally
+  factory IngredientModel.create({
+    required String name,
+    required String category,
+    required String unit,
+    required double quantity,    // Raw input (e.g. 5 kg)
+    required double reorderRaw,  // Raw input (e.g. 1 kg)
+    required double unitCost,
+    required double purchaseSize,
+  }) {
+    final factor = getFactor(unit);
+    final preset = _autoConversionPresets[unit];
+
+    return IngredientModel(
+      id: const Uuid().v4(), // ✅ Generates Safe UUID
+      name: name,
+      category: category,
+      unit: unit,
+      quantity: quantity * factor,        // ✅ Auto-converts to base
+      reorderLevel: reorderRaw * factor,  // ✅ Auto-converts to base
+      updatedAt: DateTime.now(),
+      baseUnit: preset?['base'] ?? unit,
+      conversionFactor: factor,
+      unitCost: unitCost,
+      purchaseSize: purchaseSize,
+    );
+  }
+
   factory IngredientModel.fromJson(Map<String, dynamic> json) {
     final unit = (json['unit'] ?? 'pcs') as String;
     final preset = _autoConversionPresets[unit];
@@ -127,19 +118,18 @@ class IngredientModel extends HiveObject {
         'category': category,
         'unit': unit,
         'quantity': quantity,
-        'reorderLevel': reorderLevel,
-        'updatedAt': updatedAt.toIso8601String(),
-        'baseUnit': baseUnit,
-        'conversionFactor': conversionFactor,
-        'isCustomConversion': isCustomConversion,
-        'unitCost': unitCost,
-        'purchaseSize': purchaseSize,
+        'reorder_level': reorderLevel,
+        'updated_at': updatedAt.toIso8601String(),
+        'base_unit': baseUnit,                // Was 'baseUnit'
+        'conversion_factor': conversionFactor, // Was 'conversionFactor'
+        'is_custom_conversion': isCustomConversion, // Was 'isCustomConversion'
+        'unit_cost': unitCost,                // Was 'unitCost'
+        'purchase_size': purchaseSize,        // Was 'purchaseSize'
       };
 
-  // ──────────────── UTILITIES ────────────────
   static bool isKnownUnit(String unit) => _autoConversionPresets.containsKey(unit);
 
-  /// Factory shortcut for creating auto-converted ingredients
+  // Legacy auto factory (kept for compatibility if needed)
   factory IngredientModel.auto({
     required String id,
     required String name,
@@ -166,4 +156,3 @@ class IngredientModel extends HiveObject {
     );
   }
 }
-/// <<END FILE>>

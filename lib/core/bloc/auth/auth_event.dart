@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/bloc/auth/auth_event.dart>>
 import 'package:equatable/equatable.dart';
 
 abstract class AuthEvent extends Equatable {
@@ -27,4 +26,3 @@ class AuthLoginRequested extends AuthEvent {
 
 /// User logs out or switches user
 class AuthLogoutRequested extends AuthEvent {}
-/// <<END FILE>>

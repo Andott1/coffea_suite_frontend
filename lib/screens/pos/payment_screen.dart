@@ -1,5 +1,3 @@
-// payment_screen.dart generated
-/// <<FILE: lib/screens/pos/payment_screen.dart>>
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../config/theme_config.dart';
@@ -61,7 +59,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     // 1. VALIDATION
     if (_selectedMethod == PaymentMethod.cash) {
       final tendered = double.tryParse(_tenderedStr) ?? 0;
-      if (tendered < totalAmount) {
+      if (tendered < FormatUtils.roundDouble(totalAmount)) { 
         DialogUtils.showToast(context, "Insufficient cash tendered.", icon: Icons.error, accentColor: Colors.red);
         return;
       }
@@ -382,7 +380,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
             color: color ?? Colors.white,
             border: Border.all(color: Colors.grey.shade300),
             borderRadius: BorderRadius.circular(8),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 2, offset: const Offset(0,2))]
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0,2))]
           ),
           child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: textColor ?? Colors.black87)),
         ),
@@ -403,4 +401,3 @@ class _PaymentScreenState extends State<PaymentScreen> {
     );
   }
 }
-/// <<END FILE>>

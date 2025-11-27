@@ -66,7 +66,7 @@ class BasicButton extends StatelessWidget {
         onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: isDisabled
-              ? ThemeConfig.midGray.withOpacity(0.4)
+              ? ThemeConfig.midGray.withValues(alpha: 0.4)
               : ThemeConfig.primaryGreen,
           elevation: isDisabled ? 0 : 2,
           shape: RoundedRectangleBorder(borderRadius: radius),
@@ -108,8 +108,8 @@ class BasicButton extends StatelessWidget {
     }
 
     if (isDisabled) {
-      borderColor = ThemeConfig.midGray.withOpacity(0.3);
-      textColor = ThemeConfig.midGray.withOpacity(0.4);
+      borderColor = ThemeConfig.midGray.withValues(alpha: 0.3);
+      textColor = ThemeConfig.midGray.withValues(alpha: 0.4);
     }
 
     return SizedBox(
