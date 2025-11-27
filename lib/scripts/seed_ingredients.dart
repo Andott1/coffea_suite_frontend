@@ -1,14 +1,14 @@
-/// <<FILE: lib/scripts/seed_ingredients.dart>>
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:hive/hive.dart';
 import '../core/models/ingredient_model.dart';
+import '../core/services/logger_service.dart';
 
 /// Seeds the Ingredient Hive box from assets/data/ingredients_list.json
 Future<void> seedIngredients() async {
   final box = Hive.box<IngredientModel>('ingredients');
   if (box.isNotEmpty) {
-    print('ℹ️ Ingredients already seeded, skipping.');
+    LoggerService.info('ℹ️ Ingredients already seeded, skipping.');
     return;
   }
 
@@ -34,9 +34,8 @@ Future<void> seedIngredients() async {
       count++;
     }
 
-    print('✅ Ingredients seeded successfully ($count records).');
+    LoggerService.info('✅ Ingredients seeded successfully ($count records).');
   } catch (e) {
-    print('❌ Failed to seed ingredients: $e');
+    LoggerService.error('❌ Failed to seed ingredients: $e');
   }
 }
-/// <<END FILE>>

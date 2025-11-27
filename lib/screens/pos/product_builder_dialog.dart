@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/pos/product_builder_dialog.dart>>
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../config/theme_config.dart';
@@ -9,6 +8,7 @@ import '../../core/widgets/dialog_box_titled.dart';
 import '../../core/widgets/basic_button.dart';
 import 'bloc/pos_bloc.dart';
 import 'bloc/pos_event.dart';
+import 'bloc/stock_logic.dart';
 
 class ProductBuilderDialog extends StatefulWidget {
   final ProductModel product;
@@ -60,6 +60,20 @@ class _ProductBuilderDialogState extends State<ProductBuilderDialog> {
     // Sort keys alphabetically (usually works for 12oz, 16oz) 
     // or custom logic can be added later.
     final sortedVariants = widget.product.prices.keys.toList()..sort();
+
+    // ✅ 1. Get Real-Time Cart Data
+    final currentCart = context.watch<PosBloc>().state.cart;
+    
+    // ✅ 2. Calculate Max Possible
+    final int maxStock = StockLogic.calculateMaxStock(
+      product: widget.product, 
+      variant: _selectedVariant, 
+      currentCart: currentCart
+    );
+
+    // Safety check: If max changed to less than current quantity (rare), clamp it
+    if (_quantity > maxStock && maxStock > 0) _quantity = maxStock;
+    if (maxStock == 0) _quantity = 0; // Sold out scenario
     
     return DialogBoxTitled(
       title: widget.product.name,
@@ -127,29 +141,44 @@ class _ProductBuilderDialogState extends State<ProductBuilderDialog> {
           const SizedBox(height: 24),
 
           // ──────────────── QUANTITY ────────────────
-          Text("Quantity", style: FontConfig.caption(context)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Quantity", style: FontConfig.caption(context)),
+              // ✅ Show Max Available helper
+              if (maxStock < 99)
+                Text(
+                  "Max available: $maxStock", 
+                  style: TextStyle(color: _quantity >= maxStock ? Colors.red : Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)
+                ),
+            ],
+          ),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _qtyButton(Icons.remove, () {
                 if (_quantity > 1) setState(() => _quantity--);
-              }),
+              }, enabled: _quantity > 1),
+              
               Container(
                 width: 80,
                 alignment: Alignment.center,
                 child: Text(
                   "$_quantity",
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 28, 
                     fontWeight: FontWeight.bold, 
-                    color: ThemeConfig.primaryGreen
+                    // Turn red if hitting the limit
+                    color: _quantity == maxStock ? Colors.orange : ThemeConfig.primaryGreen
                   ),
                 ),
               ),
+              
+              // ✅ Disable if hitting max stock
               _qtyButton(Icons.add, () {
-                 setState(() => _quantity++);
-              }),
+                 if (_quantity < maxStock) setState(() => _quantity++);
+              }, enabled: _quantity < maxStock),
             ],
           ),
 
@@ -174,9 +203,10 @@ class _ProductBuilderDialogState extends State<ProductBuilderDialog> {
               const SizedBox(width: 20),
               Expanded(
                 child: BasicButton(
-                  label: "Add to Order",
+                  label: maxStock == 0 ? "Sold Out" : "Add to Order",
                   type: AppButtonType.primary,
-                  onPressed: _addToOrder,
+                  // ✅ Disable if 0 stock
+                  onPressed: maxStock > 0 ? _addToOrder : null,
                 ),
               ),
             ],
@@ -186,23 +216,22 @@ class _ProductBuilderDialogState extends State<ProductBuilderDialog> {
     );
   }
 
-  Widget _qtyButton(IconData icon, VoidCallback onTap) {
+  Widget _qtyButton(IconData icon, VoidCallback onTap, {bool enabled = true}) {
     return Container(
       width: 45, height: 45,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: enabled ? Colors.white : Colors.grey[100],
         shape: BoxShape.circle,
-        border: Border.all(color: ThemeConfig.midGray),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
-        ]
+        border: Border.all(color: enabled ? ThemeConfig.midGray : Colors.grey.shade300),
+        boxShadow: enabled 
+          ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))] 
+          : []
       ),
       child: IconButton(
-        icon: Icon(icon, color: ThemeConfig.primaryGreen),
-        onPressed: onTap,
+        icon: Icon(icon, color: enabled ? ThemeConfig.primaryGreen : Colors.grey),
+        onPressed: enabled ? onTap : null,
         splashRadius: 24,
       ),
     );
   }
 }
-/// <<END FILE>>

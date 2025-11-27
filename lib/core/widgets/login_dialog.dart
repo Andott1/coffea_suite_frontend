@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/widgets/login_dialog.dart>>
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/auth/auth_bloc.dart';
@@ -96,4 +95,3 @@ class _LoginDialogState extends State<LoginDialog> {
     );
   }
 }
-/// <<END FILE>>

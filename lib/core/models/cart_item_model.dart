@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/models/cart_item_model.dart>>
 import 'package:hive/hive.dart';
 import 'package:uuid/uuid.dart';
 import 'product_model.dart';
@@ -50,4 +49,3 @@ class CartItemModel {
     );
   }
 }
-/// <<END FILE>>

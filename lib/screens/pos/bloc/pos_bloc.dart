@@ -1,4 +1,3 @@
-/// <<FILE: lib/screens/pos/bloc/pos_bloc.dart>>
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../core/services/supabase_sync_service.dart';
 import 'pos_event.dart';
@@ -136,4 +135,3 @@ class PosBloc extends Bloc<PosEvent, PosState> {
   }
 
 }
-/// <<END FILE>>

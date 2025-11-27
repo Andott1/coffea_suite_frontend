@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/bloc/auth/auth_state.dart>>
 import 'package:equatable/equatable.dart';
 import '../../models/user_model.dart';
 
@@ -32,4 +31,3 @@ class AuthFailure extends AuthState {
   @override
   List<Object?> get props => [message];
 }
-/// <<END FILE>>

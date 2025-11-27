@@ -182,7 +182,7 @@ class AttendanceDashboardTab extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
             child: Icon(icon, color: color, size: 28),
           ),
           const SizedBox(width: 16),
@@ -204,9 +204,9 @@ class AttendanceDashboardTab extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isOnBreak ? Colors.orange.shade200 : ThemeConfig.primaryGreen.withOpacity(0.3)),
+        border: Border.all(color: isOnBreak ? Colors.orange.shade200 : ThemeConfig.primaryGreen.withValues(alpha: 0.3)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))
+          BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))
         ],
       ),
       padding: const EdgeInsets.all(12),
@@ -214,7 +214,7 @@ class AttendanceDashboardTab extends StatelessWidget {
         children: [
           // Avatar
           CircleAvatar(
-            backgroundColor: isOnBreak ? Colors.orange.shade50 : ThemeConfig.primaryGreen.withOpacity(0.1),
+            backgroundColor: isOnBreak ? Colors.orange.shade50 : ThemeConfig.primaryGreen.withValues(alpha: 0.1),
             child: Text(
               user?.fullName.substring(0, 1).toUpperCase() ?? "?",
               style: TextStyle(fontWeight: FontWeight.bold, color: isOnBreak ? Colors.orange : ThemeConfig.primaryGreen),

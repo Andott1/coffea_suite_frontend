@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:hive/hive.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import 'package:collection/collection.dart';
+
 import '../models/attendance_log_model.dart';
 import '../models/cart_item_model.dart';
 import '../models/ingredient_model.dart';
@@ -11,20 +15,21 @@ import '../models/product_model.dart';
 import '../models/sync_queue_model.dart';
 import '../models/transaction_model.dart';
 import '../models/user_model.dart';
+import '../models/payroll_record_model.dart'; // ✅ Import
+import 'logger_service.dart';
 
 class SupabaseSyncService {
   static final SupabaseClient _client = Supabase.instance.client;
   static Box<SyncQueueModel>? _queueBox;
   static bool _isSyncing = false;
+  static Timer? _debounceTimer;
 
   static Future<void> init() async {
-    // 1. Open Queue Box
     if (!Hive.isAdapterRegistered(100)) {
       Hive.registerAdapter(SyncQueueModelAdapter());
     }
     _queueBox = await Hive.openBox<SyncQueueModel>('sync_queue');
 
-    // 2. Listen to Connectivity Changes
     Connectivity().onConnectivityChanged.listen((result) {
       if (!result.contains(ConnectivityResult.none)) {
         processQueue();
@@ -32,10 +37,9 @@ class SupabaseSyncService {
     });
   }
 
-  // ─── 1. ADD TO QUEUE ───
   static Future<void> addToQueue({
     required String table,
-    required String action, // 'UPSERT', 'DELETE'
+    required String action,
     required Map<String, dynamic> data,
   }) async {
     final item = SyncQueueModel(
@@ -45,79 +49,140 @@ class SupabaseSyncService {
       data: data,
       timestamp: DateTime.now(),
     );
-    
     await _queueBox?.add(item);
-    
-    // Try to sync immediately
-    processQueue();
+    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 500), processQueue);
   }
 
-  // ─── 2. PROCESS QUEUE (Robust) ───
+  // ... _formatSize ... 
+  static String _formatSize(int bytes) {
+    if (bytes < 1024) return "$bytes B";
+    return "${(bytes / 1024).toStringAsFixed(2)} KB";
+  }
+
   static Future<void> processQueue() async {
-    // Prevent concurrent syncs
     if (_isSyncing || _queueBox == null || _queueBox!.isEmpty) return;
-
-    // Check internet
-    final connectivity = await Connectivity().checkConnectivity();
-    if (connectivity.contains(ConnectivityResult.none)) return;
-
     _isSyncing = true;
-    print("🔄 Syncing ${_queueBox!.length} items to Supabase...");
 
     try {
-      // Loop until queue is empty (handles items added *during* the sync)
-      while (_queueBox!.isNotEmpty) {
-        
-        // Take a snapshot of current items
-        final itemsToSync = _queueBox!.values.toList();
-        if (itemsToSync.isEmpty) break;
+      final connectivity = await Connectivity().checkConnectivity();
+      if (connectivity.contains(ConnectivityResult.none)) return;
 
-        for (var item in itemsToSync) {
-          // SAFETY CHECK: If item was already deleted by another process, skip it
-          if (!item.isInBox) continue;
+      final allPending = _queueBox!.values.toList();
+      if (allPending.isEmpty) return;
 
-          try {
-            if (item.action == 'UPSERT') {
-              await _client.from(item.table).upsert(item.data);
-            } else if (item.action == 'DELETE') {
-              await _client.from(item.table).delete().eq('id', item.data['id']);
-            }
+      final byTable = groupBy(allPending, (SyncQueueModel item) => item.table);
 
-            // ✅ SAFE DELETE: Check again before deleting
-            if (item.isInBox) {
-              await item.delete();
-            }
-            
-          } catch (e) {
-            print("❌ Sync Error on item ${item.id}: $e");
-            // We leave the item in the box to retry later
-            // Optional: You could add a 'retryCount' field to SyncQueueModel to delete after X fails
-          }
+      for (final table in byTable.keys) {
+        final tableItems = byTable[table]!;
+
+        if (table == 'attendance_logs') {
+           await _handleFileUploads(tableItems);
         }
         
-        // Re-check connectivity between batches
-        final check = await Connectivity().checkConnectivity();
-        if (check.contains(ConnectivityResult.none)) break;
+        final Map<String, Map<String, dynamic>> uniqueUpserts = {};
+        final Set<String> uniqueDeletes = {};
+        final Map<String, Map<String, dynamic>> uniqueUpdates = {}; 
+
+        for (var item in tableItems) {
+          final id = item.data['id'];
+          if (id == null) continue;
+
+          if (item.action == 'UPSERT') {
+            uniqueUpserts[id] = item.data;
+            uniqueDeletes.remove(id);
+            uniqueUpdates.remove(id); 
+          } 
+          else if (item.action == 'DELETE') {
+            uniqueDeletes.add(id);
+            uniqueUpserts.remove(id);
+            uniqueUpdates.remove(id);
+          } 
+          else if (item.action == 'UPDATE') {
+            if (!uniqueUpserts.containsKey(id) && !uniqueDeletes.contains(id)) {
+              final existing = uniqueUpdates[id] ?? {};
+              uniqueUpdates[id] = {...existing, ...item.data};
+            }
+          }
+        }
+
+        final upserts = uniqueUpserts.values.toList();
+        final deletes = uniqueDeletes.toList();
+        final updates = uniqueUpdates.entries.toList();
+
+        try {
+          if (upserts.isNotEmpty) {
+            final jsonString = jsonEncode(upserts);
+            final sizeStr = _formatSize(jsonString.length);
+            await _client.from(table).upsert(upserts);
+            LoggerService.info("✅ [Batch] Upserted ${upserts.length} rows to '$table' ($sizeStr)");
+          }
+          if (deletes.isNotEmpty) {
+            final sizeStr = _formatSize(jsonEncode(deletes).length);
+            await _client.from(table).delete().inFilter('id', deletes);
+            LoggerService.info("🗑️ [Batch] Deleted ${deletes.length} rows from '$table' ($sizeStr)");
+          }
+          if (updates.isNotEmpty) {
+            int totalBytes = 0;
+            for (var entry in updates) {
+              final id = entry.key;
+              final data = entry.value;
+              totalBytes += jsonEncode(data).length;
+              await _client.from(table).update(data).match({'id': id});
+            }
+            final sizeStr = _formatSize(totalBytes);
+            LoggerService.info("✏️ [Batch] Updated ${updates.length} rows in '$table' (Total: $sizeStr)");
+          }
+          
+          final keysToDelete = tableItems.map((e) => e.key).toList();
+          await _queueBox!.deleteAll(keysToDelete);
+
+        } catch (e) {
+          LoggerService.error("❌ Batch Sync Failed for table '$table': $e");
+        }
       }
+    } catch (e) {
+      LoggerService.error("❌ Critical Sync Error: $e");
     } finally {
       _isSyncing = false;
     }
   }
 
-  // ─── 3. RESTORE FROM CLOUD (Cloud -> Local) ───
+  // ... _handleFileUploads ...
+  static Future<void> _handleFileUploads(List<SyncQueueModel> items) async {
+    for (var item in items) {
+      if (item.action != 'UPSERT') continue;
+      final localPath = item.data['proof_image'];
+      if (localPath != null && localPath is String && localPath.isNotEmpty && !localPath.startsWith('http')) {
+        try {
+          final file = File(localPath);
+          if (!await file.exists()) continue;
+          final fileName = "${item.data['user_id']}_${item.data['date']}_${const Uuid().v4()}.jpg";
+          final fileSize = await file.length();
+          LoggerService.info("📸 Uploading image (${_formatSize(fileSize)})...");
+          await _client.storage.from('attendance_proofs').upload(fileName, file);
+          final publicUrl = _client.storage.from('attendance_proofs').getPublicUrl(fileName);
+          item.data['proof_image'] = publicUrl;
+          await item.save(); 
+        } catch (e) {
+          LoggerService.error("❌ Proof Upload Failed: $e");
+        }
+      }
+    }
+  }
+
+  // ─── RESTORE FROM CLOUD ───
   static Future<void> restoreFromCloud() async {
     final connectivity = await Connectivity().checkConnectivity();
     if (connectivity.contains(ConnectivityResult.none)) {
       throw Exception("No internet connection. Cannot restore.");
     }
-
-    // Safety Check: Don't restore if we have pending uploads!
     if (_queueBox != null && _queueBox!.isNotEmpty) {
       throw Exception("Unsynced local changes detected. Please wait for auto-sync to finish before restoring.");
     }
 
     _isSyncing = true;
-    print("☁️ Starting Cloud Restore...");
+    LoggerService.info("☁️ Starting Cloud Restore...");
 
     try {
       // 1. USERS
@@ -165,7 +230,7 @@ class SupabaseSyncService {
         await ingBox.put(ing.id, ing);
       }
 
-      // 3. PRODUCTS (The Menu)
+      // 3. PRODUCTS
       final prodData = await _client.from('products').select();
       final prodBox = Hive.box<ProductModel>('products');
       await prodBox.clear();
@@ -174,14 +239,12 @@ class SupabaseSyncService {
         if (map['prices'] != null) {
           prices = Map<String, double>.from((map['prices'] as Map).map((k, v) => MapEntry(k, (v as num).toDouble())));
         }
-
         Map<String, Map<String, double>> usage = {};
         if (map['ingredient_usage'] != null) {
           usage = (map['ingredient_usage'] as Map).map((k, v) {
             return MapEntry(k as String, Map<String, double>.from((v as Map).map((k2, v2) => MapEntry(k2, (v2 as num).toDouble()))));
           });
         }
-
         final prod = ProductModel(
           id: map['id'],
           name: map['name'],
@@ -196,7 +259,7 @@ class SupabaseSyncService {
         await prodBox.put(prod.id, prod);
       }
 
-      // 4. ATTENDANCE LOGS
+      // 4. ATTENDANCE
       final attData = await _client.from('attendance_logs').select();
       final attBox = Hive.box<AttendanceLogModel>('attendance_logs');
       await attBox.clear();
@@ -214,11 +277,35 @@ class SupabaseSyncService {
           breakEnd: map['break_end'] != null ? DateTime.parse(map['break_end']) : null,
           status: statusEnum,
           hourlyRateSnapshot: (map['hourly_rate_snapshot'] as num?)?.toDouble() ?? 0.0,
+          proofImage: map['proof_image'],
+          isVerified: map['is_verified'] ?? false,
+          rejectionReason: map['rejection_reason'],
+          payrollId: map['payroll_id'], // ✅ Restore payrollId
         );
         await attBox.put(log.id, log);
       }
 
-      // 5. INVENTORY LOGS
+      // 5. PAYROLL RECORDS (✅ NEW)
+      final payData = await _client.from('payroll_records').select();
+      final payBox = Hive.box<PayrollRecordModel>('payroll_records');
+      await payBox.clear();
+      for (final map in payData) {
+        final record = PayrollRecordModel(
+          id: map['id'],
+          userId: map['user_id'],
+          periodStart: DateTime.parse(map['period_start']),
+          periodEnd: DateTime.parse(map['period_end']),
+          totalHours: (map['total_hours'] as num).toDouble(),
+          grossPay: (map['gross_pay'] as num).toDouble(),
+          netPay: (map['net_pay'] as num).toDouble(),
+          adjustmentsJson: map['adjustments_json'] ?? '[]',
+          generatedAt: DateTime.parse(map['generated_at']),
+          generatedBy: map['generated_by'] ?? 'System',
+        );
+        await payBox.put(record.id, record);
+      }
+
+      // 6. INVENTORY LOGS
       final logData = await _client.from('inventory_logs').select();
       final logBox = Hive.box<InventoryLogModel>('inventory_logs');
       await logBox.clear();
@@ -236,33 +323,23 @@ class SupabaseSyncService {
         await logBox.add(log);
       }
 
-      // ✅ 6. TRANSACTIONS (The Missing Part)
+      // 7. TRANSACTIONS
       final txnData = await _client.from('transactions').select();
       final txnBox = Hive.box<TransactionModel>('transactions');
-      
-      // We need to look up products to reconstruct items
       final productBox = Hive.box<ProductModel>('products'); 
-      
       await txnBox.clear();
-
       for (final map in txnData) {
-        // A. Map OrderStatus
         final statusEnum = OrderStatus.values.firstWhere(
           (e) => e.name == map['status'], orElse: () => OrderStatus.served
         );
-
-        // B. Reconstruct Cart Items from JSONB
         List<CartItemModel> cartItems = [];
         if (map['items'] != null) {
           final rawItems = List<dynamic>.from(map['items']);
           for (final itemMap in rawItems) {
-            // ⚠️ Crucial: Find the product object by Name
-            // (Since we stored 'product_name' in the JSON)
             ProductModel? product;
             try {
               product = productBox.values.firstWhere((p) => p.name == itemMap['product_name']);
             } catch (_) {
-              // If product was deleted from menu, create a placeholder so history isn't broken
               product = ProductModel(
                 id: 'archived', 
                 name: itemMap['product_name'], 
@@ -273,7 +350,6 @@ class SupabaseSyncService {
                 updatedAt: DateTime.now()
               );
             }
-
             cartItems.add(CartItemModel(
               product: product,
               variant: itemMap['variant'] ?? '',
@@ -282,7 +358,6 @@ class SupabaseSyncService {
             ));
           }
         }
-
         final txn = TransactionModel(
           id: map['id'],
           dateTime: DateTime.parse(map['date_time']),
@@ -294,35 +369,29 @@ class SupabaseSyncService {
           referenceNo: map['reference_no'],
           isVoid: map['is_void'] ?? false,
           status: statusEnum,
-          
-          // ✅ RESTORE ORDER TYPE
           orderType: map['order_type'] ?? 'dineIn', 
         );
         await txnBox.put(txn.id, txn);
       }
-      print("✅ Restored ${txnData.length} transactions.");
-
-      print("🎉 FULL CLOUD RESTORE COMPLETE!");
-      
+      LoggerService.info("✅ Restored ${txnData.length} transactions.");
+      LoggerService.info("🎉 FULL CLOUD RESTORE COMPLETE!");
     } catch (e) {
-      print("❌ Restore Failed: $e");
+      LoggerService.error("❌ Restore Failed: $e");
       rethrow;
     } finally {
       _isSyncing = false;
     }
   }
 
-  // ─── 4. FORCE PUSH (Local -> Cloud) ───
+  // ─── FORCE PUSH ───
   static Future<void> forceLocalToCloud() async {
     final connectivity = await Connectivity().checkConnectivity();
     if (connectivity.contains(ConnectivityResult.none)) {
       throw Exception("No internet connection. Cannot sync.");
     }
+    LoggerService.info("🚀 Starting Force Push to Cloud...");
 
-    print("🚀 Starting Force Push to Cloud...");
-
-    // Helper to queue without triggering sync immediately
-    Future<void> queue(String table, Map<String, dynamic> data) async {
+    Future<void> queueSilent(String table, Map<String, dynamic> data) async {
       final item = SyncQueueModel(
         id: const Uuid().v4(),
         table: table,
@@ -336,7 +405,7 @@ class SupabaseSyncService {
     // 1. Users
     final userBox = Hive.box<UserModel>('users');
     for (var item in userBox.values) {
-      await queue('users', {
+      await queueSilent('users', {
         'id': item.id,
         'full_name': item.fullName,
         'username': item.username,
@@ -353,42 +422,19 @@ class SupabaseSyncService {
     // 2. Ingredients
     final ingBox = Hive.box<IngredientModel>('ingredients');
     for (var item in ingBox.values) {
-      await queue('ingredients', {
-        'id': item.id,
-        'name': item.name,
-        'category': item.category,
-        'unit': item.unit,
-        'quantity': item.quantity,
-        'reorder_level': item.reorderLevel,
-        'unit_cost': item.unitCost,
-        'purchase_size': item.purchaseSize,
-        'base_unit': item.baseUnit,
-        'conversion_factor': item.conversionFactor,
-        'is_custom_conversion': item.isCustomConversion,
-        'updated_at': item.updatedAt.toIso8601String(),
-      });
+      await queueSilent('ingredients', item.toJson());
     }
 
     // 3. Products
     final prodBox = Hive.box<ProductModel>('products');
     for (var item in prodBox.values) {
-      await queue('products', {
-        'id': item.id,
-        'name': item.name,
-        'category': item.category,
-        'sub_category': item.subCategory,
-        'pricing_type': item.pricingType,
-        'prices': item.prices,
-        'ingredient_usage': item.ingredientUsage,
-        'available': item.available,
-        'updated_at': item.updatedAt.toIso8601String(),
-      });
+      await queueSilent('products', item.toJson());
     }
 
     // 4. Transactions
     final txnBox = Hive.box<TransactionModel>('transactions');
     for (var item in txnBox.values) {
-       await queue('transactions', {
+       await queueSilent('transactions', {
         'id': item.id,
         'date_time': item.dateTime.toIso8601String(),
         'total_amount': item.totalAmount,
@@ -398,10 +444,7 @@ class SupabaseSyncService {
         'status': item.status.name,
         'is_void': item.isVoid,
         'reference_no': item.referenceNo,
-        
-        // ✅ PUSH ORDER TYPE
         'order_type': item.orderType,
-
         'items': item.items.map((i) => {
           'product_name': i.product.name,
           'variant': i.variant,
@@ -415,7 +458,7 @@ class SupabaseSyncService {
     // 5. Attendance
     final attBox = Hive.box<AttendanceLogModel>('attendance_logs');
     for (var item in attBox.values) {
-      await queue('attendance_logs', {
+      await queueSilent('attendance_logs', {
         'id': item.id,
         'user_id': item.userId,
         'date': item.date.toIso8601String(),
@@ -425,13 +468,34 @@ class SupabaseSyncService {
         'break_end': item.breakEnd?.toIso8601String(),
         'status': item.status.name,
         'hourly_rate_snapshot': item.hourlyRateSnapshot,
+        'proof_image': item.proofImage,
+        'is_verified': item.isVerified,
+        'rejection_reason': item.rejectionReason,
+        'payroll_id': item.payrollId, // ✅ Push payrollId
       });
     }
 
-    // 6. Inventory Logs
+    // 6. Payroll Records (✅ NEW)
+    final payBox = Hive.box<PayrollRecordModel>('payroll_records');
+    for (var item in payBox.values) {
+      await queueSilent('payroll_records', {
+        'id': item.id,
+        'user_id': item.userId,
+        'period_start': item.periodStart.toIso8601String(),
+        'period_end': item.periodEnd.toIso8601String(),
+        'total_hours': item.totalHours,
+        'gross_pay': item.grossPay,
+        'net_pay': item.netPay,
+        'adjustments_json': item.adjustmentsJson,
+        'generated_at': item.generatedAt.toIso8601String(),
+        'generated_by': item.generatedBy,
+      });
+    }
+
+    // 7. Inventory Logs
     final logBox = Hive.box<InventoryLogModel>('inventory_logs');
     for (var item in logBox.values) {
-      await queue('inventory_logs', {
+      await queueSilent('inventory_logs', {
         'id': item.id,
         'date_time': item.dateTime.toIso8601String(),
         'ingredient_name': item.ingredientName,
@@ -443,10 +507,7 @@ class SupabaseSyncService {
       });
     }
 
-    print("✅ All local data queued for sync.");
-    
-    // Trigger the background sync
+    LoggerService.info("✅ All local data queued. Triggering batch sync...");
     processQueue();
   }
-  
 }

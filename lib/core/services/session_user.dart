@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/services/session_user.dart>>
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
 
@@ -27,4 +26,3 @@ class SessionUser {
       _current?.role == UserRoleLevel.admin; // Managers also include Admins usually, or strictly separation? 
                                              // Based on your request: Admin > Manager > Employee
 }
-/// <<END FILE>>

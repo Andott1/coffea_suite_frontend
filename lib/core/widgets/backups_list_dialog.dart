@@ -1,4 +1,3 @@
-/// <<FILE: lib/core/widgets/backups_list_dialog.dart>>
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/backup_service.dart';
@@ -168,4 +167,3 @@ class _BackupsListDialogState extends State<BackupsListDialog> {
     );
   }
 }
-/// <<END FILE>>

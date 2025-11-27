@@ -27,13 +27,14 @@ class TransactionModelAdapter extends TypeAdapter<TransactionModel> {
       referenceNo: fields[7] as String?,
       isVoid: fields[8] as bool,
       status: fields[9] as OrderStatus,
+      orderType: fields[10] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, TransactionModel obj) {
     writer
-      ..writeByte(10)
+      ..writeByte(11)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -53,7 +54,9 @@ class TransactionModelAdapter extends TypeAdapter<TransactionModel> {
       ..writeByte(8)
       ..write(obj.isVoid)
       ..writeByte(9)
-      ..write(obj.status);
+      ..write(obj.status)
+      ..writeByte(10)
+      ..write(obj.orderType);
   }
 
   @override
