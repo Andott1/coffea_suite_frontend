@@ -1,3 +1,4 @@
+import '../../core/widgets/session_guard.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
@@ -5,7 +6,6 @@ import '../../core/services/session_user.dart'; // ✅ Import
 import '../../core/config/permissions_config.dart'; // ✅ Import
 
 // Screens
-import '../../core/widgets/session_listener.dart';
 import 'attendance_dashboard_tab.dart';
 import 'attendance_logs_screen.dart';
 import 'payroll_screen.dart';
@@ -87,7 +87,7 @@ class _AttendanceBaseScreenState extends State<AttendanceBaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SessionListener(
+    return SessionGuard(
       onUserChanged: () => setState(() => _setupTabs()),
       child: Scaffold(
         backgroundColor: Colors.grey[100],

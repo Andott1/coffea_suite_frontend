@@ -75,7 +75,6 @@ class _StartupScreenState extends State<StartupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Get status bar height dynamically
     final double statusBarHeight = MediaQuery.of(context).padding.top;
 
     return BlocBuilder<AuthBloc, AuthState>(
@@ -90,20 +89,19 @@ class _StartupScreenState extends State<StartupScreen> {
           body: Row(
             children: [
               // ───────────────────────────────────────────────
-              // LEFT SIDEBAR: BRANDING & INFO (30%)
+              // LEFT SIDEBAR (30%)
               // ───────────────────────────────────────────────
               Expanded(
                 flex: 30,
                 child: Container(
-                  // ✅ FIX: Simple 20px padding all around + status bar
-                  padding: EdgeInsets.fromLTRB(40, 20 + statusBarHeight, 40, 40),
+                  padding: EdgeInsets.fromLTRB(40, statusBarHeight + 20, 40, 40),
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
                         ThemeConfig.primaryGreen,
-                        ThemeConfig.secondaryGreen, // ✅ Verified
+                        ThemeConfig.secondaryGreen, 
                       ],
                     ),
                   ),
@@ -116,7 +114,7 @@ class _StartupScreenState extends State<StartupScreen> {
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.1),
+                              color: Colors.white.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(Icons.coffee, color: Colors.white, size: 36),
@@ -154,13 +152,11 @@ class _StartupScreenState extends State<StartupScreen> {
                         ),
                         child: Column(
                           children: [
-                            // CLOUD SYNC
                             ValueListenableBuilder(
                               valueListenable: Hive.box<SyncQueueModel>('sync_queue').listenable(),
                               builder: (context, Box<SyncQueueModel> box, _) {
                                 final count = box.length;
                                 final isSynced = count == 0;
-                                
                                 return _InfoRow(
                                   icon: isSynced ? Icons.cloud_done : Icons.cloud_upload, 
                                   label: "Cloud Sync",
@@ -176,10 +172,7 @@ class _StartupScreenState extends State<StartupScreen> {
                                 );
                               }
                             ),
-
                             const Divider(color: Colors.white12, height: 24),
-
-                            // NETWORK STATUS
                             _InfoRow(
                               icon: Icons.wifi, 
                               label: "Network Status",
@@ -197,24 +190,10 @@ class _StartupScreenState extends State<StartupScreen> {
                                 }
                               ),
                             ),
-                            
                             const Divider(color: Colors.white12, height: 24),
-                            
-                            // VERSION
-                            _InfoRow(
-                              icon: Icons.info_outline,
-                              label: "System Version",
-                              value: _version,
-                            ),
-                            
+                            _InfoRow(icon: Icons.info_outline, label: "System Version", value: _version),
                             const Divider(color: Colors.white12, height: 24),
-                            
-                            // TERMINAL
-                            _InfoRow(
-                              icon: Icons.devices,
-                              label: "Terminal ID",
-                              value: "POS-01",
-                            ),
+                            _InfoRow(icon: Icons.devices, label: "Terminal ID", value: "POS-01"),
                           ],
                         ),
                       ),
@@ -224,33 +203,31 @@ class _StartupScreenState extends State<StartupScreen> {
               ),
 
               // ───────────────────────────────────────────────
-              // RIGHT WORKSPACE: MODULE GRID (70%)
+              // RIGHT WORKSPACE (70%)
               // ───────────────────────────────────────────────
               Expanded(
                 flex: 70,
                 child: Container(
-                  color: const Color(0xFFF5F7FA),
+                  color: const Color.fromARGB(255, 243, 243, 243),
                   child: isLoggedIn 
                     ? Column(
                         children: [
-                          // 1. ✅ UTILITY BAR (Simplified)
+                          // UTILITY BAR
                           Container(
                             width: double.infinity,
-                            // ✅ FIX: Simple padding logic. White BG extends to edges.
                             padding: EdgeInsets.fromLTRB(20, 20 + statusBarHeight, 20, 20),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                               boxShadow: [
-                                BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5, offset: const Offset(0, 2))
+                                BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 5, offset: const Offset(0, 2))
                               ]
                             ),
                             child: Row(
                               children: [
-                                // USER PROFILE
                                 CircleAvatar(
                                   radius: 24,
-                                  backgroundColor: ThemeConfig.primaryGreen.withOpacity(0.1),
+                                  backgroundColor: ThemeConfig.primaryGreen.withValues(alpha: 0.1),
                                   child: Text(
                                     user!.fullName[0].toUpperCase(),
                                     style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen, fontSize: 20),
@@ -271,30 +248,36 @@ class _StartupScreenState extends State<StartupScreen> {
                                     ),
                                   ],
                                 ),
-
                                 const Spacer(),
-
-                                // ACTIONS
                                 const _ManualPullButton(),
-                                
                                 const SizedBox(width: 20),
                                 Container(width: 1, height: 40, color: Colors.grey.shade300),
                                 const SizedBox(width: 20),
-
-                                // LOGOUT
-                                IconButton(
+                                TextButton.icon(
                                   onPressed: () {
                                     context.read<AuthBloc>().add(AuthLogoutRequested());
                                     Future.delayed(const Duration(milliseconds: 100), _showStartupLogin);
                                   },
-                                  icon: const Icon(Icons.logout, color: Colors.grey, size: 28),
-                                  tooltip: "Logout",
+                                  icon: Icon(Icons.logout, size: 20, color: Colors.red.shade700),
+                                  label: Text(
+                                    "Logout",
+                                    style: TextStyle(
+                                      color: Colors.red.shade700,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18
+                                    ),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    backgroundColor: Colors.red.shade50,
+                                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
                                 )
                               ],
                             ),
                           ),
 
-                          // 2. MODULE GRID
+                          // MODULE GRID
                           Expanded(
                             child: GridView.count(
                               crossAxisCount: 2,
@@ -336,12 +319,11 @@ class _StartupScreenState extends State<StartupScreen> {
                             ),
                           ),
                           
-                          // FOOTER TEXT
                           Padding(
                             padding: const EdgeInsets.only(bottom: 20),
                             child: Text(
                               "Select a module above to begin work.",
-                              style: TextStyle(color: Colors.grey[500], fontSize: 16, fontWeight: FontWeight.w500),
+                              style: TextStyle(color: Colors.grey[500], fontSize: 18, fontWeight: FontWeight.w400),
                             ),
                           )
                         ],
@@ -358,6 +340,135 @@ class _StartupScreenState extends State<StartupScreen> {
 }
 
 // ──────────────── WIDGET COMPONENTS ────────────────
+
+// ✅ REDESIGNED: Watermarked "Big Button" Card
+class _ModuleCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+  final bool isLocked;
+
+  const _ModuleCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.color,
+    this.onTap,
+    this.isLocked = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(24), // Softer corners
+      elevation: isLocked ? 0 : 5, // Higher elevation for pop
+      shadowColor: isLocked ? Colors.transparent : color.withValues(alpha: 0.25), // Colored shadow
+      child: InkWell(
+        onTap: isLocked ? null : onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: isLocked ? Colors.grey.shade200 : color.withValues(alpha: 0.1),
+              width: 1.5,
+            ),
+          ),
+          clipBehavior: Clip.antiAlias, // Clip the watermark
+          child: Stack(
+            children: [
+              // 1. WATERMARK ICON (Background Decoration)
+              if (!isLocked)
+                Positioned(
+                  bottom: -30,
+                  right: -30,
+                  child: Transform.rotate(
+                    angle: -0.2, // Stylish tilt
+                    child: Icon(
+                      icon,
+                      size: 160, // Huge size for background texture
+                      color: color.withValues(alpha: 0.1), // Very subtle watermark
+                    ),
+                  ),
+                ),
+
+              // 2. MAIN CONTENT
+              Padding(
+                padding: const EdgeInsets.all(28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // TOP ROW
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Icon Badge
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isLocked ? Colors.grey[200] : color.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            isLocked ? Icons.lock : icon,
+                            color: isLocked ? Colors.grey : color,
+                            size: 34,
+                          ),
+                        ),
+                        
+                        // Action Arrow
+                        if (!isLocked)
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.grey.shade50,
+                            ),
+                            child: Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey[400], size: 32),
+                          ),
+                      ],
+                    ),
+
+                    // BOTTOM TEXT
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: 32, 
+                            fontWeight: FontWeight.w700,
+                            color: isLocked ? Colors.grey : Colors.black87,
+                            height: 1.1
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          isLocked ? "Restricted Access" : subtitle,
+                          style: TextStyle(
+                            color: isLocked ? Colors.grey[400] : Colors.grey[600],
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600
+                          ),
+                        ),
+                      ],
+                    )
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ... (Rest of _ManualPullButton, _LiveClockWidget, _InfoRow remains same)
 
 class _ManualPullButton extends StatefulWidget {
   const _ManualPullButton();
@@ -386,17 +497,20 @@ class _ManualPullButtonState extends State<_ManualPullButton> {
     return TextButton.icon(
       onPressed: _isLoading ? null : _pullData,
       icon: _isLoading 
-          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-          : const Icon(Icons.refresh, size: 22),
+          ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.blue.shade700))
+          : Icon(Icons.cloud_download_outlined, size: 22, color: Colors.blue.shade700),
       label: Text(
-        _isLoading ? "Pulling..." : "Pull Data",
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)
+        _isLoading ? "Syncing..." : "Pull Data",
+        style: TextStyle(
+          fontSize: 18, 
+          fontWeight: FontWeight.bold,
+          color: Colors.blue.shade700
+        )
       ),
       style: TextButton.styleFrom(
-        foregroundColor: ThemeConfig.primaryGreen,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        backgroundColor: ThemeConfig.primaryGreen.withOpacity(0.05),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+        backgroundColor: Colors.blue.shade50, 
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -486,94 +600,6 @@ class _InfoRow extends StatelessWidget {
           ],
         )
       ],
-    );
-  }
-}
-
-class _ModuleCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final Color color;
-  final VoidCallback? onTap;
-  final bool isLocked;
-
-  const _ModuleCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    this.onTap,
-    this.isLocked = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      elevation: isLocked ? 0 : 2,
-      child: InkWell(
-        onTap: isLocked ? null : onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            color: isLocked ? Colors.grey[50] : null,
-            border: Border.all(
-              color: isLocked ? Colors.transparent : Colors.grey.shade200,
-              width: 1,
-            ),
-          ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isLocked ? Colors.grey[300] : color.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isLocked ? Icons.lock : icon,
-                      color: isLocked ? Colors.grey : color,
-                      size: 36,
-                    ),
-                  ),
-                  if (!isLocked)
-                    Icon(Icons.arrow_forward, color: Colors.grey[300], size: 28),
-                ],
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.bold,
-                      color: isLocked ? Colors.grey : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    isLocked ? "Access Restricted" : subtitle,
-                    style: TextStyle(
-                      color: isLocked ? Colors.grey : Colors.grey[600],
-                      fontSize: 18,
-                    ),
-                  ),
-                ],
-              )
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

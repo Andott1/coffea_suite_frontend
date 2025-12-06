@@ -16,8 +16,6 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthCheckRequested event, 
     Emitter<AuthState> emit
   ) async {
-    // Future: Check shared_preferences for persistent token
-    // For now, we always start unauthenticated in this kiosk mode
     emit(AuthUnauthenticated());
   }
 
@@ -27,21 +25,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   ) async {
     emit(AuthLoading());
 
-    // Simulate network delay for better UX feedback
+    // Simulated network delay
     await Future.delayed(const Duration(milliseconds: 500));
 
     try {
       final users = HiveService.userBox.values;
-      
       final user = users.firstWhere(
         (u) => u.username.toLowerCase() == event.username.toLowerCase() && u.isActive,
         orElse: () => throw Exception("User not found or inactive"),
       );
 
-      final isValid = HashingUtils.verifyPassword(event.password, user.passwordHash);
-
-      if (isValid) {
-        // ✅ Update global session helper for legacy/synchronous access
+      if (HashingUtils.verifyPassword(event.password, user.passwordHash)) {
         SessionUser.set(user);
         emit(AuthAuthenticated(user));
       } else {
@@ -56,6 +50,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     AuthLogoutRequested event,
     Emitter<AuthState> emit,
   ) async {
+    // 1. 🏁 Trigger the "Glass Curtain"
+    emit(AuthLoading());
+
+    // 2. ⏳ Artificial Delay (Smoothens the UI transition)
+    await Future.delayed(const Duration(milliseconds: 500));
+
+    // 3. 🧹 Cleanup
     SessionUser.clear();
     emit(AuthUnauthenticated());
   }

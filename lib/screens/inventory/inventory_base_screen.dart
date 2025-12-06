@@ -1,9 +1,9 @@
+import '../../core/widgets/session_guard.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
 import '../../core/services/session_user.dart'; // ✅ Import
 import '../../core/config/permissions_config.dart'; // ✅ Import
-import '../../core/widgets/session_listener.dart';
 import 'inventory_list_tab.dart'; 
 import 'inventory_dashboard_tab.dart';
 import 'inventory_logs_tab.dart';
@@ -73,7 +73,7 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SessionListener(
+    return SessionGuard(
       onUserChanged: () => setState(() => _setupTabs()),
       child: Scaffold(
         backgroundColor: Colors.grey[100],

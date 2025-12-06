@@ -1,3 +1,4 @@
+import '../../core/widgets/session_guard.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
@@ -5,7 +6,6 @@ import '../../core/services/session_user.dart'; // ✅ Import
 import '../../core/config/permissions_config.dart'; // ✅ Import
 
 // Screens
-import '../../core/widgets/session_listener.dart';
 import 'cashier_screen.dart';
 import 'transaction_history_screen.dart';
 import 'pos_dashboard_screen.dart';
@@ -82,7 +82,7 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SessionListener( // ✅ Wrap here
+    return SessionGuard( // ✅ Wrap here
       onUserChanged: () => setState(() => _setupTabs()),
       child: Scaffold(
         backgroundColor: Colors.grey[100],
