@@ -3,6 +3,7 @@ import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
 import '../../core/services/session_user.dart'; // ✅ Import
 import '../../core/config/permissions_config.dart'; // ✅ Import
+import '../../core/widgets/session_listener.dart';
 import 'inventory_list_tab.dart'; 
 import 'inventory_dashboard_tab.dart';
 import 'inventory_logs_tab.dart';
@@ -72,20 +73,23 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: MasterTopBar(
-        system: CoffeaSystem.inventory,
-        tabs: _currentTabs, // ✅ Pass dynamic list
-        activeIndex: _activeIndex,
-        onTabSelected: _onTabChanged,
-        showOnlineStatus: true,
-        showUserMode: true,
-      ),
-      body: IndexedStack(
-        index: _activeIndex,
-        children: _currentScreens, // ✅ Pass dynamic screens
-      ),
+    return SessionListener(
+      onUserChanged: () => setState(() => _setupTabs()),
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: MasterTopBar(
+          system: CoffeaSystem.inventory,
+          tabs: _currentTabs, // ✅ Pass dynamic list
+          activeIndex: _activeIndex,
+          onTabSelected: _onTabChanged,
+          showOnlineStatus: true,
+          showUserMode: true,
+        ),
+        body: IndexedStack(
+          index: _activeIndex,
+          children: _currentScreens, // ✅ Pass dynamic screens
+        ),
+      )
     );
   }
 }

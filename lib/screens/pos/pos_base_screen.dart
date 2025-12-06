@@ -5,6 +5,7 @@ import '../../core/services/session_user.dart'; // ✅ Import
 import '../../core/config/permissions_config.dart'; // ✅ Import
 
 // Screens
+import '../../core/widgets/session_listener.dart';
 import 'cashier_screen.dart';
 import 'transaction_history_screen.dart';
 import 'pos_dashboard_screen.dart';
@@ -81,20 +82,23 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: MasterTopBar(
-        system: CoffeaSystem.pos,
-        tabs: _currentTabs, // ✅ Dynamic Tabs
-        activeIndex: _activeIndex,
-        onTabSelected: _onTabChanged,
-        showOnlineStatus: true,
-        showUserMode: true,
-      ),
-      body: IndexedStack(
-        index: _activeIndex,
-        children: _currentScreens, // ✅ Dynamic Screens
-      ),
+    return SessionListener( // ✅ Wrap here
+      onUserChanged: () => setState(() => _setupTabs()),
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: MasterTopBar(
+          system: CoffeaSystem.pos,
+          tabs: _currentTabs, // ✅ Dynamic Tabs
+          activeIndex: _activeIndex,
+          onTabSelected: _onTabChanged,
+          showOnlineStatus: true,
+          showUserMode: true,
+        ),
+        body: IndexedStack(
+          index: _activeIndex,
+          children: _currentScreens, // ✅ Dynamic Screens
+        ),
+      )
     );
   }
 }

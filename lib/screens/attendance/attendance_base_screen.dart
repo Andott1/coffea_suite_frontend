@@ -5,6 +5,7 @@ import '../../core/services/session_user.dart'; // ✅ Import
 import '../../core/config/permissions_config.dart'; // ✅ Import
 
 // Screens
+import '../../core/widgets/session_listener.dart';
 import 'attendance_dashboard_tab.dart';
 import 'attendance_logs_screen.dart';
 import 'payroll_screen.dart';
@@ -86,20 +87,23 @@ class _AttendanceBaseScreenState extends State<AttendanceBaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: MasterTopBar(
-        system: CoffeaSystem.attendance,
-        tabs: _currentTabs, // ✅ Dynamic Tabs
-        activeIndex: _activeIndex,
-        onTabSelected: _onTabChanged,
-        showOnlineStatus: true,
-        showUserMode: true,
-      ),
-      body: IndexedStack(
-        index: _activeIndex,
-        children: _currentScreens, // ✅ Dynamic Screens
-      ),
+    return SessionListener(
+      onUserChanged: () => setState(() => _setupTabs()),
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: MasterTopBar(
+          system: CoffeaSystem.attendance,
+          tabs: _currentTabs, // ✅ Dynamic Tabs
+          activeIndex: _activeIndex,
+          onTabSelected: _onTabChanged,
+          showOnlineStatus: true,
+          showUserMode: true,
+        ),
+        body: IndexedStack(
+          index: _activeIndex,
+          children: _currentScreens, // ✅ Dynamic Screens
+        ),
+      )
     );
   }
 }

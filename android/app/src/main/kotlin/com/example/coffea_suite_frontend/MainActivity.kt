@@ -1,4 +1,4 @@
-package com.example.coffea_suite_frontend
+package com.example.coffea_suite
 
 import io.flutter.embedding.android.FlutterActivity
 

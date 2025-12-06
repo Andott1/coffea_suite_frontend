@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ Added for Listener
+import '../../core/bloc/auth/auth_bloc.dart';     // ✅ Added
+import '../../core/bloc/auth/auth_state.dart';    // ✅ Added
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
 import '../../core/services/session_user.dart';
-import '../../core/config/permissions_config.dart'; // ✅ Import
+import '../../core/config/permissions_config.dart';
 
 // Screens
+import '../../core/widgets/session_listener.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_ingredient_tab.dart';
 import 'admin_product_tab.dart';
@@ -94,24 +98,22 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Prevent build errors if list is empty during redirect
-    if (_currentTabs.isEmpty) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: MasterTopBar(
-        system: CoffeaSystem.admin,
-        tabs: _currentTabs, // ✅ Dynamic Tabs
-        activeIndex: _activeIndex,
-        onTabSelected: _onTabChanged,
-        showOnlineStatus: true,
-        showUserMode: true,
-      ),
-      body: IndexedStack(
-        index: _activeIndex,
-        children: _currentScreens, // ✅ Dynamic Screens
+    return SessionListener(
+      onUserChanged: () => setState(() => _setupTabs()),
+      child: Scaffold(
+        backgroundColor: Colors.grey[100],
+        appBar: MasterTopBar(
+          system: CoffeaSystem.admin,
+          tabs: _currentTabs, 
+          activeIndex: _activeIndex,
+          onTabSelected: _onTabChanged,
+          showOnlineStatus: true,
+          showUserMode: true,
+        ),
+        body: IndexedStack(
+          index: _activeIndex,
+          children: _currentScreens, 
+        ),
       ),
     );
   }

@@ -1,6 +1,6 @@
 {
-    "name": "coffea_suite_frontend",
-    "short_name": "coffea_suite_frontend",
+    "name": "coffea_suite",
+    "short_name": "coffea_suite",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

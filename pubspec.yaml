@@ -1,4 +1,4 @@
-name: coffea_suite_frontend
+name: coffea_suite
 description: "Coffea Suite POS and Inventory Management System"
 publish_to: 'none'
 version: 0.3.1+10
