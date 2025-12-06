@@ -121,7 +121,7 @@ class AdminDashboardScreen extends StatelessWidget {
                             children: [
                               Expanded(child: _buildStatCard(context, "Today's Sales", FormatUtils.formatCurrency(totalSalesToday), Icons.payments, ThemeConfig.primaryGreen)),
                               const SizedBox(width: 16),
-                              Expanded(child: _buildStatCard(context, "Active Orders", "$orderCountToday", Icons.receipt_long, Colors.blue)),
+                              Expanded(child: _buildStatCard(context, "Today's Orders", "$orderCountToday", Icons.receipt_long, Colors.blue)),
                               const SizedBox(width: 16),
                               Expanded(child: _buildStatCard(context, "Staff Present", "$presentCount / $totalStaff", Icons.people, Colors.purple)),
                               const SizedBox(width: 16),

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
-import 'package:camera/camera.dart';
+import 'package:camera/camera.dart'; // ✅ KEEPING OFFICIAL PACKAGE
 import 'package:path_provider/path_provider.dart';
 
 import '../../config/font_config.dart';
@@ -20,7 +20,7 @@ import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/container_card.dart';
 import '../../core/widgets/numeric_pad.dart';
 
-import '../../main.dart';
+import '../../main.dart'; // To access global 'cameras' list
 
 class TimeClockScreen extends StatefulWidget {
   const TimeClockScreen({super.key});
@@ -34,7 +34,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   String _pinCode = "";
   bool _isLoading = false;
   
-  // Selection State
   UserModel? _selectedUser; 
   UserModel? _activeUser;   
   AttendanceLogModel? _todayLog;
@@ -42,74 +41,83 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   Timer? _inactivityTimer;
 
   CameraController? _cameraController;
-  bool _isCameraInitialized = false; // ✅ Added flag for safer UI rendering
+  bool _isCameraInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // ✅ Observe Lifecycle
-    // ✅ Delay init to prevent navigation race conditions
+    WidgetsBinding.instance.addObserver(this); // ✅ Register Observer
+    
+    // Defer init to ensure context is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initCamera();
     });
   }
 
   @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this); // ✅ Unregister Observer
+    _inactivityTimer?.cancel();
+    _cameraController?.dispose(); // ✅ Dispose Camera
+    super.dispose();
+  }
+
+  // ──────────────── LIFECYCLE MANAGEMENT (CRITICAL FIX) ────────────────
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // ✅ Handle App Backgrounding (Release Camera)
     final CameraController? cameraController = _cameraController;
 
+    // App state changed before we got the chance to initialize.
     if (cameraController == null || !cameraController.value.isInitialized) {
       return;
     }
 
     if (state == AppLifecycleState.inactive) {
+      // App entering background: Free up camera resources immediately
+      _isCameraInitialized = false;
       cameraController.dispose();
+      if (mounted) setState(() {}); // Update UI to hide preview
     } else if (state == AppLifecycleState.resumed) {
-      _initCamera();
+      // App came back: Re-initialize with the same description
+      _initializeCameraController(cameraController.description);
     }
   }
 
   Future<void> _initCamera() async {
     if (cameras.isEmpty) return;
 
-    await Future.delayed(const Duration(milliseconds: 500)); 
+    // Select Front Camera
+    final description = cameras.firstWhere(
+      (c) => c.lensDirection == CameraLensDirection.front,
+      orElse: () => cameras.first,
+    );
 
-    if (!mounted) return; // Check mounted again after delay
-    
-    try {
-      final camera = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-
-      _cameraController = CameraController(
-        camera,
-        ResolutionPreset.medium, // ✅ CHANGED: 'low' causes crashes on some Android CameraX implementations
-        enableAudio: false,
-        imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.jpeg : ImageFormatGroup.bgra8888,
-      );
-
-      await _cameraController!.initialize();
-      
-      if (mounted) {
-        setState(() {
-          _isCameraInitialized = true;
-        });
-      }
-    } catch (e) {
-      LoggerService.error("Camera Init Error: $e");
-    }
+    await _initializeCameraController(description);
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _inactivityTimer?.cancel();
-    final camera = _cameraController;
-    _cameraController = null;
-    camera?.dispose();
-    super.dispose();
+  Future<void> _initializeCameraController(CameraDescription description) async {
+    final controller = CameraController(
+      description,
+      ResolutionPreset.medium, // 'medium' is stable across most Androids
+      enableAudio: false,
+      imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.jpeg : ImageFormatGroup.bgra8888,
+    );
+
+    _cameraController = controller;
+
+    try {
+      await controller.initialize();
+      if (!mounted) return;
+      
+      setState(() {
+        _isCameraInitialized = true;
+      });
+    } catch (e) {
+      LoggerService.error("Camera Init Error: $e");
+      if (e is CameraException) {
+        // Handle specific camera access errors if needed
+      }
+    }
   }
 
   // ──────────────── LOGIC: SELECTION ────────────────
@@ -213,17 +221,22 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     
     String? proofImagePath;
 
-    // ✅ CHECK: Only take picture if initialized
-    if (actionType == 'Time In' && _cameraController != null && _isCameraInitialized) {
+    // ✅ CHECK: Only take picture if controller is actually ready
+    if (actionType == 'Time In' && _cameraController != null && _cameraController!.value.isInitialized) {
       try {
         final image = await _cameraController!.takePicture();
         final appDir = await getApplicationDocumentsDirectory();
+        
+        // Ensure directory exists
+        if (!await appDir.exists()) await appDir.create(recursive: true);
+
         final fileName = "proof_${_activeUser!.username}_${now.millisecondsSinceEpoch}.jpg";
         final savedImage = await File(image.path).copy('${appDir.path}/$fileName');
         proofImagePath = savedImage.path;
         LoggerService.info("📸 Photo Captured: $proofImagePath");
       } catch (e) {
         LoggerService.error("Camera Capture Failed: $e");
+        // Proceed without photo if camera fails, don't block user
       }
     }
 
@@ -281,6 +294,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   }
 
   void _showSuccess(String message) {
+    if(!mounted) return;
     DialogUtils.showToast(context, message, icon: Icons.check_circle);
   }
 
@@ -398,7 +412,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
                 : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Lock Icon
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -408,8 +421,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
                         child: const Icon(Icons.lock_outline, size: 28, color: Colors.grey),
                       ),
                       const SizedBox(width: 16),
-
-                      // Name & Dots
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -494,7 +505,16 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
           )
         else
           const Expanded(
-            child: Center(child: Icon(Icons.no_photography, size: 50, color: Colors.grey)),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.no_photography, size: 50, color: Colors.grey),
+                  SizedBox(height: 8),
+                  Text("Camera Loading...", style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ),
           ),
 
         // Profile Info

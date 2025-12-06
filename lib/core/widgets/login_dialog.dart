@@ -48,7 +48,6 @@ class _LoginDialogState extends State<LoginDialog> {
       },
       child: DialogBoxTitled(
         title: "User Login",
-        subtitle: "Enter your credentials to access the system",
         width: 400,
         dismissOnOutsideTap: !widget.isStartup,
         child: Form(

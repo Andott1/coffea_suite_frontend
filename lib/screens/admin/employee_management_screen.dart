@@ -6,7 +6,8 @@ import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
 import '../../core/models/user_model.dart';
 import '../../core/services/hive_service.dart';
-import '../../core/services/supabase_sync_service.dart'; // ✅ Sync Import
+import '../../core/services/session_user.dart';
+import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/utils/format_utils.dart';
 import '../../core/utils/hashing_utils.dart';
@@ -29,6 +30,7 @@ class EmployeeManagementScreen extends StatefulWidget {
 class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
   // ──────────────── STATE ────────────────
   String _searchQuery = "";
+  bool _isEditMode = false;
   late Box<UserModel> _userBox;
 
   @override
@@ -47,13 +49,133 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
     ).toList();
   }
 
-  // ──────────────── LOGIC: SAVE USER (CREATE / UPDATE) ────────────────
+  // ──────────────── LOGIC: DELETE / DEACTIVATE ────────────────
+  Future<void> _deleteUser(UserModel user) async {
+    // 1. Safety Check: Cannot delete self
+    if (user.id == SessionUser.current?.id) {
+       DialogUtils.showToast(context, "Cannot modify your own account while logged in.", icon: Icons.error, accentColor: Colors.red);
+       return;
+    }
+
+    if (user.isActive) {
+      // 🟢 CASE 1: SOFT DELETE (Deactivate)
+      // This avoids the Foreign Key error because we don't actually delete the row.
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Deactivate Employee?"),
+          content: Text(
+            "Are you sure you want to deactivate ${user.fullName}?\n\n"
+            "• They will NO LONGER be able to log in.\n"
+            "• Their Attendance & Payroll history will be PRESERVED."
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Deactivate", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+
+      // Perform Soft Delete
+      user.isActive = false;
+      user.updatedAt = DateTime.now();
+      await user.save();
+
+      SupabaseSyncService.addToQueue(
+        table: 'users',
+        action: 'UPDATE', // ✅ Uses UPDATE, not DELETE
+        data: {
+          'id': user.id,
+          'is_active': false,
+          'updated_at': user.updatedAt.toIso8601String(),
+        },
+      );
+
+      if(mounted) DialogUtils.showToast(context, "User deactivated successfully.");
+
+    } else {
+      // 🔴 CASE 2: HARD DELETE (Cascade)
+      // Only available if user is ALREADY inactive. Use this for cleanup.
+      _confirmHardDelete(user);
+    }
+  }
+
+  Future<void> _confirmHardDelete(UserModel user) async {
+    // Check for dependencies to warn the admin
+    final attendanceBox = HiveService.attendanceBox;
+    final payrollBox = HiveService.payrollBox;
+    
+    final userLogs = attendanceBox.values.where((l) => l.userId == user.id).toList();
+    final userPayrolls = payrollBox.values.where((p) => p.userId == user.id).toList();
+    final count = userLogs.length + userPayrolls.length;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("⚠️ Permanently Delete?"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("This user is already inactive. Do you want to PERMANENTLY delete ${user.fullName}?"),
+            const SizedBox(height: 12),
+            if (count > 0)
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8)),
+                child: Text(
+                  "WARNING: This will ERASE $count historical records (Attendance/Payroll). This cannot be undone.",
+                  style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+              )
+            else
+              const Text("Safe to delete (No history found).", style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Delete Forever", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    // 1. Delete Dependencies first (Cascade)
+    for (var log in userLogs) {
+      await log.delete();
+      SupabaseSyncService.addToQueue(table: 'attendance_logs', action: 'DELETE', data: {'id': log.id});
+    }
+    for (var pay in userPayrolls) {
+      await pay.delete();
+      SupabaseSyncService.addToQueue(table: 'payroll_records', action: 'DELETE', data: {'id': pay.id});
+    }
+
+    // 2. Delete User
+    final userId = user.id;
+    await user.delete();
+    SupabaseSyncService.addToQueue(table: 'users', action: 'DELETE', data: {'id': userId});
+
+    if(mounted) DialogUtils.showToast(context, "User permanently deleted.");
+  }
+
+  // ──────────────── LOGIC: SAVE USER ────────────────
   Future<void> _saveUser({
     required String? id,
     required String fullName,
     required String username,
-    required String? password, // Null if unchanged (edit mode)
-    required String? pin,      // Null if unchanged (edit mode)
+    required String? password,
+    required String? pin,
     required UserRoleLevel role,
     required double hourlyRate,
     required bool isActive,
@@ -61,9 +183,6 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
     final isEdit = id != null;
     final userId = id ?? const Uuid().v4();
     
-    // 1. Hashing Logic
-    // If creating: Hash mandatory inputs.
-    // If editing: Keep old hash if input is empty, else hash new input.
     String finalPasswordHash;
     String finalPinHash;
 
@@ -76,12 +195,10 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
           ? oldUser.pinHash 
           : HashingUtils.hashPin(pin);
     } else {
-      // Create mode (Validation ensures these aren't null)
       finalPasswordHash = HashingUtils.hashPassword(password!);
       finalPinHash = HashingUtils.hashPin(pin!);
     }
 
-    // 2. Create Model
     final user = UserModel(
       id: userId,
       fullName: fullName,
@@ -95,10 +212,8 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
       createdAt: isEdit ? _userBox.get(userId)!.createdAt : DateTime.now(),
     );
 
-    // 3. Save Local
     await _userBox.put(userId, user);
 
-    // 4. ✅ SYNC TO SUPABASE (Fixes Foreign Key Error)
     SupabaseSyncService.addToQueue(
       table: 'users',
       action: 'UPSERT',
@@ -108,7 +223,7 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
         'username': user.username,
         'password_hash': user.passwordHash,
         'pin_hash': user.pinHash,
-        'role': user.role.name, // Enum to String
+        'role': user.role.name,
         'is_active': user.isActive,
         'hourly_rate': user.hourlyRate,
         'updated_at': user.updatedAt.toIso8601String(),
@@ -117,23 +232,21 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
     );
 
     if (mounted) {
-      DialogUtils.showToast(context, isEdit ? "User updated successfully" : "User created successfully");
+      DialogUtils.showToast(context, isEdit ? "User updated" : "User created");
     }
   }
 
-  // ──────────────── UI: ADD / EDIT DIALOG ────────────────
+  // ──────────────── UI: DIALOG ────────────────
   void _showUserDialog({UserModel? user}) {
     final isEdit = user != null;
     final formKey = GlobalKey<FormState>();
     
-    // Controllers
     final nameCtrl = TextEditingController(text: user?.fullName);
     final usernameCtrl = TextEditingController(text: user?.username);
     final rateCtrl = TextEditingController(text: user?.hourlyRate.toString() ?? "60.0");
-    final passCtrl = TextEditingController(); // Empty by default
-    final pinCtrl = TextEditingController();  // Empty by default
+    final passCtrl = TextEditingController(); 
+    final pinCtrl = TextEditingController();  
 
-    // Local State for Dialog
     UserRoleLevel selectedRole = user?.role ?? UserRoleLevel.employee;
     bool isActive = user?.isActive ?? true;
 
@@ -147,12 +260,10 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
             formKey: formKey,
             width: 500,
             onSave: () {
-              // Validation
               if (!formKey.currentState!.validate()) return;
               
-              // Special Validation for New Users (Must have Pass/PIN)
               if (!isEdit && (passCtrl.text.isEmpty || pinCtrl.text.isEmpty)) {
-                DialogUtils.showToast(context, "Password and PIN are required for new users.", icon: Icons.error, accentColor: Colors.red);
+                DialogUtils.showToast(context, "Password and PIN required.", icon: Icons.error, accentColor: Colors.red);
                 return;
               }
 
@@ -171,7 +282,6 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ─── 1. IDENTITY ───
                 Row(
                   children: [
                     Expanded(child: BasicInputField(label: "Full Name", controller: nameCtrl)),
@@ -180,8 +290,6 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // ─── 2. ROLE & RATE ───
                 Row(
                   children: [
                     Expanded(
@@ -211,8 +319,6 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // ─── 3. SECURITY (Pass & PIN) ───
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -232,50 +338,21 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          Expanded(
-                            child: BasicInputField(
-                              label: isEdit ? "Change Password" : "Password", 
-                              controller: passCtrl, 
-                              isPassword: true,
-                              isRequired: !isEdit, // Only required for new
-                            ),
-                          ),
+                          Expanded(child: BasicInputField(label: isEdit ? "Change Pass" : "Password", controller: passCtrl, isPassword: true, isRequired: !isEdit)),
                           const SizedBox(width: 12),
-                          Expanded(
-                            child: BasicInputField(
-                              label: isEdit ? "Change PIN" : "PIN (4 digits)", 
-                              controller: pinCtrl, 
-                              inputType: TextInputType.number,
-                              isPassword: true,
-                              isRequired: !isEdit,
-                              maxLength: 4,
-                            ),
-                          ),
+                          Expanded(child: BasicInputField(label: isEdit ? "Change PIN" : "PIN", controller: pinCtrl, inputType: TextInputType.number, isPassword: true, isRequired: !isEdit, maxLength: 4)),
                         ],
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 16),
-
-                // ─── 4. STATUS SWITCH ───
                 if (isEdit)
                   Row(
                     children: [
-                      Switch(
-                        value: isActive, 
-                        activeColor: ThemeConfig.primaryGreen,
-                        onChanged: (v) => setState(() => isActive = v)
-                      ),
+                      Switch(value: isActive, activeColor: ThemeConfig.primaryGreen, onChanged: (v) => setState(() => isActive = v)),
                       const SizedBox(width: 8),
-                      Text(
-                        isActive ? "Active User" : "Inactive (Access Revoked)",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isActive ? ThemeConfig.primaryGreen : Colors.grey
-                        ),
-                      )
+                      Text(isActive ? "Active User" : "Inactive (Access Revoked)", style: TextStyle(fontWeight: FontWeight.bold, color: isActive ? ThemeConfig.primaryGreen : Colors.grey))
                     ],
                   )
               ],
@@ -306,7 +383,18 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                       onChanged: (v) => setState(() => _searchQuery = v),
                     ),
                   ),
-                  const SizedBox(width: 20),
+                  const SizedBox(width: 16),
+                  
+                  BasicButton(
+                    label: _isEditMode ? "Done" : "Manage",
+                    icon: _isEditMode ? Icons.check : Icons.edit,
+                    type: _isEditMode ? AppButtonType.secondary : AppButtonType.neutral,
+                    fullWidth: false,
+                    onPressed: () => setState(() => _isEditMode = !_isEditMode),
+                  ),
+                  
+                  const SizedBox(width: 12),
+
                   BasicButton(
                     label: "Add Employee",
                     icon: Icons.person_add,
@@ -361,7 +449,6 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Avatar Placeholder
               Row(
                 children: [
                   CircleAvatar(
@@ -378,37 +465,23 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                           maxLines: 1, overflow: TextOverflow.ellipsis,
                         ),
-                        Text(
-                          "@${user.username}",
-                          style: const TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
+                        Text("@${user.username}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
                       ],
                     ),
                   )
                 ],
               ),
               const Spacer(),
-              
-              // Role Badge & Rate
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: roleColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(6)
-                    ),
-                    child: Text(
-                      user.role.name.toUpperCase(),
-                      style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 10),
-                    ),
+                    decoration: BoxDecoration(color: roleColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                    child: Text(user.role.name.toUpperCase(), style: TextStyle(color: roleColor, fontWeight: FontWeight.bold, fontSize: 10)),
                   ),
                   if (user.role != UserRoleLevel.admin)
-                    Text(
-                      "${FormatUtils.formatCurrency(user.hourlyRate)}/hr",
-                      style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey),
-                    ),
+                    Text("${FormatUtils.formatCurrency(user.hourlyRate)}/hr", style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.grey)),
                 ],
               )
             ],
@@ -416,14 +489,25 @@ class _EmployeeManagementScreenState extends State<EmployeeManagementScreen> {
           
           if (!user.isActive)
             Container(
-              color: Colors.white.withValues(alpha: 0.6),
+              color: Colors.white.withValues(alpha: 0.7),
               alignment: Alignment.center,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(color: Colors.grey, borderRadius: BorderRadius.circular(4)),
                 child: const Text("INACTIVE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
-            )
+            ),
+
+          if (_isEditMode)
+            Positioned(
+              top: -8,
+              right: -8,
+              child: IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _deleteUser(user),
+                tooltip: user.isActive ? "Deactivate" : "Delete Permanently",
+              ),
+            ),
         ],
       ),
     );
