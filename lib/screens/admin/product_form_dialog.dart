@@ -223,30 +223,30 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                        const SizedBox(height: 12),
                        Row(
                          children: [
-                           Expanded(
-                             child: HybridDropdownField(label: "Category", controller: _categoryCtrl, options: categories),
-                           ),
-                           const SizedBox(width: 12),
-                           Expanded(
-                             child: HybridDropdownField(label: "Sub Category", controller: _subCategoryCtrl, options: subCategories),
-                           ),
-                           const SizedBox(width: 12),
-                           Expanded(
-                             child: DropdownButtonFormField<String>(
-                               value: _pricingType,
-                               decoration: const InputDecoration(labelText: "Pricing Type", border: OutlineInputBorder()),
-                               items: const [
-                                 DropdownMenuItem(value: "size", child: Text("Size Based (12oz, 16oz)")),
-                                 DropdownMenuItem(value: "variant", child: Text("Variant Based (Slice, Box)")),
-                               ],
-                               onChanged: (v) => setState(() {
-                                 _pricingType = v!;
-                                 // Warning: Should clear sizes? For UX let's keep them but user can edit
-                               }),
-                             ),
-                           )
-                         ],
-                       )
+                          Expanded(
+                            child: HybridDropdownField(label: "Category", controller: _categoryCtrl, options: categories),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: HybridDropdownField(label: "Sub Category", controller: _subCategoryCtrl, options: subCategories),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: _pricingType,
+                              decoration: const InputDecoration(labelText: "Pricing Type", border: OutlineInputBorder()),
+                              items: const [
+                                DropdownMenuItem(value: "size", child: Text("Size Based (oz)")),
+                                DropdownMenuItem(value: "variant", child: Text("Variant Based (Slice/Piece)")),
+                              ],
+                              onChanged: (v) => setState(() {
+                                _pricingType = v!;
+                                // Warning: Should clear sizes? For UX let's keep them but user can edit
+                              }),
+                            ),
+                          )
+                        ],
+                      )
                     ],
                   ),
                 ),

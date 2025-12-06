@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
-import 'cashier_screen.dart'; // ✅ Import the real CashierScreen
-import 'transaction_history_screen.dart'; // ✅ Import
-import 'pos_dashboard_screen.dart'; // ✅ Import
+import '../../core/services/session_user.dart'; // ✅ Import
+import '../../core/config/permissions_config.dart'; // ✅ Import
+
+// Screens
+import 'cashier_screen.dart';
+import 'transaction_history_screen.dart';
+import 'pos_dashboard_screen.dart';
 
 class POSBaseScreen extends StatefulWidget {
   const POSBaseScreen({super.key});
@@ -14,11 +18,60 @@ class POSBaseScreen extends StatefulWidget {
 
 class _POSBaseScreenState extends State<POSBaseScreen> {
   late int _activeIndex;
+  
+  // Dynamic Lists
+  late List<String> _currentTabs;
+  late List<Widget> _currentScreens;
 
   @override
   void initState() {
     super.initState();
-    _activeIndex = SystemTabMemory.getLastTab(CoffeaSystem.pos, defaultIndex: 1); // Default to Cashier tab
+    _setupTabs();
+  }
+
+  void _setupTabs() {
+    // 1. Define all potential tabs
+    final allTabs = [
+      _TabDef(
+        title: "Dashboard",
+        widget: const POSDashboardScreen(),
+        permission: AppPermission.viewPosDashboard // 🔒 Managers/Admins
+      ),
+      _TabDef(
+        title: "Cashier",
+        widget: const CashierScreen(),
+        permission: AppPermission.accessCashier // 🔓 Everyone
+      ),
+      _TabDef(
+        title: "History",
+        widget: const TransactionHistoryScreen(),
+        permission: AppPermission.viewPosHistory // 🔒 Managers/Admins
+      ),
+    ];
+
+    // 2. Filter based on permissions
+    final allowedTabs = allTabs.where((tab) {
+      if (tab.permission == null) return true;
+      return SessionUser.hasPermission(tab.permission!);
+    }).toList();
+
+    _currentTabs = allowedTabs.map((e) => e.title).toList();
+    _currentScreens = allowedTabs.map((e) => e.widget).toList();
+
+    // 3. Safety Check: Active Index
+    // If a Manager (on Tab 2: History) logs out and an Employee logs in (only 1 tab),
+    // we must reset the index to 0 to prevent a crash.
+    int lastIndex = SystemTabMemory.getLastTab(CoffeaSystem.pos, defaultIndex: 0);
+    
+    // If we have a stored index that is valid for the current user, use it.
+    // Otherwise, default to "Cashier" if available, or just 0.
+    if (lastIndex >= _currentTabs.length) {
+      // Find index of "Cashier" if possible, else 0
+      final cashierIndex = _currentTabs.indexOf("Cashier");
+      _activeIndex = cashierIndex != -1 ? cashierIndex : 0;
+    } else {
+      _activeIndex = lastIndex;
+    }
   }
 
   void _onTabChanged(int index) {
@@ -26,26 +79,13 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
     SystemTabMemory.setLastTab(CoffeaSystem.pos, index);
   }
 
-  final List<String> _tabs = const [
-    "Dashboard",
-    "Cashier",
-    "History",
-  ];
-
-  final List<Widget> _screens = const [
-    POSDashboardScreen(), // ✅ Use real screen
-    CashierScreen(),
-    TransactionHistoryScreen(),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: MasterTopBar(
         system: CoffeaSystem.pos,
-        tabs: _tabs,
-        adminOnlyTabs: const [false, false, false],
+        tabs: _currentTabs, // ✅ Dynamic Tabs
         activeIndex: _activeIndex,
         onTabSelected: _onTabChanged,
         showOnlineStatus: true,
@@ -53,8 +93,16 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
       ),
       body: IndexedStack(
         index: _activeIndex,
-        children: _screens,
+        children: _currentScreens, // ✅ Dynamic Screens
       ),
     );
   }
+}
+
+// Simple data class for tab definition
+class _TabDef {
+  final String title;
+  final Widget widget;
+  final AppPermission? permission;
+  _TabDef({required this.title, required this.widget, this.permission});
 }

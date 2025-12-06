@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import '../../../config/theme_config.dart';
-import '../../../core/models/ingredient_model.dart';
 import '../../../core/services/hive_service.dart';
-import '../../../core/widgets/basic_button.dart';
-import '../../../core/widgets/hybrid_dropdown_field.dart';
+import '../../../core/widgets/basic_dropdown_button.dart';
 
 class RecipeMatrixWidget extends StatefulWidget {
   final List<String> sizes; // Columns
@@ -28,28 +25,74 @@ class _RecipeMatrixWidgetState extends State<RecipeMatrixWidget> {
   
   void _showAddDialog() async {
     final ingredientBox = HiveService.ingredientBox;
-    final allIngredients = ingredientBox.values.map((i) => i.name).toSet().toList();
-    final controller = TextEditingController();
+    // ✅ Sort alphabetically for better UX since we don't have search
+    final allIngredients = ingredientBox.values
+        .map((i) => i.name)
+        .where((name) => !widget.usageControllers.containsKey(name)) // Exclude already added
+        .toSet()
+        .toList()
+      ..sort();
 
+    // Local state for the dialog
+    String? selectedIngredient;
+
+    if (allIngredients.isEmpty) {
+      // Edge case: All ingredients are already in the matrix
+      await showDialog(
+        context: context, 
+        builder: (ctx) => AlertDialog(
+          title: const Text("No Ingredients Available"),
+          content: const Text("All existing ingredients are already in this recipe."),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Close"))
+          ],
+        )
+      );
+      return;
+    }
+
+    // ✅ Use StatefulBuilder to update dropdown selection inside dialog
     final selected = await showDialog<String>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Add Ingredient Row"),
-        content: SizedBox(
-          width: 300,
-          child: HybridDropdownField(
-            label: "Search Ingredient",
-            controller: controller,
-            options: allIngredients,
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()), 
-            child: const Text("Add")
-          ),
-        ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text("Add Ingredient Row"),
+            content: SizedBox(
+              width: 350,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Select Ingredient:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  BasicDropdownButton<String>(
+                    value: selectedIngredient,
+                    items: allIngredients,
+                    width: double.infinity,
+                    onChanged: (val) {
+                      setDialogState(() => selectedIngredient = val);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: ThemeConfig.primaryGreen,
+                  disabledBackgroundColor: Colors.grey[300]
+                ),
+                // ✅ Disable if nothing selected
+                onPressed: selectedIngredient == null 
+                    ? null 
+                    : () => Navigator.pop(ctx, selectedIngredient), 
+                child: const Text("Add", style: TextStyle(color: Colors.white))
+              ),
+            ],
+          );
+        }
       )
     );
 

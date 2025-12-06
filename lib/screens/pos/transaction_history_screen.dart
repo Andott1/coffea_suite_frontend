@@ -15,6 +15,7 @@ import '../../core/widgets/basic_dropdown_button.dart';
 import '../../core/widgets/container_card.dart';
 import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/dialog_box_titled.dart';
+import 'bloc/stock_logic.dart';
 
 class TransactionHistoryScreen extends StatefulWidget {
   const TransactionHistoryScreen({super.key});
@@ -115,6 +116,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
+              // 1. ✅ Restore Inventory First
+              await StockLogic.restoreStock(txn.items, txn.id);
+
+              // 2. Update Transaction Model
               final newTxn = TransactionModel(
                 id: txn.id,
                 dateTime: txn.dateTime,
@@ -125,12 +130,13 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 cashierName: txn.cashierName,
                 referenceNo: txn.referenceNo,
                 isVoid: true, 
-                status: OrderStatus.voided, // Ensure status enum matches void
+                status: OrderStatus.voided, 
                 orderType: txn.orderType,
               );
               
               await HiveService.transactionBox.put(txn.key, newTxn); 
 
+              // 3. Sync
               SupabaseSyncService.addToQueue(
                 table: 'transactions',
                 action: 'UPSERT',
@@ -157,7 +163,7 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
               
               if(mounted) {
                 Navigator.pop(ctx);
-                DialogUtils.showToast(context, "Transaction Voided", accentColor: Colors.red);
+                DialogUtils.showToast(context, "Transaction Voided & Stock Restored", accentColor: Colors.red);
               }
             }, 
             child: const Text("VOID ORDER", style: TextStyle(color: Colors.white))

@@ -79,6 +79,10 @@ class _CashierScreenState extends State<CashierScreen> {
   }
 
   void _voidTransaction(TransactionModel txn) async {
+    // 1. ✅ Restore Inventory First
+    await StockLogic.restoreStock(txn.items, txn.id);
+
+    // 2. Create Voided Transaction Record
     final newTxn = TransactionModel(
       id: txn.id,
       dateTime: txn.dateTime,
@@ -95,6 +99,7 @@ class _CashierScreenState extends State<CashierScreen> {
 
     await HiveService.transactionBox.put(txn.key, newTxn);
 
+    // 3. Sync Update
     SupabaseSyncService.addToQueue(
       table: 'transactions',
       action: 'UPSERT',
@@ -121,7 +126,7 @@ class _CashierScreenState extends State<CashierScreen> {
 
     if (mounted) {
       Navigator.pop(context); 
-      DialogUtils.showToast(context, "Order Voided", accentColor: Colors.red);
+      DialogUtils.showToast(context, "Order Voided & Stock Restored", accentColor: Colors.red);
     }
   }
 

@@ -99,6 +99,72 @@ class StockLogic {
     return true; // All ingredients have > 0 stock
   }
 
+  static Future<void> restoreStock(List<CartItemModel> cart, String orderId) async {
+    final ingredientBox = HiveService.ingredientBox;
+    
+    // 1. AGGREGATION PHASE
+    // Calculate total restoration needed per ingredient to avoid multiple DB writes
+    final Map<String, double> restorationMap = {}; // IngredientName -> TotalAmount
+
+    for (final item in cart) {
+      if (item.product.ingredientUsage.isEmpty) continue;
+
+      for (final entry in item.product.ingredientUsage.entries) {
+        final ingredientName = entry.key;
+        final usageMap = entry.value;
+
+        if (usageMap.containsKey(item.variant)) {
+          final amountPerUnit = usageMap[item.variant]!;
+          final totalToRestore = amountPerUnit * item.quantity;
+          
+          restorationMap[ingredientName] = (restorationMap[ingredientName] ?? 0) + totalToRestore;
+        }
+      }
+    }
+
+    // 2. EXECUTION PHASE
+    // Perform single update per ingredient
+    for (final entry in restorationMap.entries) {
+      final ingredientName = entry.key;
+      final amount = entry.value;
+
+      try {
+        // Find by name (matches current architecture)
+        final ingredient = ingredientBox.values.firstWhere(
+          (i) => i.name == ingredientName
+        );
+
+        // Update Local
+        ingredient.quantity += amount;
+        ingredient.updatedAt = DateTime.now();
+        await ingredient.save();
+
+        // Queue Sync (Partial Update)
+        SupabaseSyncService.addToQueue(
+          table: 'ingredients',
+          action: 'UPDATE',
+          data: {
+            'id': ingredient.id,
+            'quantity': ingredient.quantity,
+            'updated_at': ingredient.updatedAt.toIso8601String(),
+          },
+        );
+
+        // Log Action
+        await InventoryLogService.log(
+          ingredientName: ingredient.name,
+          action: "Void", // ✅ Option B: Distinct Label
+          quantity: amount, // Positive value adds to stock
+          unit: ingredient.baseUnit,
+          reason: "Void Order #$orderId",
+        );
+
+      } catch (e) {
+        LoggerService.warning("⚠️ Restore Stock Error: Ingredient '$ingredientName' not found, skipping restore.");
+      }
+    }
+  }
+
   static int calculateMaxStock({
     required ProductModel product,
     required String variant,
