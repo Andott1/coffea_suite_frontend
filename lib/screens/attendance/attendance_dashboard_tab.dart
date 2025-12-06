@@ -29,7 +29,7 @@ class AttendanceDashboardTab extends StatelessWidget {
         // Sort logs: Latest Time In first
         todayLogs.sort((a, b) => b.timeIn.compareTo(a.timeIn));
 
-        final activeUsersCount = HiveService.userBox.values.where((u) => u.isActive).length;
+        final activeUsersCount = HiveService.userBox.values.where((u) => u.isActive && u.role != UserRoleLevel.admin).length;
 
         int onFloor = 0;
         int onBreak = 0;
