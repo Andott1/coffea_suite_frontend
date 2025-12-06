@@ -596,7 +596,7 @@ class _PayrollDetailDialogState extends State<_PayrollDetailDialog> {
 
     if (mounted) {
       Navigator.pop(context);
-      DialogUtils.showToast(context, "Payroll Finalized & Logs Locked 🔒");
+      DialogUtils.showToast(context, "Payroll Finalized & Logs Locked");
     }
   }
 

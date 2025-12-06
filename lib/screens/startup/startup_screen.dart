@@ -76,6 +76,7 @@ class _StartupScreenState extends State<StartupScreen> {
   @override
   Widget build(BuildContext context) {
     final double statusBarHeight = MediaQuery.of(context).padding.top;
+    final double fullScreenHeight = MediaQuery.of(context).size.height;
 
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
@@ -94,7 +95,7 @@ class _StartupScreenState extends State<StartupScreen> {
               Expanded(
                 flex: 30,
                 child: Container(
-                  padding: EdgeInsets.fromLTRB(40, statusBarHeight + 20, 40, 40),
+                  // Use BoxDecoration for the gradient (remains static)
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
@@ -105,99 +106,109 @@ class _StartupScreenState extends State<StartupScreen> {
                       ],
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // LOGO AREA
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(Icons.coffee, color: Colors.white, size: 36),
-                          ),
-                          const SizedBox(width: 16),
-                          const Text(
-                            "COFFEA\nSUITE",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w900,
-                              fontSize: 24,
-                              letterSpacing: 2,
-                              height: 1.0
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const Spacer(),
-
-                      // CLOCK
-                      const _LiveClockWidget(),
-                      
-                      const Spacer(),
-
-                      // SYSTEM INFO CARD
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.05),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.2),
-                          ),
-                        ),
+                  // ✅ FIX: Wrap content in ScrollView + SizedBox to ignore keyboard resize
+                  child: SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(), // Disable user scrolling
+                    child: SizedBox(
+                      height: fullScreenHeight, // Force full height
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(40, statusBarHeight + 20, 40, 40),
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            ValueListenableBuilder(
-                              valueListenable: Hive.box<SyncQueueModel>('sync_queue').listenable(),
-                              builder: (context, Box<SyncQueueModel> box, _) {
-                                final count = box.length;
-                                final isSynced = count == 0;
-                                return _InfoRow(
-                                  icon: isSynced ? Icons.cloud_done : Icons.cloud_upload, 
-                                  label: "Cloud Sync",
-                                  valueWidget: Text(
-                                    isSynced ? "ALL SYNCED" : "$count PENDING...",
-                                    style: TextStyle(
-                                      color: isSynced ? Colors.greenAccent : Colors.orangeAccent,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1,
-                                      fontSize: 20,
+                            // LOGO AREA
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Icon(Icons.coffee, color: Colors.white, size: 36),
+                                ),
+                                const SizedBox(width: 16),
+                                const Text(
+                                  "COFFEA\nSUITE",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 24,
+                                    letterSpacing: 2,
+                                    height: 1.0
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const Spacer(),
+
+                            // CLOCK
+                            const _LiveClockWidget(),
+                            
+                            const Spacer(),
+
+                            // SYSTEM INFO CARD
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.05),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  ValueListenableBuilder(
+                                    valueListenable: Hive.box<SyncQueueModel>('sync_queue').listenable(),
+                                    builder: (context, Box<SyncQueueModel> box, _) {
+                                      final count = box.length;
+                                      final isSynced = count == 0;
+                                      return _InfoRow(
+                                        icon: isSynced ? Icons.cloud_done : Icons.cloud_upload, 
+                                        label: "Cloud Sync",
+                                        valueWidget: Text(
+                                          isSynced ? "ALL SYNCED" : "$count PENDING...",
+                                          style: TextStyle(
+                                            color: isSynced ? Colors.greenAccent : Colors.orangeAccent,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1,
+                                            fontSize: 20,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  ),
+                                  const Divider(color: Colors.white12, height: 24),
+                                  _InfoRow(
+                                    icon: Icons.wifi, 
+                                    label: "Network Status",
+                                    valueWidget: BlocBuilder<ConnectivityCubit, bool>(
+                                      builder: (context, isOnline) {
+                                        return Text(
+                                          isOnline ? "ONLINE" : "OFFLINE",
+                                          style: TextStyle(
+                                            color: isOnline ? Colors.greenAccent : Colors.redAccent,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 1,
+                                            fontSize: 20,
+                                          ),
+                                        );
+                                      }
                                     ),
                                   ),
-                                );
-                              }
-                            ),
-                            const Divider(color: Colors.white12, height: 24),
-                            _InfoRow(
-                              icon: Icons.wifi, 
-                              label: "Network Status",
-                              valueWidget: BlocBuilder<ConnectivityCubit, bool>(
-                                builder: (context, isOnline) {
-                                  return Text(
-                                    isOnline ? "ONLINE" : "OFFLINE",
-                                    style: TextStyle(
-                                      color: isOnline ? Colors.greenAccent : Colors.redAccent,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 1,
-                                      fontSize: 20,
-                                    ),
-                                  );
-                                }
+                                  const Divider(color: Colors.white12, height: 24),
+                                  _InfoRow(icon: Icons.info_outline, label: "System Version", value: _version),
+                                  const Divider(color: Colors.white12, height: 24),
+                                  _InfoRow(icon: Icons.devices, label: "Terminal ID", value: "POS-01"),
+                                ],
                               ),
                             ),
-                            const Divider(color: Colors.white12, height: 24),
-                            _InfoRow(icon: Icons.info_outline, label: "System Version", value: _version),
-                            const Divider(color: Colors.white12, height: 24),
-                            _InfoRow(icon: Icons.devices, label: "Terminal ID", value: "POS-01"),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ),
@@ -484,7 +495,7 @@ class _ManualPullButtonState extends State<_ManualPullButton> {
     setState(() => _isLoading = true);
     try {
       await SupabaseSyncService.restoreFromCloud();
-      if(mounted) DialogUtils.showToast(context, "Data updated from Cloud! ☁️");
+      if(mounted) DialogUtils.showToast(context, "Data updated from Cloud!");
     } catch (e) {
       if(mounted) DialogUtils.showToast(context, "Sync Error: $e", icon: Icons.error, accentColor: Colors.red);
     } finally {

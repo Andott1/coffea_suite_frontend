@@ -111,7 +111,7 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
 
           if(mounted) {
             Navigator.pop(context);
-            DialogUtils.showToast(context, "Proof Verified ✅");
+            DialogUtils.showToast(context, "Proof Verified");
           }
         },
         onReject: () {
@@ -137,7 +137,7 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
             data: {'id': log.id, 'is_verified': false, 'rejection_reason': reason}
           );
 
-          if(mounted) DialogUtils.showToast(context, "Proof Rejected ❌", accentColor: Colors.red);
+          if(mounted) DialogUtils.showToast(context, "Proof Rejected", accentColor: Colors.red);
         }
       )
     );
