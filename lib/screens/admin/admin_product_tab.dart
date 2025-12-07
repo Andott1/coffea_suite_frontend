@@ -8,14 +8,12 @@ import '../../core/models/product_model.dart';
 import '../../core/services/hive_service.dart';
 import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
-import '../../core/utils/format_utils.dart';
 
-import '../../core/widgets/basic_search_box.dart';
-import '../../core/widgets/basic_toggle_button.dart';
-import '../../core/widgets/container_card.dart';
-import '../../core/widgets/basic_button.dart';
-import '../../core/widgets/basic_dropdown_button.dart';
-
+// ✅ Import New Widgets
+import 'widgets/flat_search_field.dart';
+import 'widgets/flat_dropdown.dart';
+import 'widgets/flat_action_button.dart';
+import 'widgets/product_list_item.dart';
 import 'product_edit_screen.dart';
 
 class AdminProductTab extends StatefulWidget {
@@ -26,12 +24,11 @@ class AdminProductTab extends StatefulWidget {
 }
 
 class _AdminProductTabState extends State<AdminProductTab> {
+  // ──────────────── STATE ────────────────
   String _searchQuery = '';
-  String _selectedSort = 'Name (A–Z)';
-  String? _selectedCategory;
-  bool _showFilters = false;
-  bool _isEditMode = false; // Manage Mode
-
+  String _categoryFilter = "All Categories";
+  String _sortOrder = "Name (A-Z)";
+  
   late Box<ProductModel> productBox;
 
   @override
@@ -40,7 +37,45 @@ class _AdminProductTabState extends State<AdminProductTab> {
     productBox = HiveService.productBox;
   }
 
-  // ✅ UPDATED: Navigate to Full Screen
+  // ──────────────── LOGIC: FILTER & SORT ────────────────
+  List<ProductModel> _getFilteredProducts() {
+    List<ProductModel> list = productBox.values.toList();
+    
+    // 1. Search
+    if (_searchQuery.isNotEmpty) {
+      list = list.where((p) => p.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    }
+    
+    // 2. Filter
+    if (_categoryFilter != "All Categories") {
+      list = list.where((p) => p.category == _categoryFilter).toList();
+    }
+    
+    // 3. Sort
+    switch (_sortOrder) {
+      case "Name (A-Z)":
+        list.sort((a, b) => a.name.compareTo(b.name));
+        break;
+      case "Name (Z-A)":
+        list.sort((a, b) => b.name.compareTo(a.name));
+        break;
+      case "Price (Low-High)":
+        list.sort((a, b) => _getLowestPrice(a).compareTo(_getLowestPrice(b)));
+        break;
+      case "Price (High-Low)":
+        list.sort((a, b) => _getLowestPrice(b).compareTo(_getLowestPrice(a)));
+        break;
+    }
+    
+    return list;
+  }
+
+  double _getLowestPrice(ProductModel p) {
+    if (p.prices.isEmpty) return 0;
+    return p.prices.values.reduce((a, b) => a < b ? a : b);
+  }
+
+  // ──────────────── ACTIONS ────────────────
   void _openAddDialog() {
     Navigator.push(
       context,
@@ -48,7 +83,6 @@ class _AdminProductTabState extends State<AdminProductTab> {
     );
   }
 
-  // ✅ UPDATED: Navigate to Full Screen with Data
   void _openEditDialog(ProductModel product) {
     Navigator.push(
       context,
@@ -56,12 +90,20 @@ class _AdminProductTabState extends State<AdminProductTab> {
     );
   }
 
+  Future<void> _toggleStatus(ProductModel product) async {
+    product.available = !product.available;
+    product.updatedAt = DateTime.now();
+    await product.save();
+    SupabaseSyncService.addToQueue(table: 'products', action: 'UPSERT', data: product.toJson());
+    if (mounted) DialogUtils.showToast(context, "Product ${product.available ? 'Activated' : 'Hidden'}");
+  }
+
   Future<void> _deleteProduct(ProductModel product) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Confirm Delete"),
-        content: Text("Delete ${product.name}? This cannot be undone."),
+        title: const Text("Delete Product?"),
+        content: Text("Permanently delete ${product.name}? This cannot be undone."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
           ElevatedButton(
@@ -85,184 +127,180 @@ class _AdminProductTabState extends State<AdminProductTab> {
     }
   }
 
-  List<ProductModel> _getFilteredProducts() {
-    List<ProductModel> list = productBox.values.toList();
-    if (_searchQuery.isNotEmpty) {
-      list = list.where((p) => p.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
-    }
-    if (_selectedCategory != null) {
-      list = list.where((p) => p.category == _selectedCategory).toList();
-    }
-    switch (_selectedSort) {
-      case 'Name (A–Z)': list.sort((a, b) => a.name.compareTo(b.name)); break;
-      case 'Name (Z–A)': list.sort((a, b) => b.name.compareTo(a.name)); break;
-    }
-    return list;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ThemeConfig.lightGray,
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // ─── HEADER ───
-            ContainerCard(
-              child: Column(
-                children: [
-                  Row(
+      backgroundColor: const Color(0xFFF8F9FA),
+      body: ValueListenableBuilder(
+        valueListenable: productBox.listenable(),
+        builder: (context, _, __) {
+          final allProducts = productBox.values;
+          final displayedProducts = _getFilteredProducts();
+          
+          // Dynamic Category List
+          final categories = ["All Categories", ...allProducts.map((e) => e.category).toSet().toList()..sort()];
+
+          // Stats
+          final totalCount = allProducts.length;
+          final activeCount = allProducts.where((p) => p.available).length;
+          final hiddenCount = totalCount - activeCount;
+
+          return Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              children: [
+                // ─── 1. STATS OVERVIEW ───
+                Row(
+                  children: [
+                    _buildStatCard("Total Products", "$totalCount", Icons.inventory_2, Colors.blue),
+                    const SizedBox(width: 16),
+                    _buildStatCard("Active", "$activeCount", Icons.check_circle, ThemeConfig.primaryGreen),
+                    const SizedBox(width: 16),
+                    _buildStatCard("Hidden", "$hiddenCount", Icons.visibility_off, Colors.grey),
+                  ],
+                ),
+
+                const SizedBox(height: 24),
+
+                // ─── 2. NEW TOOLBAR ───
+                Row(
+                  children: [
+                    // Search (Flexible width)
+                    Expanded(
+                      flex: 4,
+                      child: FlatSearchField(
+                        hintText: "Search products...",
+                        onChanged: (v) => setState(() => _searchQuery = v),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    
+                    // Filter (Categories)
+                    Expanded(
+                      flex: 3,
+                      child: FlatDropdown<String>(
+                        value: _categoryFilter,
+                        items: categories,
+                        label: "Category",
+                        icon: Icons.filter_alt,
+                        onChanged: (v) => setState(() => _categoryFilter = v!),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Sort (Name/Price)
+                    Expanded(
+                      flex: 3,
+                      child: FlatDropdown<String>(
+                        value: _sortOrder,
+                        items: const ["Name (A-Z)", "Name (Z-A)", "Price (Low-High)", "Price (High-Low)"],
+                        label: "Sort By",
+                        icon: Icons.sort,
+                        onChanged: (v) => setState(() => _sortOrder = v!),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Add Button
+                    FlatActionButton(
+                      label: "Add Product",
+                      icon: Icons.add,
+                      onPressed: _openAddDialog,
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 20),
+
+                // ─── 3. COLUMN HEADERS ───
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Row(
                     children: [
-                      Expanded(flex: 4, child: BasicSearchBox(
-                        hintText: "Search Products...", 
-                        onChanged: (v) => setState(() => _searchQuery = v))
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(flex: 2, child: BasicDropdownButton<String>(
-                        value: _selectedSort,
-                        items: const ["Name (A–Z)", "Name (Z–A)"],
-                        onChanged: (v) => setState(() => _selectedSort = v!),
-                      )),
-                      const SizedBox(width: 16),
-                      BasicButton(
-                        label: _isEditMode ? "Done" : "Manage",
-                        icon: _isEditMode ? Icons.check : Icons.edit,
-                        type: _isEditMode ? AppButtonType.secondary : AppButtonType.neutral,
-                        fullWidth: false,
-                        onPressed: () => setState(() => _isEditMode = !_isEditMode),
-                      ),
-                      const SizedBox(width: 16),
-                      BasicButton(
-                        label: "New Product",
-                        icon: Icons.add,
-                        type: AppButtonType.primary,
-                        fullWidth: false,
-                        onPressed: _openAddDialog,
-                      ),
+                      const SizedBox(width: 72), // Avatar gap
+                      Expanded(flex: 3, child: Text("PRODUCT INFO", style: FontConfig.caption(context))),
+                      Expanded(flex: 2, child: Text("PRICE RANGE", style: FontConfig.caption(context))),
+                      const SizedBox(width: 50), // Actions gap
                     ],
                   ),
-                ],
-              ),
+                ),
+
+                // ─── 4. PRODUCT LIST ───
+                Expanded(
+                  child: displayedProducts.isEmpty 
+                    ? _buildEmptyState()
+                    : ListView.builder(
+                        itemCount: displayedProducts.length,
+                        itemBuilder: (context, index) {
+                          final product = displayedProducts[index];
+                          return ProductListItem(
+                            product: product,
+                            onEdit: () => _openEditDialog(product),
+                            onToggleStatus: () => _toggleStatus(product),
+                            onDelete: () => _deleteProduct(product),
+                          );
+                        },
+                      ),
+                ),
+              ],
             ),
-
-            const SizedBox(height: 20),
-
-            // ─── LIST HEADERS ───
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: Row(
-                children: [
-                  const SizedBox(width: 50),
-                  Expanded(flex: 4, child: Text("PRODUCT NAME", style: FontConfig.caption(context))),
-                  Expanded(flex: 2, child: Text("CATEGORY", style: FontConfig.caption(context))),
-                  Expanded(flex: 3, child: Text("VARIANTS / PRICES", style: FontConfig.caption(context))),
-                  Expanded(flex: 1, child: Text("STATUS", style: FontConfig.caption(context))),
-                  SizedBox(width: _isEditMode ? 96 : 48),
-                ],
-              ),
-            ),
-
-            // ─── LIST VIEW ───
-            Expanded(
-              child: ValueListenableBuilder(
-                valueListenable: productBox.listenable(),
-                builder: (context, _, __) {
-                  final products = _getFilteredProducts();
-
-                  if (products.isEmpty) return const Center(child: Text("No products found."));
-
-                  return ListView.separated(
-                    itemCount: products.length,
-                    separatorBuilder: (_,__) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final prod = products[index];
-                      return _buildProductRow(prod);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+          );
+        }
       ),
     );
   }
 
-  Widget _buildProductRow(ProductModel prod) {
-    final lowPrice = prod.prices.values.isEmpty 
-        ? 0.0 
-        : prod.prices.values.reduce((a, b) => a < b ? a : b);
-    final highPrice = prod.prices.values.isEmpty 
-        ? 0.0 
-        : prod.prices.values.reduce((a, b) => a > b ? a : b);
-
-    final priceString = lowPrice == highPrice 
-        ? FormatUtils.formatCurrency(lowPrice)
-        : "${FormatUtils.formatCurrency(lowPrice)} - ${FormatUtils.formatCurrency(highPrice)}";
-
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: () => _openEditDialog(prod), // Tap opens edit directly or details
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Row(
-            children: [
-              Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(
-                  color: prod.isDrink ? Colors.brown.shade100 : Colors.orange.shade100,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  prod.isDrink ? Icons.local_cafe : Icons.restaurant, 
-                  color: prod.isDrink ? Colors.brown : Colors.orange,
-                  size: 20
-                ),
-              ),
-              const SizedBox(width: 16),
-              
-              Expanded(flex: 4, child: Text(prod.name, style: const TextStyle(fontWeight: FontWeight.bold))),
-              Expanded(flex: 2, child: Text(prod.category, style: const TextStyle(color: Colors.grey))),
-              
-              Expanded(
-                flex: 3, 
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(priceString, style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen)),
-                    Text("${prod.prices.length} variants", style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                  ],
-                )
-              ),
-
-              Expanded(
-                flex: 1,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: prod.available ? Colors.green.shade50 : Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(4)
-                  ),
-                  child: Text(
-                    prod.available ? "Active" : "Inactive",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: prod.available ? Colors.green : Colors.grey),
-                  ),
-                ),
-              ),
-
-              if (_isEditMode) ...[
-                IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _openEditDialog(prod)),
-                IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deleteProduct(prod)),
-              ] else ...[
-                const SizedBox(width: 48),
-              ]
-            ],
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search_off, size: 64, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          Text(
+            "No products found",
+            style: TextStyle(fontSize: 18, color: Colors.grey[500], fontWeight: FontWeight.bold),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.02),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            )
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.w600)),
+                Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: color)),
+              ],
+            ),
+          ],
         ),
       ),
     );

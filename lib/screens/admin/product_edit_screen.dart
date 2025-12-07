@@ -233,6 +233,89 @@ class _ProductEditScreenState extends State<ProductEditScreen> with SingleTicker
     }
   }
 
+  // ✅ NEW: Get all product names for the import list (excluding self)
+  List<String> get _productNamesForImport {
+    return _productBox.values
+        .where((p) => p.pricingType == _pricingType && p.id != widget.product?.id)
+        .map((p) => p.name)
+        .toList()..sort();
+  }
+
+  // ✅ NEW: Calculate top 3 common price structures (keys only)
+  List<String> get _commonStructures {
+    final Map<String, int> frequency = {};
+    final relevantProducts = _productBox.values.where((p) => p.pricingType == _pricingType);
+    
+    for (var p in relevantProducts) {
+      if (p.prices.isEmpty) continue;
+      // Create a sorted key signature: "12oz, 16oz, 22oz"
+      final keys = p.prices.keys.toList()..sort();
+      final signature = keys.join(", ");
+      if (signature.isNotEmpty) {
+        frequency[signature] = (frequency[signature] ?? 0) + 1;
+      }
+    }
+
+    // Sort by frequency descending
+    final sorted = frequency.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+      
+    return sorted.take(3).map((e) => e.key).toList();
+  }
+
+  // ──────────────── IMPORT LOGIC ────────────────
+  
+  void _handleImport(String selection) {
+    // 1. Try to find a product with this name (Exact Match)
+    // We iterate to find exact match because Hive keys might differ
+    try {
+      final product = _productBox.values.firstWhere(
+        (p) => p.name == selection && p.pricingType == _pricingType
+      );
+      
+      // Found! Copy prices exactly.
+      setState(() {
+        _priceCtrls.clear();
+        _usageCtrls.clear(); // Clear recipes too as columns changed
+        
+        for (var entry in product.prices.entries) {
+          _priceCtrls[entry.key] = TextEditingController(text: entry.value.toString());
+          
+          // Re-init recipe columns for these new keys
+          for (var ing in _usageCtrls.keys) {
+            _usageCtrls[ing]![entry.key] = TextEditingController();
+          }
+        }
+      });
+      
+      DialogUtils.showToast(context, "Copied prices from ${product.name}");
+      return;
+      
+    } catch (e) {
+      // Not a product? Must be a structure string: "12oz, 16oz"
+    }
+
+    // 2. Treat as Preset Structure String
+    final keys = selection.split(',').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    
+    if (keys.isNotEmpty) {
+      setState(() {
+        _priceCtrls.clear();
+        _usageCtrls.clear();
+        
+        for (var key in keys) {
+          _priceCtrls[key] = TextEditingController(); // Empty price for user to fill
+          
+          // Re-init recipe columns
+          for (var ing in _usageCtrls.keys) {
+            _usageCtrls[ing]![key] = TextEditingController();
+          }
+        }
+      });
+      DialogUtils.showToast(context, "Applied preset structure");
+    }
+  }
+
   // ──────────────── UI BUILD ────────────────
 
   @override
@@ -434,6 +517,9 @@ class _ProductEditScreenState extends State<ProductEditScreen> with SingleTicker
                                 onAddSize: _addSize,
                                 onRemoveSize: _removeSize,
                                 existingVariants: _relevantSuggestions, // ✅ Learned Autocomplete
+                                importSuggestions: _commonStructures,
+                                importOptions: _productNamesForImport,
+                                onImport: _handleImport,
                               ),
                             ],
                           ),
