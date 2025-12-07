@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
 import '../bloc/auth/auth_bloc.dart';
-import '../bloc/auth/auth_event.dart'; // ✅ Needed for Logout event
 import '../bloc/auth/auth_state.dart';
 import '../bloc/connectivity/connectivity_cubit.dart';
 import '../services/supabase_sync_service.dart';
@@ -46,92 +45,108 @@ class ModernSidebar extends StatelessWidget {
     return Container(
       width: 240,
       color: const Color(0xFFF8F9FA),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // ─── 1. HEADER ───
-          SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    width: double.infinity, // Full width for easier tapping
-                    child: TextButton.icon(
-                      onPressed: onBack,
-                      style: TextButton.styleFrom(
-                        backgroundColor: ThemeConfig.lightGray, // Subtle flat background
-                        foregroundColor: ThemeConfig.midGray, // Green Text/Icon
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+      // ✅ CHANGED: Replaced Column with CustomScrollView + Slivers
+      child: CustomScrollView(
+        slivers: [
+          // ─── 1. HEADER (Scrolls with content) ───
+          SliverToBoxAdapter(
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton.icon(
+                        onPressed: onBack,
+                        style: TextButton.styleFrom(
+                          backgroundColor: ThemeConfig.lightGray,
+                          foregroundColor: ThemeConfig.midGray,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignment: Alignment.centerLeft,
                         ),
-                        alignment: Alignment.centerLeft, // Left align content
+                        icon: const Icon(Icons.arrow_back, size: 18),
+                        label: const Text("MAIN MENU", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.5)),
                       ),
-                      icon: const Icon(Icons.arrow_back, size: 18),
-                      label: const Text("MAIN MENU", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.5)),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _getSystemTitle(),
-                    style: FontConfig.h2(context).copyWith(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w900,
-                      color: ThemeConfig.primaryGreen,
-                      height: 1.0,
+                    const SizedBox(height: 16),
+                    Text(
+                      _getSystemTitle(),
+                      style: FontConfig.h2(context).copyWith(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: ThemeConfig.primaryGreen,
+                        height: 1.0,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
 
-          // ─── 2. NAVIGATION ───
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              itemCount: tabs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final label = tabs[index];
-                final isActive = index == activeIndex;
-                final icon = _getIconForLabel(label);
+          // ─── 2. NAVIGATION (Sliver List) ───
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final label = tabs[index];
+                  final isActive = index == activeIndex;
+                  final icon = _getIconForLabel(label);
 
-                return Material(
-                  color: isActive ? ThemeConfig.primaryGreen : Colors.transparent,
-                  borderRadius: BorderRadius.circular(12),
-                  child: InkWell(
-                    onTap: () => onTabSelected(index),
-                    borderRadius: BorderRadius.circular(12),
-                    hoverColor: isActive ? null : ThemeConfig.primaryGreen.withValues(alpha: 0.05),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                      child: Row(
-                        children: [
-                          Icon(icon, color: isActive ? Colors.white : Colors.grey[600], size: 22),
-                          const SizedBox(width: 12),
-                          Text(
-                            label,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                              color: isActive ? Colors.white : Colors.grey[800],
-                            ),
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Material(
+                      color: isActive ? ThemeConfig.primaryGreen : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      child: InkWell(
+                        onTap: () => onTabSelected(index),
+                        borderRadius: BorderRadius.circular(12),
+                        hoverColor: isActive ? null : ThemeConfig.primaryGreen.withValues(alpha: 0.05),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                          child: Row(
+                            children: [
+                              Icon(icon, color: isActive ? Colors.white : Colors.grey[600], size: 22),
+                              const SizedBox(width: 12),
+                              Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                                  color: isActive ? Colors.white : Colors.grey[800],
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              },
+                  );
+                },
+                childCount: tabs.length,
+              ),
             ),
           ),
 
-          // ─── 3. REDESIGNED FOOTER ───
-          const _SidebarFooter(),
+          // ─── 3. FOOTER (Fills remaining space) ───
+          // This forces the footer to the bottom if there is space,
+          // but allows it to scroll naturally if space is tight (keyboard open).
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: const [
+                 _SidebarFooter(),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -142,8 +157,8 @@ class ModernSidebar extends StatelessWidget {
       case CoffeaSystem.admin: return "Admin\nTools";
       case CoffeaSystem.pos: return "Point\nof Sale";
       case CoffeaSystem.inventory: return "Inventory";
-      case CoffeaSystem.attendance: return "ATtendance";
-      default: return "Coffea";
+      case CoffeaSystem.attendance: return "Attendance";
+      default: return "> Coffea";
     }
   }
 
@@ -170,7 +185,7 @@ class _SidebarFooter extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ─── 2. UTILITY ROW (Middle) ───
+          // ─── UTILITY ROW ───
           Row(
             children: [
               const Expanded(child: _ManualSyncWidget()),
@@ -201,7 +216,7 @@ class _SidebarFooter extends StatelessWidget {
           const Divider(height: 2),
           const SizedBox(height: 16),
 
-          // ─── 1. USER IDENTITY (Top) ───
+          // ─── USER IDENTITY ───
           BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {
               String name = "Guest";
@@ -217,7 +232,7 @@ class _SidebarFooter extends StatelessWidget {
                   CircleAvatar(
                     radius: 20,
                     backgroundColor: ThemeConfig.primaryGreen.withValues(alpha: 0.1),
-                    child: Text(name[0], style: const TextStyle(color: ThemeConfig.primaryGreen, fontWeight: FontWeight.bold, fontSize: 18)),
+                    child: Text(name.isNotEmpty ? name[0] : "?", style: const TextStyle(color: ThemeConfig.primaryGreen, fontWeight: FontWeight.bold, fontSize: 18)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -236,7 +251,7 @@ class _SidebarFooter extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // ─── 3. LOGOUT BUTTON (Bottom) ───
+          // ─── LOGOUT BUTTON ───
           SizedBox(
             width: double.infinity,
             child: TextButton.icon(
@@ -252,7 +267,7 @@ class _SidebarFooter extends StatelessWidget {
                 style: TextStyle(
                   color: Colors.red.shade700,
                   fontWeight: FontWeight.bold,
-                  fontSize: 16 // Slightly smaller than startup to fit sidebar
+                  fontSize: 16 
                 ),
               ),
               style: TextButton.styleFrom(
@@ -269,7 +284,7 @@ class _SidebarFooter extends StatelessWidget {
   }
 }
 
-// ──────────────── SYNC WIDGET (Unchanged logic, just keeping context) ────────────────
+// ──────────────── SYNC WIDGET ────────────────
 class _ManualSyncWidget extends StatefulWidget {
   const _ManualSyncWidget();
 
@@ -302,7 +317,7 @@ class _ManualSyncWidgetState extends State<_ManualSyncWidget> {
       label: Text(
         _isLoading ? "Syncing..." : "Pull Data",
         style: TextStyle(
-          fontSize: 16, // Adjusted size to fit well with layout
+          fontSize: 16,
           fontWeight: FontWeight.bold,
           color: Colors.blue.shade700
         )

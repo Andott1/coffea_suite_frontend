@@ -16,8 +16,7 @@ import '../../core/widgets/container_card.dart';
 import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/basic_dropdown_button.dart';
 
-// ✅ Import the new Dialog
-import 'product_form_dialog.dart';
+import 'product_edit_screen.dart';
 
 class AdminProductTab extends StatefulWidget {
   const AdminProductTab({super.key});
@@ -41,19 +40,19 @@ class _AdminProductTabState extends State<AdminProductTab> {
     productBox = HiveService.productBox;
   }
 
+  // ✅ UPDATED: Navigate to Full Screen
   void _openAddDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const ProductFormDialog(), // ✅ New Dialog
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ProductEditScreen()),
     );
   }
 
+  // ✅ UPDATED: Navigate to Full Screen with Data
   void _openEditDialog(ProductModel product) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => ProductFormDialog(product: product), // ✅ Reuse for Edit
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => ProductEditScreen(product: product)),
     );
   }
 

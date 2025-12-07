@@ -311,7 +311,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
           children: [
             // ─── LEFT: CLOCK & PIN ───
             Expanded(
-              flex: 4,
+              flex: 5,
               child: Container(
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -344,7 +344,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
 
             // ─── RIGHT: USER GRID OR ACTION GRID ───
             Expanded(
-              flex: 6,
+              flex: 5,
               child: _activeUser != null
                   ? _buildActionGrid(context) 
                   : _buildUserGrid(),
