@@ -3,14 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
 import '../bloc/auth/auth_bloc.dart';
+import '../bloc/auth/auth_event.dart'; // ✅ Needed for Logout event
 import '../bloc/auth/auth_state.dart';
 import '../bloc/connectivity/connectivity_cubit.dart';
 import '../services/supabase_sync_service.dart';
 import '../utils/dialog_utils.dart';
-import 'login_dialog.dart';
-
-// ✅ IMPORT THE SHARED ENUM
 import '../enums/coffea_system.dart';
+import 'login_dialog.dart';
 
 class ModernSidebar extends StatelessWidget {
   final CoffeaSystem system;
@@ -19,7 +18,6 @@ class ModernSidebar extends StatelessWidget {
   final ValueChanged<int> onTabSelected;
   final VoidCallback onBack;
 
-  // Icon mapping for all systems
   static const Map<String, IconData> _tabIcons = {
     "dashboard": Icons.dashboard_outlined,
     "employees": Icons.people_outline,
@@ -46,12 +44,12 @@ class ModernSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 240, // Fixed width for tablet stability
-      color: const Color(0xFFF8F9FA), // Very subtle gray/white distinction
+      width: 240,
+      color: const Color(0xFFF8F9FA),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ─── 1. HEADER (Identity) ───
+          // ─── 1. HEADER ───
           SafeArea(
             bottom: false,
             child: Padding(
@@ -59,20 +57,21 @@ class ModernSidebar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Back Button & Label
-                  InkWell(
-                    onTap: onBack,
-                    borderRadius: BorderRadius.circular(8),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 0),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.arrow_back_ios_new, size: 16, color: ThemeConfig.midGray),
-                          const SizedBox(width: 8),
-                          Text("MAIN MENU", style: FontConfig.caption(context).copyWith(fontWeight: FontWeight.bold)),
-                        ],
+                  SizedBox(
+                    width: double.infinity, // Full width for easier tapping
+                    child: TextButton.icon(
+                      onPressed: onBack,
+                      style: TextButton.styleFrom(
+                        backgroundColor: ThemeConfig.lightGray, // Subtle flat background
+                        foregroundColor: ThemeConfig.midGray, // Green Text/Icon
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        alignment: Alignment.centerLeft, // Left align content
                       ),
+                      icon: const Icon(Icons.arrow_back, size: 18),
+                      label: const Text("MAIN MENU", style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16, letterSpacing: 0.5)),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -90,7 +89,7 @@ class ModernSidebar extends StatelessWidget {
             ),
           ),
 
-          // ─── 2. NAVIGATION (Tabs) ───
+          // ─── 2. NAVIGATION ───
           Expanded(
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -112,11 +111,7 @@ class ModernSidebar extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                       child: Row(
                         children: [
-                          Icon(
-                            icon, 
-                            color: isActive ? Colors.white : Colors.grey[600], 
-                            size: 22
-                          ),
+                          Icon(icon, color: isActive ? Colors.white : Colors.grey[600], size: 22),
                           const SizedBox(width: 12),
                           Text(
                             label,
@@ -135,7 +130,7 @@ class ModernSidebar extends StatelessWidget {
             ),
           ),
 
-          // ─── 3. FOOTER (Status) ───
+          // ─── 3. REDESIGNED FOOTER ───
           const _SidebarFooter(),
         ],
       ),
@@ -146,8 +141,8 @@ class ModernSidebar extends StatelessWidget {
     switch (system) {
       case CoffeaSystem.admin: return "Admin\nTools";
       case CoffeaSystem.pos: return "Point\nof Sale";
-      case CoffeaSystem.inventory: return "Inventory\nControl";
-      case CoffeaSystem.attendance: return "Staff\nManager";
+      case CoffeaSystem.inventory: return "Inventory";
+      case CoffeaSystem.attendance: return "ATtendance";
       default: return "Coffea";
     }
   }
@@ -161,9 +156,6 @@ class ModernSidebar extends StatelessWidget {
   }
 }
 
-// ───────────────────────────────────────────────
-// STATUS FOOTER
-// ───────────────────────────────────────────────
 class _SidebarFooter extends StatelessWidget {
   const _SidebarFooter();
 
@@ -176,8 +168,9 @@ class _SidebarFooter extends StatelessWidget {
         color: Colors.white,
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Sync & Network Row
+          // ─── 2. UTILITY ROW (Middle) ───
           Row(
             children: [
               const Expanded(child: _ManualSyncWidget()),
@@ -186,19 +179,29 @@ class _SidebarFooter extends StatelessWidget {
                 builder: (context, isOnline) {
                   return Tooltip(
                     message: isOnline ? "Online" : "Offline",
-                    child: Icon(
-                      isOnline ? Icons.wifi_rounded : Icons.wifi_off_rounded,
-                      color: isOnline ? ThemeConfig.primaryGreen : Colors.red,
-                      size: 36
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isOnline ? Colors.green.shade50 : Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        isOnline ? Icons.wifi : Icons.wifi_off,
+                        color: isOnline ? Colors.green : Colors.red,
+                        size: 20
+                      ),
                     ),
                   );
                 }
               ),
             ],
           ),
+
           const SizedBox(height: 16),
-          
-          // User Profile
+          const Divider(height: 2),
+          const SizedBox(height: 16),
+
+          // ─── 1. USER IDENTITY (Top) ───
           BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {
               String name = "Guest";
@@ -209,36 +212,56 @@ class _SidebarFooter extends StatelessWidget {
                 role = state.user.role.name.toUpperCase();
               }
 
-              return InkWell(
-                onTap: () {
-                  showDialog(
-                    context: context, 
-                    builder: (_) => const LoginDialog(isStartup: false)
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 18,
-                      backgroundColor: ThemeConfig.primaryGreen.withValues(alpha: 0.1),
-                      child: Text(name[0], style: const TextStyle(color: ThemeConfig.primaryGreen, fontWeight: FontWeight.bold)),
+              return Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: ThemeConfig.primaryGreen.withValues(alpha: 0.1),
+                    child: Text(name[0], style: const TextStyle(color: ThemeConfig.primaryGreen, fontWeight: FontWeight.bold, fontSize: 18)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(role, style: const TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w400)),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                          Text(role, style: const TextStyle(color: Colors.grey, fontSize: 10)),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.swap_horiz, size: 16, color: Colors.grey),
-                  ],
-                ),
+                  ),
+                ],
               );
             }
+          ),
+
+          const SizedBox(height: 16),
+
+          // ─── 3. LOGOUT BUTTON (Bottom) ───
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: () {
+                showDialog(
+                  context: context, 
+                  builder: (_) => const LoginDialog(isStartup: false)
+                );
+              },
+              icon: Icon(Icons.logout, size: 20, color: Colors.red.shade700),
+              label: Text(
+                "Logout",
+                style: TextStyle(
+                  color: Colors.red.shade700,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16 // Slightly smaller than startup to fit sidebar
+                ),
+              ),
+              style: TextButton.styleFrom(
+                backgroundColor: Colors.red.shade50,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                alignment: Alignment.center,
+              ),
+            ),
           ),
         ],
       ),
@@ -246,6 +269,7 @@ class _SidebarFooter extends StatelessWidget {
   }
 }
 
+// ──────────────── SYNC WIDGET (Unchanged logic, just keeping context) ────────────────
 class _ManualSyncWidget extends StatefulWidget {
   const _ManualSyncWidget();
 
@@ -270,7 +294,6 @@ class _ManualSyncWidgetState extends State<_ManualSyncWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ UPDATED: Matching styling from Startup Screen
     return TextButton.icon(
       onPressed: _isLoading ? null : _handleSync,
       icon: _isLoading 
@@ -279,7 +302,7 @@ class _ManualSyncWidgetState extends State<_ManualSyncWidget> {
       label: Text(
         _isLoading ? "Syncing..." : "Pull Data",
         style: TextStyle(
-          fontSize: 18, 
+          fontSize: 16, // Adjusted size to fit well with layout
           fontWeight: FontWeight.bold,
           color: Colors.blue.shade700
         )
