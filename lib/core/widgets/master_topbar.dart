@@ -15,7 +15,8 @@ import '../../core/models/user_model.dart';
 import 'login_dialog.dart'; 
 import 'basic_button.dart';
 
-enum CoffeaSystem { startup, pos, attendance, inventory, admin }
+import '../enums/coffea_system.dart';
+export '../enums/coffea_system.dart';
 
 class MasterTopBar extends StatelessWidget implements PreferredSizeWidget {
   final CoffeaSystem system;

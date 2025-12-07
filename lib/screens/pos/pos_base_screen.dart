@@ -1,8 +1,13 @@
-import '../../core/widgets/session_guard.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../core/bloc/auth/auth_bloc.dart';
+import '../../core/bloc/auth/auth_state.dart';
+import '../../core/widgets/modern_scaffold.dart';
+import '../../core/services/session_user.dart'; // ✅ Import
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
-import '../../core/services/session_user.dart'; // ✅ Import
+
 import '../../core/config/permissions_config.dart'; // ✅ Import
 
 // Screens
@@ -75,25 +80,22 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
     }
   }
 
-  void _onTabChanged(int index) {
-    setState(() => _activeIndex = index);
-    SystemTabMemory.setLastTab(CoffeaSystem.pos, index);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return SessionGuard( // ✅ Wrap here
-      onUserChanged: () => setState(() => _setupTabs()),
-      child: Scaffold(
-        backgroundColor: Colors.grey[100],
-        appBar: MasterTopBar(
-          system: CoffeaSystem.pos,
-          tabs: _currentTabs, // ✅ Dynamic Tabs
-          activeIndex: _activeIndex,
-          onTabSelected: _onTabChanged,
-          showOnlineStatus: true,
-          showUserMode: true,
-        ),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated || state is AuthUnauthenticated) {
+          setState(() => _setupTabs());
+        }
+      },
+      child: ModernScaffold(
+        system: CoffeaSystem.pos,
+        currentTabs: _currentTabs,
+        activeIndex: _activeIndex,
+        onTabSelected: (index) {
+          setState(() => _activeIndex = index);
+          SystemTabMemory.setLastTab(CoffeaSystem.pos, index);
+        },
         body: IndexedStack(
           index: _activeIndex,
           children: _currentScreens, // ✅ Dynamic Screens

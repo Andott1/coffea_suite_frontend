@@ -1,4 +1,4 @@
-import '../../core/widgets/master_topbar.dart';
+import '../enums/coffea_system.dart';
 
 /// =============================================================
 /// SystemTabMemory

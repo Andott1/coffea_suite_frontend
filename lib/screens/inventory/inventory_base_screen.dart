@@ -1,4 +1,8 @@
-import '../../core/widgets/session_guard.dart';
+import '../../core/widgets/modern_scaffold.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/models/tab_definition.dart';
+import '../../core/bloc/auth/auth_bloc.dart';
+import '../../core/bloc/auth/auth_state.dart';
 import 'package:flutter/material.dart';
 import '../../core/widgets/master_topbar.dart';
 import '../../core/utils/system_tab_memory.dart';
@@ -31,17 +35,17 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
   void _setupTabs() {
     // 1. Define all possible tabs with their required permissions
     final allTabs = [
-      _TabDef(
+      TabDefinition(
         title: "Dashboard", 
         widget: const InventoryDashboardTab(), 
         permission: AppPermission.viewInventoryDashboard // 🔒 Restricted
       ),
-      _TabDef(
+      TabDefinition(
         title: "Inventory List", 
         widget: const InventoryListTab(), 
         permission: AppPermission.viewInventoryList // 🔒 Restricted
       ),
-      _TabDef(
+      TabDefinition(
         title: "Logs", 
         widget: const InventoryLogsTab(), 
         permission: AppPermission.viewInventoryLogs // 🔒 Restricted
@@ -66,38 +70,27 @@ class _InventoryBaseScreenState extends State<InventoryBaseScreen> {
     _activeIndex = lastIndex;
   }
 
-  void _onTabChanged(int index) {
-    setState(() => _activeIndex = index);
-    SystemTabMemory.setLastTab(CoffeaSystem.inventory, index);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return SessionGuard(
-      onUserChanged: () => setState(() => _setupTabs()),
-      child: Scaffold(
-        backgroundColor: Colors.grey[100],
-        appBar: MasterTopBar(
-          system: CoffeaSystem.inventory,
-          tabs: _currentTabs, // ✅ Pass dynamic list
-          activeIndex: _activeIndex,
-          onTabSelected: _onTabChanged,
-          showOnlineStatus: true,
-          showUserMode: true,
-        ),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated || state is AuthUnauthenticated) {
+          setState(() => _setupTabs());
+        }
+      },
+      child: ModernScaffold(
+        system: CoffeaSystem.inventory,
+        currentTabs: _currentTabs,
+        activeIndex: _activeIndex,
+        onTabSelected: (index) {
+          setState(() => _activeIndex = index);
+          SystemTabMemory.setLastTab(CoffeaSystem.inventory, index);
+        },
         body: IndexedStack(
           index: _activeIndex,
-          children: _currentScreens, // ✅ Pass dynamic screens
+          children: _currentScreens, // ✅ Dynamic Screens
         ),
       )
     );
   }
-}
-
-// Simple data class for tab definition
-class _TabDef {
-  final String title;
-  final Widget widget;
-  final AppPermission? permission;
-  _TabDef({required this.title, required this.widget, this.permission});
 }

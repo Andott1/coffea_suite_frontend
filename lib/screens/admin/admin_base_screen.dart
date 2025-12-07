@@ -1,12 +1,15 @@
-import '../../core/widgets/session_guard.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // ✅ Added for Listener
-import '../../core/bloc/auth/auth_bloc.dart';     // ✅ Added
-import '../../core/bloc/auth/auth_state.dart';    // ✅ Added
-import '../../core/widgets/master_topbar.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../core/bloc/auth/auth_bloc.dart';
+import '../../core/bloc/auth/auth_state.dart';
+import '../../core/enums/coffea_system.dart';
 import '../../core/utils/system_tab_memory.dart';
 import '../../core/services/session_user.dart';
 import '../../core/config/permissions_config.dart';
+
+// ✅ NEW IMPORTS
+import '../../core/widgets/modern_scaffold.dart';
+import '../../core/models/tab_definition.dart';
 
 // Screens
 import 'admin_dashboard_screen.dart';
@@ -24,8 +27,6 @@ class AdminBaseScreen extends StatefulWidget {
 
 class _AdminBaseScreenState extends State<AdminBaseScreen> {
   late int _activeIndex;
-  
-  // Dynamic Lists
   late List<String> _currentTabs;
   late List<Widget> _currentScreens;
 
@@ -36,36 +37,36 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
   }
 
   void _setupTabs() {
-    // 1. Define all possible tabs with their required permissions
+    // 1. Define tabs
     final allTabs = [
-      _TabDef(
+      TabDefinition(
         title: "Dashboard",
-        widget: const AdminDashboardScreen(),
+        widget: AdminDashboardScreen(),
         permission: AppPermission.viewAdminDashboard
       ),
-      _TabDef(
+      TabDefinition(
         title: "Employees",
-        widget: const EmployeeManagementScreen(),
+        widget: EmployeeManagementScreen(),
         permission: AppPermission.manageEmployees
       ),
-      _TabDef(
+      TabDefinition(
         title: "Products",
-        widget: const AdminProductTab(),
+        widget: AdminProductTab(),
         permission: AppPermission.manageProducts
       ),
-      _TabDef(
+      TabDefinition(
         title: "Ingredients",
-        widget: const AdminIngredientTab(),
+        widget: AdminIngredientTab(),
         permission: AppPermission.manageIngredients
       ),
-      _TabDef(
+      TabDefinition(
         title: "Settings",
-        widget: const SettingsScreen(),
+        widget: SettingsScreen(),
         permission: AppPermission.manageSettings
       ),
     ];
 
-    // 2. Filter based on current user permissions
+    // 2. Filter based on permissions
     final allowedTabs = allTabs.where((tab) {
       if (tab.permission == null) return true;
       return SessionUser.hasPermission(tab.permission!);
@@ -75,7 +76,6 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
     _currentScreens = allowedTabs.map((e) => e.widget).toList();
 
     // 3. Security Fallback
-    // If a user (e.g. Employee) somehow gets here but has 0 allowed tabs, redirect them.
     if (_currentTabs.isEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.of(context).pushReplacementNamed('/');
@@ -83,7 +83,7 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
       return;
     }
 
-    // 4. Restore Tab State
+    // 4. Restore State
     int lastIndex = SystemTabMemory.getLastTab(CoffeaSystem.admin);
     if (lastIndex >= _currentTabs.length) {
       lastIndex = 0;
@@ -91,38 +91,29 @@ class _AdminBaseScreenState extends State<AdminBaseScreen> {
     _activeIndex = lastIndex;
   }
 
-  void _onTabChanged(int index) {
-    setState(() => _activeIndex = index);
-    SystemTabMemory.setLastTab(CoffeaSystem.admin, index);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return SessionGuard(
-      onUserChanged: () => setState(() => _setupTabs()),
-      child: Scaffold(
-        backgroundColor: Colors.grey[100],
-        appBar: MasterTopBar(
-          system: CoffeaSystem.admin,
-          tabs: _currentTabs, 
-          activeIndex: _activeIndex,
-          onTabSelected: _onTabChanged,
-          showOnlineStatus: true,
-          showUserMode: true,
-        ),
+    // ✅ Replaced Scaffold with ModernScaffold
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated || state is AuthUnauthenticated) {
+          setState(() => _setupTabs());
+        }
+      },
+      child: ModernScaffold(
+        system: CoffeaSystem.admin,
+        currentTabs: _currentTabs,
+        activeIndex: _activeIndex,
+        onTabSelected: (index) {
+          setState(() => _activeIndex = index);
+          SystemTabMemory.setLastTab(CoffeaSystem.admin, index);
+        },
+        // We use IndexedStack to preserve state of complex screens (like forms)
         body: IndexedStack(
           index: _activeIndex,
-          children: _currentScreens, 
+          children: _currentScreens,
         ),
       ),
     );
   }
-}
-
-// Simple data class for tab definition
-class _TabDef {
-  final String title;
-  final Widget widget;
-  final AppPermission? permission;
-  _TabDef({required this.title, required this.widget, this.permission});
 }

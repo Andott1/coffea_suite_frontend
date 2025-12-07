@@ -1,9 +1,16 @@
-import '../../core/widgets/session_guard.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../core/bloc/auth/auth_bloc.dart';
+import '../../core/bloc/auth/auth_state.dart';
+import '../../core/enums/coffea_system.dart';
 import 'package:flutter/material.dart';
-import '../../core/widgets/master_topbar.dart';
+
 import '../../core/utils/system_tab_memory.dart';
 import '../../core/services/session_user.dart'; // ✅ Import
 import '../../core/config/permissions_config.dart'; // ✅ Import
+
+import '../../core/widgets/modern_scaffold.dart';
+import '../../core/models/tab_definition.dart';
 
 // Screens
 import 'attendance_dashboard_tab.dart';
@@ -34,25 +41,25 @@ class _AttendanceBaseScreenState extends State<AttendanceBaseScreen> {
   void _setupTabs() {
     // 1. Define all possible tabs with permissions
     final allTabs = [
-      _TabDef(
+      TabDefinition(
         title: "Dashboard",
         widget: const AttendanceDashboardTab(),
-        permission: AppPermission.viewAttendanceDashboard // 🔒 Manager+
+        permission: AppPermission.viewAttendanceDashboard
       ),
-      _TabDef(
+      TabDefinition(
         title: "Time Clock",
         widget: const TimeClockScreen(),
-        permission: AppPermission.accessTimeClock // 🔓 Everyone
+        permission: AppPermission.accessTimeClock
       ),
-      _TabDef(
+      TabDefinition(
         title: "Logs",
         widget: const AttendanceLogsScreen(),
-        permission: AppPermission.viewAttendanceLogs // 🔒 Manager+
+        permission: AppPermission.viewAttendanceLogs
       ),
-      _TabDef(
+      TabDefinition(
         title: "Payroll",
         widget: const PayrollScreen(),
-        permission: AppPermission.managePayroll // 🔒 Admin Only
+        permission: AppPermission.managePayroll
       ),
     ];
 
@@ -80,25 +87,22 @@ class _AttendanceBaseScreenState extends State<AttendanceBaseScreen> {
     }
   }
 
-  void _onTabChanged(int index) {
-    setState(() => _activeIndex = index);
-    SystemTabMemory.setLastTab(CoffeaSystem.attendance, index);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return SessionGuard(
-      onUserChanged: () => setState(() => _setupTabs()),
-      child: Scaffold(
-        backgroundColor: Colors.grey[100],
-        appBar: MasterTopBar(
-          system: CoffeaSystem.attendance,
-          tabs: _currentTabs, // ✅ Dynamic Tabs
-          activeIndex: _activeIndex,
-          onTabSelected: _onTabChanged,
-          showOnlineStatus: true,
-          showUserMode: true,
-        ),
+    return BlocListener<AuthBloc, AuthState>(
+      listener: (context, state) {
+        if (state is AuthAuthenticated || state is AuthUnauthenticated) {
+          setState(() => _setupTabs());
+        }
+      },
+      child: ModernScaffold(
+        system: CoffeaSystem.attendance,
+        currentTabs: _currentTabs,
+        activeIndex: _activeIndex,
+        onTabSelected: (index) {
+          setState(() => _activeIndex = index);
+          SystemTabMemory.setLastTab(CoffeaSystem.attendance, index);
+        },
         body: IndexedStack(
           index: _activeIndex,
           children: _currentScreens, // ✅ Dynamic Screens
@@ -106,12 +110,4 @@ class _AttendanceBaseScreenState extends State<AttendanceBaseScreen> {
       )
     );
   }
-}
-
-// Simple data class for tab definition
-class _TabDef {
-  final String title;
-  final Widget widget;
-  final AppPermission? permission;
-  _TabDef({required this.title, required this.widget, this.permission});
 }
