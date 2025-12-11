@@ -1,19 +1,19 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import '../../core/bloc/connectivity/connectivity_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../core/models/sync_queue_model.dart';
 import '../../core/services/supabase_sync_service.dart';
+import '../../core/services/backup_service.dart';
 import '../../core/utils/dialog_utils.dart';
+import '../../core/bloc/connectivity/connectivity_cubit.dart';
+
+// Widgets
 import '../../core/widgets/basic_button.dart';
-import '../../core/widgets/container_card_titled.dart';
-import '../../core/widgets/container_card.dart'; // ✅ Needed
-import '../../core/services/backup_service.dart'; // ✅ Needed
-import '../../core/widgets/backups_list_dialog.dart'; // ✅ Needed
+import '../../core/widgets/backups_list_dialog.dart';
+import 'database_viewer_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -26,15 +26,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isRestoring = false;
   bool _isPushing = false;
 
+  // ──────────────── CLOUD ACTIONS ────────────────
+  
   Future<void> _handleForcePush() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("🚀 Upload Local Data?"),
         content: const Text(
-          "This will take ALL data currently on this device (Seeded Data, Transactions, Logs) "
-          "and upload it to Supabase.\n\n"
-          "Use this if your cloud database is empty or out of sync.",
+          "This will FORCE UPLOAD all local data to the cloud.\n"
+          "Use this if the cloud database is empty or out of sync.",
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
@@ -50,16 +51,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirm != true) return;
 
     setState(() => _isPushing = true);
-
     try {
       await SupabaseSyncService.forceLocalToCloud();
-      if (mounted) {
-        DialogUtils.showToast(context, "Upload started! Check the queue indicator.");
-      }
+      if (mounted) DialogUtils.showToast(context, "Upload started! Check queue.");
     } catch (e) {
-      if (mounted) {
-        DialogUtils.showToast(context, "Upload Failed: ${e.toString()}", icon: Icons.error, accentColor: Colors.red);
-      }
+      if (mounted) DialogUtils.showToast(context, "Error: $e", icon: Icons.error, accentColor: Colors.red);
     } finally {
       if (mounted) setState(() => _isPushing = false);
     }
@@ -71,8 +67,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text("⚠️ Overwrite Local Data?"),
         content: const Text(
-          "This will DELETE all local data (Users, Products, Stock, Logs) "
-          "and replace it with the latest data from Supabase Cloud.\n\n"
+          "This will DELETE all local data and replace it with Cloud data.\n"
           "This cannot be undone. Are you sure?",
         ),
         actions: [
@@ -80,7 +75,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Yes, Overwrite", style: TextStyle(color: Colors.white)),
+            child: const Text("Overwrite", style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -89,22 +84,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirm != true) return;
 
     setState(() => _isRestoring = true);
-
     try {
       await SupabaseSyncService.restoreFromCloud();
-      if (mounted) {
-        DialogUtils.showToast(context, "Data successfully restored from Cloud!");
-      }
+      if (mounted) DialogUtils.showToast(context, "Data restored from Cloud!");
     } catch (e) {
-      if (mounted) {
-        DialogUtils.showToast(context, "Restore Failed: ${e.toString()}", icon: Icons.error, accentColor: Colors.red);
-      }
+      if (mounted) DialogUtils.showToast(context, "Error: $e", icon: Icons.error, accentColor: Colors.red);
     } finally {
       if (mounted) setState(() => _isRestoring = false);
     }
   }
 
-  // ✅ NEW: Local Backup Logic
+  // ──────────────── LOCAL BACKUP ACTIONS ────────────────
+
   Future<void> _createLocalBackup(String type) async {
     final service = BackupService();
     final filename = await showDialog<String?>(
@@ -113,120 +104,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
         final c = TextEditingController();
         return AlertDialog(
           title: Text('Create $type Backup'),
-          content: TextField(controller: c, decoration: const InputDecoration(hintText: 'Enter file name (optional)')),
+          content: TextField(controller: c, decoration: const InputDecoration(hintText: 'Filename (Optional)')),
           actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(null), child: const Text('Cancel')),
-            ElevatedButton(onPressed: () => Navigator.of(ctx).pop(c.text.trim()), child: const Text('Save')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, c.text.trim()), child: const Text('Save')),
           ],
         );
       },
     );
+
     if (filename != null) {
       try {
         final entry = await service.createBackup(fileName: filename, type: type.toLowerCase());
-        if(mounted) DialogUtils.showToast(context, 'Backup created: ${entry.filename}');
+        if (mounted) DialogUtils.showToast(context, 'Saved: ${entry.filename}');
       } catch (e) {
-        if(mounted) DialogUtils.showToast(context, 'Backup failed: $e', icon: Icons.error);
+        if (mounted) DialogUtils.showToast(context, 'Failed: $e', icon: Icons.error);
       }
     }
   }
 
   Future<void> _restoreLocalBackup(String type) async {
-    final service = BackupService();
     await showDialog(
-      context: context, 
-      builder: (_) => BackupsListDialog(backupService: service, type: type.toLowerCase())
+      context: context,
+      builder: (_) => BackupsListDialog(backupService: BackupService(), type: type.toLowerCase()),
     );
   }
+
+  // ──────────────── UI BUILD ────────────────
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ThemeConfig.lightGray,
+      backgroundColor: const Color(0xFFF8F9FA),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ─── HEADER ───
-            Text("System Settings", style: FontConfig.h2(context).copyWith(fontSize: 28, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 20),
-
-            // ─── CLOUD SYNC PANEL ───
-            ContainerCardTitled(
-              title: "Cloud Synchronization",
-              subtitle: "Manage connection between this device and Supabase Cloud",
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // STATUS INDICATORS
-                  Row(
-                    children: [
-                      _ConnectionStatusBadge(),
-                      const SizedBox(width: 12),
-                      _QueueStatusBadge(),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  const Divider(),
-                  const SizedBox(height: 24),
-
-                  // ACTIONS
-                  const Text(
-                    "Data Synchronization", 
-                    style: TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.secondaryGreen)
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "Manage the flow of data between this device and the cloud.",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  Row(
-                    children: [
-                      // PUSH BUTTON
-                      _isPushing 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator())
-                        : BasicButton(
-                            label: "Push Local to Cloud",
-                            icon: Icons.cloud_upload_outlined,
-                            type: AppButtonType.primary,
-                            onPressed: _handleForcePush,
-                            fullWidth: false,
-                          ),
-                          
-                      const SizedBox(width: 16),
-
-                      // RESTORE BUTTON
-                      _isRestoring 
-                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator())
-                        : BasicButton(
-                            label: "Restore from Cloud",
-                            icon: Icons.cloud_download_outlined,
-                            type: AppButtonType.danger,
-                            onPressed: _handleRestore,
-                            fullWidth: false,
-                          ),
-                    ],
-                  ),
-                ],
-              ),
+            // TITLE
+            Row(
+              children: [
+                const Icon(Icons.settings, size: 32, color: Colors.black87),
+                const SizedBox(width: 12),
+                Text("System Settings", style: FontConfig.h2(context).copyWith(fontSize: 28, fontWeight: FontWeight.w800)),
+              ],
             ),
-            
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // ─── ✅ LOCAL BACKUPS SECTION ───
-            ContainerCardTitled(
-              title: "Local Data Backups",
-              subtitle: "Create JSON snapshots of your data on this device",
-              child: Column(
-                children: [
-                  _buildBackupRow(context, "Ingredients", Icons.science),
-                  const Divider(),
-                  _buildBackupRow(context, "Logs", Icons.list_alt),
-                ],
-              ),
+            // MAIN GRID (2 Columns)
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ─── LEFT COL: CLOUD & SYNC ───
+                Expanded(
+                  flex: 5,
+                  child: Column(
+                    children: [
+                      _buildCloudSection(),
+                      const SizedBox(height: 24),
+                      _buildDiagnosticsSection(),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(width: 24),
+
+                // ─── RIGHT COL: DATA MANAGEMENT ───
+                Expanded(
+                  flex: 4,
+                  child: _buildLocalDataSection(),
+                ),
+              ],
             ),
           ],
         ),
@@ -234,38 +182,250 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildBackupRow(BuildContext context, String label, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
+  // ──────────────── SECTION WIDGETS ────────────────
+
+  Widget _buildCloudSection() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: _flatDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: ThemeConfig.midGray),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("Cloud Synchronization", style: FontConfig.h3(context)),
+              const _ConnectionStatusBadge(),
+            ],
           ),
-          BasicButton(
-            label: "Backup", 
-            type: AppButtonType.secondary, 
-            fullWidth: false, 
-            height: 36,
-            onPressed: () => _createLocalBackup(label)
+          const SizedBox(height: 8),
+          const Text("Manage data flow between this device and the central server.", style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 24),
+
+          // SYNC QUEUE STATUS
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade100),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.cloud_queue, color: Colors.blue),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ValueListenableBuilder(
+                    valueListenable: Hive.box<SyncQueueModel>('sync_queue').listenable(),
+                    builder: (context, Box<SyncQueueModel> box, _) {
+                      final count = box.length;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            count == 0 ? "All changes synced" : "$count pending changes",
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                          ),
+                          Text(
+                            count == 0 ? "Your data is up to date." : "Syncing in background...",
+                            style: TextStyle(fontSize: 12, color: Colors.blue.shade700),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                if (_isPushing || _isRestoring)
+                  const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              ],
+            ),
           ),
-          const SizedBox(width: 12),
-          BasicButton(
-            label: "Restore", 
-            type: AppButtonType.secondary, 
-            fullWidth: false,
-            height: 36,
-            onPressed: () => _restoreLocalBackup(label)
+
+          const SizedBox(height: 24),
+
+          // ACTIONS
+          Row(
+            children: [
+              Expanded(
+                child: BasicButton(
+                  label: "Push to Cloud",
+                  icon: Icons.cloud_upload_outlined,
+                  type: AppButtonType.primary,
+                  onPressed: _isPushing || _isRestoring ? null : _handleForcePush,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: BasicButton(
+                  label: "Restore",
+                  icon: Icons.cloud_download_outlined,
+                  type: AppButtonType.secondary,
+                  onPressed: _isPushing || _isRestoring ? null : _handleRestore,
+                ),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocalDataSection() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: _flatDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Local Backups", style: FontConfig.h3(context)),
+          const SizedBox(height: 8),
+          const Text("Create offline snapshots of your data.", style: TextStyle(color: Colors.grey)),
+          const SizedBox(height: 24),
+
+          _buildBackupTile(
+            title: "Ingredients & Stock",
+            subtitle: "Inventory levels and item details",
+            icon: Icons.science_outlined,
+            color: Colors.orange,
+            onBackup: () => _createLocalBackup("Ingredients"),
+            onRestore: () => _restoreLocalBackup("Ingredients"),
+          ),
+          const SizedBox(height: 20),
+          _buildBackupTile(
+            title: "Operation Logs",
+            subtitle: "Inventory movement history",
+            icon: Icons.history_edu,
+            color: Colors.purple,
+            onBackup: () => _createLocalBackup("Logs"),
+            onRestore: () => _restoreLocalBackup("Logs"),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildDiagnosticsSection() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: _flatDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("System Diagnostics", style: FontConfig.h3(context)),
+          const SizedBox(height: 20),
+          
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.storage, color: Colors.black87),
+            ),
+            title: const Text("Database Inspector", style: TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: const Text("View raw data in local Hive boxes"),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            onTap: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const DatabaseViewerScreen()));
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────── HELPER WIDGETS ────────────────
+
+  Widget _buildBackupTile({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onBackup,
+    required VoidCallback onRestore,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20), // Increased inner padding
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12), // Larger Icon Background
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 28), // Larger Icon
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), // Bigger Font
+                const SizedBox(height: 4),
+                Text(subtitle, style: TextStyle(color: Colors.grey.shade500, fontSize: 13)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              BasicButton(
+                label: "Backup", 
+                icon: Icons.save, 
+                type: AppButtonType.secondary, // Secondary style is clearer
+                onPressed: onBackup,
+                fullWidth: false,
+                height: 42, // Tablet-friendly height
+                fontSize: 14,
+              ),
+              const SizedBox(height: 8),
+              BasicButton(
+                label: "Restore", 
+                icon: Icons.restore, 
+                type: AppButtonType.danger, 
+                onPressed: onRestore,
+                fullWidth: false,
+                height: 42, // Tablet-friendly height
+                fontSize: 14,
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _flatDecoration() {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.grey.shade200),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.02),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        )
+      ],
+    );
+  }
 }
 
+// ──────────────── STATUS BADGES ────────────────
+
 class _ConnectionStatusBadge extends StatelessWidget {
+  const _ConnectionStatusBadge();
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ConnectivityCubit, bool>(
@@ -275,56 +435,21 @@ class _ConnectionStatusBadge extends StatelessWidget {
           decoration: BoxDecoration(
             color: isOnline ? Colors.green.shade50 : Colors.red.shade50,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isOnline ? Colors.green : Colors.red),
+            border: Border.all(color: isOnline ? Colors.green.shade200 : Colors.red.shade200),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(isOnline ? Icons.wifi : Icons.wifi_off, size: 16, color: isOnline ? Colors.green : Colors.red),
-              const SizedBox(width: 8),
+              Icon(isOnline ? Icons.wifi : Icons.wifi_off, size: 14, color: isOnline ? Colors.green : Colors.red),
+              const SizedBox(width: 6),
               Text(
                 isOnline ? "ONLINE" : "OFFLINE",
-                style: TextStyle(fontWeight: FontWeight.bold, color: isOnline ? Colors.green : Colors.red),
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: isOnline ? Colors.green : Colors.red),
               ),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-class _QueueStatusBadge extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: Hive.box<SyncQueueModel>('sync_queue').listenable(),
-      builder: (context, Box<SyncQueueModel> box, _) {
-        final count = box.length;
-        final isSyncing = count > 0;
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isSyncing ? Colors.orange.shade50 : Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isSyncing ? Colors.orange : Colors.blue),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isSyncing) 
-                const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
-              else 
-                const Icon(Icons.check_circle, size: 16, color: Colors.blue),
-              const SizedBox(width: 8),
-              Text(
-                isSyncing ? "$count Pending Uploads..." : "All Synced",
-                style: TextStyle(fontWeight: FontWeight.bold, color: isSyncing ? Colors.orange : Colors.blue),
-              ),
-            ],
-          ),
-        );
-      }
     );
   }
 }

@@ -130,7 +130,7 @@ class _AdminProductTabState extends State<AdminProductTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: ThemeConfig.lightGray,
       body: ValueListenableBuilder(
         valueListenable: productBox.listenable(),
         builder: (context, _, __) {

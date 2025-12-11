@@ -5,7 +5,6 @@ import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
 
 import '../../core/models/ingredient_model.dart';
-import '../../core/models/product_model.dart';
 import '../../core/services/hive_service.dart';
 import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
@@ -161,7 +160,7 @@ class _AdminIngredientTabState extends State<AdminIngredientTab> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: ThemeConfig.lightGray,
       body: ValueListenableBuilder(
         valueListenable: ingredientBox.listenable(),
         builder: (context, _, __) {

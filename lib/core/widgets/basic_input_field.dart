@@ -13,6 +13,9 @@ class BasicInputField extends StatefulWidget {
   final bool isPassword;
   final FocusNode? focusNode;
   final int? maxLength;
+  
+  // ✅ NEW: Added onChanged callback
+  final ValueChanged<String>? onChanged;
 
   const BasicInputField({
     super.key,
@@ -24,6 +27,7 @@ class BasicInputField extends StatefulWidget {
     this.isPassword = false,
     this.focusNode,
     this.maxLength,
+    this.onChanged, // ✅ Add to constructor
   });
 
   @override
@@ -59,6 +63,7 @@ class _BasicInputFieldState extends State<BasicInputField> {
       keyboardType: widget.inputType,
       inputFormatters: _formatters,
       obscureText: widget.isPassword ? _isObscured : false,
+      onChanged: widget.onChanged, // ✅ Pass to TextFormField
       style: const TextStyle(
         color: ThemeConfig.primaryGreen,
         fontWeight: FontWeight.w500,
@@ -99,13 +104,9 @@ class _BasicInputFieldState extends State<BasicInputField> {
             : null,
       ),
       validator: (v) {
-        // 1. Check Required Status
         if (widget.isRequired && (v == null || v.trim().isEmpty)) {
           return "${widget.label} is required";
         }
-
-        // 2. Check Fixed Length (Only if value is NOT empty)
-        // This ensures optional fields (like Edit PIN) don't fail when left blank.
         if (widget.maxLength != null && v != null && v.isNotEmpty && v.length != widget.maxLength) {
            return "${widget.label} must be ${widget.maxLength} digits";
         }
