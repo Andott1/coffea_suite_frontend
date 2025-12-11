@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:uuid/uuid.dart';
 
 import '../../config/theme_config.dart';
 import '../../config/font_config.dart';
@@ -149,6 +148,7 @@ class _IngredientEditScreenState extends State<IngredientEditScreen> {
         Navigator.pop(context);
       }
     } catch (e) {
+      if (!mounted) return;
       DialogUtils.showToast(context, "Error: $e", icon: Icons.error);
     }
   }

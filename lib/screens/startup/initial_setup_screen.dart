@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
-import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../core/models/user_model.dart';
 import '../../core/services/hive_service.dart';
@@ -73,6 +72,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
         Navigator.pushReplacementNamed(context, '/');
       }
     } catch (e) {
+      if (!mounted) return;
       DialogUtils.showToast(context, "Error creating admin: $e", icon: Icons.error);
     }
   }

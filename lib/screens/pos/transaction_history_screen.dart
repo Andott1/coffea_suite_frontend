@@ -116,7 +116,10 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
-              // 1. ✅ Restore Inventory First
+              // ✅ Capture Navigator before async gap
+              final navigator = Navigator.of(ctx);
+
+              // 1. Restore Inventory
               await StockLogic.restoreStock(txn.items, txn.id);
 
               // 2. Update Transaction Model
@@ -161,8 +164,9 @@ class _TransactionHistoryScreenState extends State<TransactionHistoryScreen> {
                 }
               );
               
+              // ✅ Safe UI Update
               if(mounted) {
-                Navigator.pop(ctx);
+                navigator.pop(); // Use captured navigator
                 DialogUtils.showToast(context, "Transaction Voided & Stock Restored", accentColor: Colors.red);
               }
             }, 

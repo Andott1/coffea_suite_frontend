@@ -5,7 +5,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
-import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../core/bloc/auth/auth_bloc.dart';
 import '../../core/bloc/auth/auth_event.dart';
@@ -16,7 +15,6 @@ import '../../core/models/sync_queue_model.dart';
 import '../../core/services/session_user.dart';
 import '../../core/services/hive_service.dart';
 import '../../core/services/supabase_sync_service.dart'; 
-import '../../core/utils/responsive.dart';
 import '../../core/utils/dialog_utils.dart'; 
 import '../../core/widgets/login_dialog.dart';
 import 'initial_setup_screen.dart';
