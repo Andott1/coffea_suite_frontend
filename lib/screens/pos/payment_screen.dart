@@ -292,15 +292,15 @@ class _PaymentScreenState extends State<PaymentScreen> {
           flex: 1,
           child: Column(
             children: [
-              _quickBillBtn("Exact", () => _setExact(total), color: Colors.blue.shade50, textColor: Colors.blue),
-              const SizedBox(height: 8),
-              _quickBillBtn("₱ 100", () => _addBill(100)),
-              const SizedBox(height: 8),
-              _quickBillBtn("₱ 200", () => _addBill(200)),
-              const SizedBox(height: 8),
-              _quickBillBtn("₱ 500", () => _addBill(500)),
-              const SizedBox(height: 8),
-              _quickBillBtn("₱ 1000", () => _addBill(1000)),
+            _quickIconBtn(Icons.backspace_outlined, _onBackspace, color: Colors.red.shade50, iconColor: Colors.red),
+            const SizedBox(height: 8),
+            _quickBillBtn("Exact", () => _setExact(total), color: Colors.blue.shade50, textColor: Colors.blue),
+            const SizedBox(height: 8),
+            _quickBillBtn("₱ 100", () => _addBill(100)),
+            const SizedBox(height: 8),
+            _quickBillBtn("₱ 500", () => _addBill(500)),
+            const SizedBox(height: 8),
+            _quickBillBtn("₱ 1000", () => _addBill(1000)),
             ],
           ),
         )
@@ -364,6 +364,25 @@ class _PaymentScreenState extends State<PaymentScreen> {
               Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: isSelected ? Colors.white : Colors.grey)),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _quickIconBtn(IconData icon, VoidCallback onTap, {Color? color, Color? iconColor}) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color ?? Colors.white,
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 2, offset: const Offset(0,2))]
+          ),
+          child: Icon(icon, color: iconColor ?? Colors.black87, size: 24),
         ),
       ),
     );

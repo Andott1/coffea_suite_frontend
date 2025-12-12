@@ -355,6 +355,8 @@ class SupabaseSyncService {
               variant: itemMap['variant'] ?? '',
               price: (itemMap['price'] as num).toDouble(),
               quantity: (itemMap['qty'] as num).toInt(),
+              discount: (itemMap['discount'] as num?)?.toDouble() ?? 0.0,
+              note: itemMap['note'] ?? '',
             ));
           }
         }
@@ -450,7 +452,9 @@ class SupabaseSyncService {
           'variant': i.variant,
           'qty': i.quantity,
           'price': i.price,
-          'total': i.total
+          'discount': i.discount,
+          'note': i.note ?? '',
+          'total': i.total,
         }).toList(),
       });
     }

@@ -9,6 +9,7 @@ class ModernScaffold extends StatelessWidget {
   final int activeIndex;
   final ValueChanged<int> onTabSelected;
   final Widget body;
+  final bool resizeToAvoidBottomInset;
 
   const ModernScaffold({
     super.key,
@@ -17,6 +18,7 @@ class ModernScaffold extends StatelessWidget {
     required this.activeIndex,
     required this.onTabSelected,
     required this.body,
+    this.resizeToAvoidBottomInset = true,
   });
 
   @override
@@ -29,6 +31,7 @@ class ModernScaffold extends StatelessWidget {
       },
       child: Scaffold(
         backgroundColor: Colors.white, // Content area is pure white
+        resizeToAvoidBottomInset: resizeToAvoidBottomInset,
         body: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [

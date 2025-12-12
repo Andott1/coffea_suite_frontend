@@ -96,6 +96,7 @@ class _POSBaseScreenState extends State<POSBaseScreen> {
           setState(() => _activeIndex = index);
           SystemTabMemory.setLastTab(CoffeaSystem.pos, index);
         },
+        resizeToAvoidBottomInset: false,
         body: IndexedStack(
           index: _activeIndex,
           children: _currentScreens, // ✅ Dynamic Screens
