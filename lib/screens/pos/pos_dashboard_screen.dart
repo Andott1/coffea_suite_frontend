@@ -31,13 +31,17 @@ class POSDashboardScreen extends StatelessWidget {
         int totalOrders = todayTransactions.length;
         
         final List<double> hourlySales = List.filled(24, 0.0);
-        final Map<String, double> paymentSplit = {};
+        
+        // ✅ CHANGED: Map to store Count (int) instead of Amount (double)
+        final Map<String, int> paymentCounts = {};
         final Map<String, int> productCounts = {};
 
         for (var t in todayTransactions) {
           totalSales += t.totalAmount;
           hourlySales[t.dateTime.hour] += t.totalAmount;
-          paymentSplit[t.paymentMethod] = (paymentSplit[t.paymentMethod] ?? 0) + t.totalAmount;
+          
+          // Increment transaction count for this payment method
+          paymentCounts[t.paymentMethod] = (paymentCounts[t.paymentMethod] ?? 0) + 1;
 
           for (var item in t.items) {
             productCounts[item.product.name] = (productCounts[item.product.name] ?? 0) + item.quantity;
@@ -46,9 +50,13 @@ class POSDashboardScreen extends StatelessWidget {
 
         final avgTicket = totalOrders > 0 ? totalSales / totalOrders : 0.0;
 
+        // Sort Data
         final topProducts = productCounts.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value)); 
         final top5 = topProducts.take(5).toList();
+
+        final sortedPayments = paymentCounts.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
         // ──────────────── UI LAYOUT ────────────────
         return Scaffold(
@@ -113,7 +121,6 @@ class POSDashboardScreen extends StatelessWidget {
                       // LEFT: HOURLY CHART
                       Expanded(
                         flex: 3,
-                        // ✅ FIX: Use direct container logic instead of ContainerCard
                         child: _buildChartContainer(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -133,23 +140,29 @@ class POSDashboardScreen extends StatelessWidget {
 
                       const SizedBox(width: 20),
 
-                      // RIGHT: SPLIT & TOP ITEMS
+                      // RIGHT: LISTS (Payment & Products)
                       Expanded(
                         flex: 2,
                         child: Column(
                           children: [
-                            // Payment Split
+                            // Payment Methods List (REPLACED PIE CHART)
                             Expanded(
                               child: _buildChartContainer(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text("Payment Methods", style: FontConfig.h3(context)),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 12),
                                     Expanded(
-                                      child: paymentSplit.isEmpty 
+                                      child: sortedPayments.isEmpty 
                                         ? Center(child: Text("No Sales Yet", style: TextStyle(color: Colors.grey[400])))
-                                        : _PaymentPieChart(data: paymentSplit, total: totalSales),
+                                        : ListView.builder(
+                                            itemCount: sortedPayments.length,
+                                            itemBuilder: (ctx, i) {
+                                               final entry = sortedPayments[i];
+                                               return _buildPaymentRow(entry.key, entry.value, context);
+                                            },
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -158,7 +171,7 @@ class POSDashboardScreen extends StatelessWidget {
                             
                             const SizedBox(height: 20),
 
-                            // Top Products
+                            // Top Products List
                             Expanded(
                               child: _buildChartContainer(
                                 child: Column(
@@ -192,7 +205,36 @@ class POSDashboardScreen extends StatelessWidget {
     );
   }
 
-  // ✅ NEW: Helper to style containers exactly like ContainerCard but safe for Expanded children
+  // ✅ NEW: Helper to build Payment Rows (List Style)
+  Widget _buildPaymentRow(String method, int count, BuildContext context) {
+    String label = method.toUpperCase();
+    if (label == "EWALLET") label = "E-WALLET";
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 4, height: 24,
+                decoration: BoxDecoration(
+                  color: ThemeConfig.primaryGreen,
+                  borderRadius: BorderRadius.circular(2)
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            ],
+          ),
+          Text("$count", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  // Helper to style containers
   Widget _buildChartContainer({required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -278,7 +320,7 @@ class POSDashboardScreen extends StatelessWidget {
   }
 }
 
-// ──────────────── CHARTS (Same as before) ────────────────
+// ──────────────── CHARTS ────────────────
 
 class _HourlyBarChart extends StatelessWidget {
   final List<double> hourlyData;
@@ -346,78 +388,6 @@ class _HourlyBarChart extends StatelessWidget {
           );
         }),
       ),
-    );
-  }
-}
-
-class _PaymentPieChart extends StatelessWidget {
-  final Map<String, double> data;
-  final double total;
-  
-  const _PaymentPieChart({required this.data, required this.total});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          flex: 3,
-          child: PieChart(
-            PieChartData(
-              sectionsSpace: 2,
-              centerSpaceRadius: 30,
-              sections: data.entries.map((e) {
-                final percent = (e.value / total) * 100;
-                Color color;
-                switch(e.key) {
-                  case "cash": color = Colors.green; break;
-                  case "card": color = Colors.blue; break;
-                  case "eWallet": color = Colors.purple; break;
-                  default: color = Colors.grey;
-                }
-                
-                return PieChartSectionData(
-                  color: color,
-                  value: e.value,
-                  title: '${percent.toStringAsFixed(0)}%',
-                  radius: 40,
-                  titleStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-        
-        const SizedBox(width: 10),
-
-        Expanded(
-          flex: 2,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: data.entries.map((e) {
-               String cleanLabel = e.key.replaceAll("PaymentMethod.", "").toUpperCase();
-               Color color;
-               switch(e.key) {
-                  case "cash": color = Colors.green; break;
-                  case "card": color = Colors.blue; break;
-                  case "eWallet": color = Colors.purple; break;
-                  default: color = Colors.grey;
-               }
-               return Padding(
-                 padding: const EdgeInsets.symmetric(vertical: 4),
-                 child: Row(
-                   children: [
-                     Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-                     const SizedBox(width: 8),
-                     Expanded(child: Text(cleanLabel, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600))),
-                   ],
-                 ),
-               );
-            }).toList(),
-          ),
-        )
-      ],
     );
   }
 }

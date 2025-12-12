@@ -29,7 +29,7 @@ class AttendanceDashboardTab extends StatelessWidget {
         // Sort logs: Latest Time In first
         todayLogs.sort((a, b) => b.timeIn.compareTo(a.timeIn));
 
-        final activeUsersCount = HiveService.userBox.values.where((u) => u.isActive).length;
+        final activeUsersCount = HiveService.userBox.values.where((u) => u.isActive && u.role != UserRoleLevel.admin).length;
 
         int onFloor = 0;
         int onBreak = 0;
@@ -100,40 +100,42 @@ class AttendanceDashboardTab extends StatelessWidget {
                     // ─── LEFT: VISUAL ROSTER (Active Staff) ───
                     Expanded(
                       flex: 2,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Live Floor View", style: FontConfig.h3(context)),
-                          const SizedBox(height: 12),
-                          
-                          activeLogs.isEmpty
-                            ? ContainerCard(
-                                child: Center(
+                      // ✅ WRAPPED IN CONTAINER CARD
+                      child: ContainerCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text("Live Floor View", style: FontConfig.h3(context)),
+                            const SizedBox(height: 12),
+                            
+                            activeLogs.isEmpty
+                              // ✅ Removed inner ContainerCard to avoid double border
+                              ? Center(
                                   child: Padding(
                                     padding: const EdgeInsets.all(30.0),
                                     child: Text("No employees currently clocked in.", style: TextStyle(color: Colors.grey[400])),
                                   ),
-                                ),
-                              )
-                            : GridView.builder(
-                                shrinkWrap: true,
-                                physics: const NeverScrollableScrollPhysics(),
-                                itemCount: activeLogs.length,
-                                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 3,
-                                  childAspectRatio: 2.2, // Rectangular cards
-                                  crossAxisSpacing: 12,
-                                  mainAxisSpacing: 12,
-                                ),
-                                itemBuilder: (context, index) {
-                                  final log = activeLogs[index];
-                                  final user = HiveService.userBox.get(log.userId);
-                                  final isOnBreak = log.breakStart != null && log.breakEnd == null;
+                                )
+                              : GridView.builder(
+                                  shrinkWrap: true,
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  itemCount: activeLogs.length,
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 3,
+                                    childAspectRatio: 2.2, // Rectangular cards
+                                    crossAxisSpacing: 12,
+                                    mainAxisSpacing: 12,
+                                  ),
+                                  itemBuilder: (context, index) {
+                                    final log = activeLogs[index];
+                                    final user = HiveService.userBox.get(log.userId);
+                                    final isOnBreak = log.breakStart != null && log.breakEnd == null;
 
-                                  return _buildEmployeeCard(context, user, log, isOnBreak);
-                                },
-                              ),
-                        ],
+                                    return _buildEmployeeCard(context, user, log, isOnBreak);
+                                  },
+                                ),
+                          ],
+                        ),
                       ),
                     ),
 

@@ -91,6 +91,7 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
         Navigator.pop(context);
       }
     } catch (e) {
+      if (!mounted) return;
       DialogUtils.showToast(context, "Error: $e", icon: Icons.error);
     }
   }

@@ -40,6 +40,7 @@ class _InventoryLogsTabState extends State<InventoryLogsTab> {
         // In a real app, you might want to use Share.shareXFiles here to open it
       }
     } catch (e) {
+      if (!mounted) return;
       DialogUtils.showToast(context, "Export failed: $e", icon: Icons.error);
     }
   }
@@ -51,6 +52,7 @@ class _InventoryLogsTabState extends State<InventoryLogsTab> {
         DialogUtils.showToast(context, "Backup created: ${entry.filename}");
       }
     } catch (e) {
+      if (!mounted) return;
       DialogUtils.showToast(context, "Backup failed: $e", icon: Icons.error);
     }
   }

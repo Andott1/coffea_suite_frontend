@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "coffea_suite_frontend" "\0"
+            VALUE "FileDescription", "coffea_suite" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "coffea_suite_frontend" "\0"
+            VALUE "InternalName", "coffea_suite" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "coffea_suite_frontend.exe" "\0"
-            VALUE "ProductName", "coffea_suite_frontend" "\0"
+            VALUE "OriginalFilename", "coffea_suite.exe" "\0"
+            VALUE "ProductName", "coffea_suite" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

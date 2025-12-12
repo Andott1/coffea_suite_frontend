@@ -3,13 +3,19 @@ import '../../../config/theme_config.dart';
 import '../../../core/utils/format_utils.dart';
 import '../../../core/widgets/basic_button.dart';
 import '../../../core/widgets/basic_input_field.dart';
-import '../../../core/widgets/dialog_box_titled.dart';
+import '../../../core/widgets/searchable_picker_dialog.dart';
 
 class PricingEditorWidget extends StatefulWidget {
   final String pricingType; // "size" or "variant"
   final Map<String, TextEditingController> priceControllers;
   final Function(String) onAddSize;
   final Function(String) onRemoveSize;
+  final List<String> existingVariants;
+  
+  // ✅ NEW: Import Feature Props
+  final List<String> importSuggestions; // ["12oz, 16oz", "Single, Box"]
+  final List<String> importOptions;     // ["Latte", "Cappuccino"]
+  final Function(String) onImport;      // Callback when user picks one
 
   const PricingEditorWidget({
     super.key,
@@ -17,6 +23,10 @@ class PricingEditorWidget extends StatefulWidget {
     required this.priceControllers,
     required this.onAddSize,
     required this.onRemoveSize,
+    required this.existingVariants,
+    required this.importSuggestions, // ✅ Required
+    required this.importOptions,     // ✅ Required
+    required this.onImport,          // ✅ Required
   });
 
   @override
@@ -24,52 +34,44 @@ class PricingEditorWidget extends StatefulWidget {
 }
 
 class _PricingEditorWidgetState extends State<PricingEditorWidget> {
-  void _showAddDialog() {
-    final controller = TextEditingController();
-    final label = widget.pricingType == "size" ? "Size (e.g. 12oz)" : "Variant Name";
-    
-    // Common presets
-    final presets = widget.pricingType == "size" 
-        ? ["12oz", "16oz", "22oz", "HOT"] 
-        : ["Regular", "Single", "Box", "Slice"];
+  
+  void _showAddDialog() async {
+    final List<String> suggestions = widget.pricingType == "size"
+        ? ["12oz", "16oz", "22oz", "Hot", "Iced"] 
+        : ["Regular", "Large", "Single", "Box", "Slice"];
 
-    showDialog(
+    final selected = await showDialog<List<String>>(
       context: context,
-      builder: (ctx) => DialogBoxTitled(
-        title: "Add ${widget.pricingType == "size" ? "Size" : "Variant"}",
-        width: 400,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.close, color: ThemeConfig.primaryGreen),
-            onPressed: () => Navigator.pop(ctx),
-          )
-        ],
-        child: Column(
-          children: [
-            BasicInputField(label: label, controller: controller),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              children: presets.map((p) => ActionChip(
-                label: Text(p),
-                onPressed: () => controller.text = p,
-              )).toList(),
-            ),
-            const SizedBox(height: 24),
-            BasicButton(
-              label: "Add", 
-              type: AppButtonType.primary,
-              onPressed: () {
-                if (controller.text.isNotEmpty) {
-                  widget.onAddSize(controller.text.trim());
-                  Navigator.pop(ctx);
-                }
-              }
-            )
-          ],
-        ),
-      )
+      builder: (context) => SearchablePickerDialog(
+        title: "Add ${widget.pricingType == 'size' ? 'Sizes' : 'Variants'}",
+        items: widget.existingVariants,
+        suggestions: suggestions,
+        multiSelect: true,
+      ),
     );
+
+    if (selected != null && selected.isNotEmpty) {
+      for (final item in selected) {
+        widget.onAddSize(item);
+      }
+    }
+  }
+
+  // ✅ NEW: Import Dialog Logic
+  void _showImportDialog() async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) => SearchablePickerDialog(
+        title: "Import Prices from...",
+        items: widget.importOptions,       // Product Names
+        suggestions: widget.importSuggestions, // Common Structures
+        multiSelect: false,
+      ),
+    );
+
+    if (selected != null && selected.isNotEmpty) {
+      widget.onImport(selected);
+    }
   }
 
   @override
@@ -84,10 +86,32 @@ class _PricingEditorWidgetState extends State<PricingEditorWidget> {
               "${widget.pricingType == 'size' ? 'Sizes' : 'Variants'} & Prices",
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen),
             ),
-            TextButton.icon(
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text("Add"),
-              onPressed: _showAddDialog,
+            
+            // ✅ ACTION BUTTONS ROW
+            Row(
+              children: [
+                // Import Button
+                TextButton.icon(
+                  icon: const Icon(Icons.copy_all, size: 18),
+                  label: const Text("Import/Preset"),
+                  onPressed: _showImportDialog,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue[700],
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Add Button
+                TextButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text("Add"),
+                  onPressed: _showAddDialog,
+                  style: TextButton.styleFrom(
+                    foregroundColor: ThemeConfig.primaryGreen,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -102,7 +126,7 @@ class _PricingEditorWidgetState extends State<PricingEditorWidget> {
               borderRadius: BorderRadius.circular(8),
               color: Colors.grey[50],
             ),
-            child: const Text("No variants defined.", style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
+            child: const Text("No variants defined. Click 'Add' or 'Import' to start.", style: TextStyle(color: Colors.grey), textAlign: TextAlign.center),
           )
         else
           ListView.builder(
@@ -117,19 +141,21 @@ class _PricingEditorWidgetState extends State<PricingEditorWidget> {
                 padding: const EdgeInsets.only(bottom: 8.0),
                 child: Row(
                   children: [
+                    // VARIANT NAME
                     Expanded(
                       flex: 2,
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
                         decoration: BoxDecoration(
-                          color: ThemeConfig.primaryGreen.withOpacity(0.05),
+                          color: ThemeConfig.primaryGreen.withValues(alpha: 0.05),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: ThemeConfig.primaryGreen.withOpacity(0.2))
+                          border: Border.all(color: ThemeConfig.primaryGreen.withValues(alpha: 0.2))
                         ),
                         child: Text(key, style: const TextStyle(fontWeight: FontWeight.bold, color: ThemeConfig.primaryGreen)),
                       ),
                     ),
                     const SizedBox(width: 12),
+                    // PRICE INPUT
                     Expanded(
                       flex: 3,
                       child: BasicInputField(
@@ -140,6 +166,7 @@ class _PricingEditorWidgetState extends State<PricingEditorWidget> {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // DELETE
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red),
                       onPressed: () => widget.onRemoveSize(key),

@@ -1,24 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:intl/intl.dart'; // For time formatting
+import 'package:intl/intl.dart';
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
 import '../../core/models/product_model.dart';
 import '../../core/services/hive_service.dart';
 import '../../core/utils/format_utils.dart';
-import '../../core/utils/responsive.dart';
 import '../../core/utils/dialog_utils.dart';
 import 'bloc/pos_bloc.dart';
 import 'bloc/pos_state.dart';
 import 'bloc/pos_event.dart';
 
 import '../../core/models/transaction_model.dart';
-
 import '../../core/widgets/basic_button.dart'; 
-
 import '../../core/services/supabase_sync_service.dart';
-
 import 'bloc/stock_logic.dart';
 import 'product_builder_dialog.dart';
 import 'payment_screen.dart';
@@ -32,26 +28,27 @@ class CashierScreen extends StatefulWidget {
 
 class _CashierScreenState extends State<CashierScreen> {
   // ──────────────── STATE ────────────────
-  String _selectedCategory = "Drinks"; 
-  String _selectedSubCategory = "Coffee"; 
+  String _selectedCategory = ""; 
+  String _selectedSubCategory = ""; 
   String _searchQuery = "";
   
   bool _isQueueOpen = false;
 
   // ──────────────── HELPER: DATA FILTERING ────────────────
-  List<ProductModel> _getFilteredProducts() {
-    final box = HiveService.productBox;
-    return box.values.where((p) {
+  
+  List<ProductModel> _getFilteredProducts(List<ProductModel> allProducts) {
+    return allProducts.where((p) {
+      if (_searchQuery.isNotEmpty) {
+        return p.name.toLowerCase().contains(_searchQuery.toLowerCase());
+      }
       if (p.category != _selectedCategory) return false;
-      
-      // ✅ FIX: Only filter by subCategory if one is actually selected
       if (_selectedSubCategory.isNotEmpty && p.subCategory != _selectedSubCategory) return false;
       
-      if (_searchQuery.isNotEmpty && !p.name.toLowerCase().contains(_searchQuery.toLowerCase())) return false;
       return true;
     }).toList();
   }
 
+  // Helper for consistent product tile coloring based on type
   Color _getProductColor(ProductModel p) {
     if (p.isDrink) return const Color(0xFF8D6E63); 
     if (p.subCategory == "Non-Coffee") return const Color(0xFF81C784); 
@@ -79,6 +76,8 @@ class _CashierScreenState extends State<CashierScreen> {
   }
 
   void _voidTransaction(TransactionModel txn) async {
+    await StockLogic.restoreStock(txn.items, txn.id);
+
     final newTxn = TransactionModel(
       id: txn.id,
       dateTime: txn.dateTime,
@@ -121,7 +120,7 @@ class _CashierScreenState extends State<CashierScreen> {
 
     if (mounted) {
       Navigator.pop(context); 
-      DialogUtils.showToast(context, "Order Voided", accentColor: Colors.red);
+      DialogUtils.showToast(context, "Order Voided & Stock Restored", accentColor: Colors.red);
     }
   }
 
@@ -194,98 +193,153 @@ class _CashierScreenState extends State<CashierScreen> {
                 // ─── LAYER 1: THE MAIN CASHIER UI ───
                 Padding(
                   padding: const EdgeInsets.only(top: 70), 
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Category Selector
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: SizedBox(
-                          child: Row(
+                  child: ValueListenableBuilder(
+                    valueListenable: HiveService.productBox.listenable(),
+                    builder: (context, Box<ProductModel> box, _) {
+                      
+                      // 1. EXTRACT UNIQUE CATEGORIES
+                      final allProducts = box.values.toList();
+                      final categories = allProducts
+                          .map((p) => p.category)
+                          .where((c) => c.isNotEmpty)
+                          .toSet()
+                          .toList()..sort();
+
+                      // Handle Empty DB
+                      if (categories.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _buildBigCategoryCard("Drinks", Icons.local_cafe, const Color(0xFF1B3E2F)),
-                              const SizedBox(width: 12),
-                              _buildBigCategoryCard("Meals", Icons.restaurant, const Color(0xFFE0F2F1)),
-                              const SizedBox(width: 12),
-                              _buildBigCategoryCard("Desserts", Icons.cake, const Color(0xFFE0F2F1)),
+                              const Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
+                              const SizedBox(height: 16),
+                              Text("No products found.", style: FontConfig.h2(context).copyWith(color: Colors.grey)),
+                              const Text("Go to Admin > Products to add items.", style: TextStyle(color: Colors.grey)),
                             ],
                           ),
-                        ),
-                      ),
+                        );
+                      }
 
-                      const SizedBox(height: 10),
+                      // 2. AUTO-SELECT CATEGORY
+                      if (_selectedCategory.isEmpty || !categories.contains(_selectedCategory)) {
+                        _selectedCategory = categories.first;
+                        _selectedSubCategory = ""; // Reset sub
+                      }
 
-                      // Sub-Categories
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: _getSubCategories().map((sub) {
-                              final isSelected = _selectedSubCategory == sub;
-                              return Padding(
-                                padding: const EdgeInsets.only(right: 10),
-                                child: FilterChip(
-                                  label: Text(sub),
-                                  selected: isSelected,
-                                  onSelected: (v) => setState(() => _selectedSubCategory = sub),
-                                  backgroundColor: Colors.white,
-                                  selectedColor: const Color(0xFF6D4C41),
-                                  labelStyle: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.black87,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  checkmarkColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                  side: BorderSide.none,
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ),
-                      ),
+                      // 3. EXTRACT SUB-CATEGORIES
+                      final subCategories = allProducts
+                          .where((p) => p.category == _selectedCategory)
+                          .map((p) => p.subCategory)
+                          .where((s) => s.isNotEmpty)
+                          .toSet()
+                          .toList()..sort();
 
-                      const SizedBox(height: 10),
+                      // 4. AUTO-SELECT SUB-CATEGORY
+                      if (subCategories.isNotEmpty && (_selectedSubCategory.isEmpty || !subCategories.contains(_selectedSubCategory))) {
+                        _selectedSubCategory = subCategories.first;
+                      } else if (subCategories.isEmpty) {
+                        _selectedSubCategory = "";
+                      }
 
-                      // Product Grid
-                      Expanded(
-                        child: ValueListenableBuilder(
-                          valueListenable: HiveService.productBox.listenable(),
-                          builder: (context, _, __) {
-                            final products = _getFilteredProducts();
-                            
-                            // ✅ Graceful Empty State
-                            if (products.isEmpty) {
-                              return Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    const Icon(Icons.search_off, size: 48, color: Colors.grey),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      "No products available in this category.", 
-                                      style: FontConfig.body(context).copyWith(color: Colors.grey)
-                                    ),
-                                  ],
-                                )
-                              );
-                            }
+                      // 5. GET FINAL PRODUCTS
+                      final products = _getFilteredProducts(allProducts);
 
-                            return GridView.builder(
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // ─── LEVEL 1: WIDE HORIZONTAL CARDS (Standardized Green) ───
+                          SizedBox(
+                            height: 70, 
+                            child: ListView.separated(
                               padding: const EdgeInsets.symmetric(horizontal: 20),
-                              itemCount: products.length,
-                              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 4,
-                                childAspectRatio: 1,
-                                crossAxisSpacing: 14,
-                                mainAxisSpacing: 14,
+                              scrollDirection: Axis.horizontal,
+                              itemCount: categories.length,
+                              separatorBuilder: (_,__) => const SizedBox(width: 16),
+                              itemBuilder: (context, index) {
+                                final cat = categories[index];
+                                return _buildWideCategoryCard(cat);
+                              },
+                            ),
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // ─── LEVEL 2: SUB-CATEGORIES (Standardized Brown, Rectangular) ───
+                          if (subCategories.isNotEmpty)
+                            SizedBox(
+                              height: 45,
+                              child: ListView.separated(
+                                padding: const EdgeInsets.symmetric(horizontal: 20),
+                                scrollDirection: Axis.horizontal,
+                                itemCount: subCategories.length,
+                                separatorBuilder: (_,__) => const SizedBox(width: 10),
+                                itemBuilder: (context, index) {
+                                  final sub = subCategories[index];
+                                  final isSelected = _selectedSubCategory == sub;
+                                  return GestureDetector(
+                                    onTap: () => setState(() => _selectedSubCategory = sub),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        // ✅ FIXED: ThemeConfig.coffeeBrown for selection
+                                        color: isSelected ? ThemeConfig.coffeeBrown : Colors.white,
+                                        // ✅ FIXED: Rectangular Rounded (8px) instead of Pill (25px)
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(
+                                          color: isSelected ? ThemeConfig.coffeeBrown : Colors.grey.shade300
+                                        ),
+                                        boxShadow: isSelected 
+                                            ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))] 
+                                            : null,
+                                      ),
+                                      child: Text(
+                                        sub,
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                          color: isSelected ? Colors.white : Colors.grey[700],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                              itemBuilder: (context, index) => _buildProductCard(products[index]),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
+                            ),
+
+                          //const SizedBox(height: 10),
+
+                          // ─── PRODUCT GRID ───
+                          Expanded(
+                            child: products.isEmpty
+                              ? Center(
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.search_off, size: 48, color: Colors.grey),
+                                      const SizedBox(height: 10),
+                                      Text(
+                                        "No products found here.", 
+                                        style: FontConfig.body(context).copyWith(color: Colors.grey)
+                                      ),
+                                    ],
+                                  )
+                                )
+                              : GridView.builder(
+                                  padding: const EdgeInsets.all(20),
+                                  itemCount: products.length,
+                                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 4,
+                                    childAspectRatio: 0.85,
+                                    crossAxisSpacing: 16,
+                                    mainAxisSpacing: 16,
+                                  ),
+                                  itemBuilder: (context, index) => _buildProductCard(products[index]),
+                                ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
 
@@ -354,9 +408,7 @@ class _CashierScreenState extends State<CashierScreen> {
             ),
           ),
 
-          // ────────────────────────────────────────────
-          // RIGHT SIDE: CART SIDEBAR
-          // ────────────────────────────────────────────
+          // ──────────────── RIGHT SIDE: CART ────────────────
           Container(
             width: 400, 
             color: Colors.white,
@@ -364,6 +416,64 @@ class _CashierScreenState extends State<CashierScreen> {
             child: _buildCartSidebar(),
           ),
         ],
+      ),
+    );
+  }
+
+  // ──────────────── WIDE CATEGORY CARD (Standardized) ────────────────
+  Widget _buildWideCategoryCard(String category) {
+    final isSelected = _selectedCategory == category;
+    // ✅ FIXED: Using Primary Green universally for selected state
+    final color = ThemeConfig.primaryGreen;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() { 
+          _selectedCategory = category;
+          _selectedSubCategory = ""; // Reset sub
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: 180, 
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        decoration: BoxDecoration(
+          color: isSelected ? color : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isSelected ? 0.3 : 0.05),
+              blurRadius: isSelected ? 8 : 4,
+              offset: const Offset(0, 4),
+            )
+          ],
+          border: isSelected ? null : Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // ✅ FIXED: Using generic category icon universally
+            Icon(
+              Icons.category, // Standard icon
+              size: 24, 
+              color: isSelected ? Colors.white.withValues(alpha: 0.9) : color
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                category.toUpperCase(),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: isSelected ? Colors.white : Colors.black87,
+                  letterSpacing: 0.5,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -420,7 +530,6 @@ class _CashierScreenState extends State<CashierScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final t = transactions[index];
-                      
                       String summary = "${t.items.length} Items";
                       if (t.items.isNotEmpty) {
                         summary = "${t.items[0].quantity}x ${t.items[0].product.name}";
@@ -594,49 +703,7 @@ class _CashierScreenState extends State<CashierScreen> {
     );
   }
 
-  // ──────────────── CATEGORY & PRODUCT WIDGETS ────────────────
-  Widget _buildBigCategoryCard(String title, IconData icon, Color bgColor) {
-    final isSelected = _selectedCategory == title;
-    final fgColor = isSelected ? Colors.white : Colors.black87;
-    final activeBg = isSelected ? const Color(0xFF1B3E2F) : Colors.white;
-
-    return Expanded(
-      child: GestureDetector(
-        // ✅ FIX: Safely handle empty categories
-        onTap: () {
-          setState(() { 
-            _selectedCategory = title;
-            final subs = _getSubCategories();
-            // If category has subcategories, select first. Else empty string.
-            _selectedSubCategory = subs.isNotEmpty ? subs.first : ""; 
-          });
-        },
-        child: Container(
-          decoration: BoxDecoration(
-            color: activeBg,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [if (!isSelected) BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
-          ),
-          child: Stack(
-            children: [
-              Positioned(right: -10, bottom: -10, child: Icon(icon, size: 80, color: fgColor.withValues(alpha: 0.1))),
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Text(title, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: fgColor)),
-                    const Spacer(),
-                    if(isSelected) const Icon(Icons.check_circle, color: Colors.white, size: 18)
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
+  // ──────────────── PRODUCT CARD WIDGET ────────────────
   Widget _buildProductCard(ProductModel product) {
     final color = _getProductColor(product);
     final bool isVisible = product.available;
@@ -776,9 +843,5 @@ class _CashierScreenState extends State<CashierScreen> {
         ],
       ),
     );
-  }
-
-  List<String> _getSubCategories() {
-    return HiveService.productBox.values.where((p) => p.category == _selectedCategory).map((p) => p.subCategory).toSet().toList()..sort();
   }
 }

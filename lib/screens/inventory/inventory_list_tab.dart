@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../../config/font_config.dart';
 import '../../config/theme_config.dart';
+import '../../core/config/permissions_config.dart';
 import '../../core/models/ingredient_model.dart';
 import '../../core/services/hive_service.dart';
 import '../../core/utils/responsive.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/utils/format_utils.dart';
+import '../../core/widgets/access_control_wrapper.dart';
 import '../../core/widgets/basic_search_box.dart';
 import '../../core/widgets/basic_dropdown_button.dart'; // Reusing your custom dropdown
 import '../../core/widgets/container_card.dart';
@@ -357,98 +359,100 @@ class _InventoryListTabState extends State<InventoryListTab> {
 
   Widget _buildInventoryCard(IngredientModel item) {
     final color = _getStatusColor(item);
-    return ItemCard(
-      padding: EdgeInsets.zero,
-      onTap: () {
-        // ✅ FIX: Open the new dialog
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => StockAdjustmentDialog(ingredient: item),
-        ).then((_) {
-          // Refresh UI when dialog closes (to show updated stock)
-          if(mounted) setState((){});
-        });
-      },
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: FontConfig.h3(context).copyWith(fontSize: 18),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.category,
-                      style: FontConfig.caption(context),
-                    ),
-                  ],
-                ),
+    return AccessControlWrapper(
+      permission: AppPermission.editInventoryStock,
+      deniedMessage: "Restricted: Managers only.",
+      child: ItemCard(
+        padding: EdgeInsets.zero,
+        onTap: () {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => StockAdjustmentDialog(ingredient: item),
+          ).then((_) {
+            if(mounted) setState((){});
+          });
+        },
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: FontConfig.h3(context).copyWith(fontSize: 18),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.category,
+                        style: FontConfig.caption(context),
+                      ),
+                    ],
+                  ),
 
-                Center(
-                  child: RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: FormatUtils.formatQuantity(item.displayQuantity),
-                          style: TextStyle(
-                            fontSize: 36, 
-                            fontWeight: FontWeight.w800,
-                            color: ThemeConfig.primaryGreen,
-                            fontFamily: 'Roboto'
+                  Center(
+                    child: RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: FormatUtils.formatQuantity(item.displayQuantity),
+                            style: TextStyle(
+                              fontSize: 36, 
+                              fontWeight: FontWeight.w800,
+                              color: ThemeConfig.primaryGreen,
+                              fontFamily: 'Roboto'
+                            ),
                           ),
-                        ),
-                        TextSpan(text: "\n${item.unit}",
-                          style: FontConfig.body(context).copyWith(color: ThemeConfig.secondaryGreen),
-                        ),
-                      ],
+                          TextSpan(text: "\n${item.unit}",
+                            style: FontConfig.body(context).copyWith(color: ThemeConfig.secondaryGreen),
+                          ),
+                        ],
+                      ),
+                      textAlign: TextAlign.center,
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                ),
 
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    _getStatusLabel(item).toUpperCase(),
-                    style: TextStyle(
-                      color: color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 11,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _getStatusLabel(item).toUpperCase(),
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            right: 0, top: 0, bottom: 0,
-            child: Container(
-              width: 6,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(16),
-                  bottomRight: Radius.circular(16),
-                ),
+                ],
               ),
             ),
-          )
-        ],
+            Positioned(
+              right: 0, top: 0, bottom: 0,
+              child: Container(
+                width: 6,
+                decoration: BoxDecoration(
+                  color: color,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                ),
+              ),
+            )
+          ],
+        ),
       ),
     );
   }

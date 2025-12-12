@@ -31,8 +31,6 @@ class StockLogic {
           final totalDeduction = amountPerUnit * quantitySold;
 
           // 4. Find the actual Ingredient Model
-          // Note: This matches by NAME. ID matching is safer but your Usage Model uses names currently.
-          // We fallback to safe searching.
           try {
             final ingredient = ingredientBox.values.firstWhere(
               (i) => i.name == ingredientName
@@ -46,7 +44,7 @@ class StockLogic {
             // ✅ 6. Sync ONLY Quantity (Efficient Partial Update)
             SupabaseSyncService.addToQueue(
               table: 'ingredients',
-              action: 'UPDATE', // <--- Changed from UPSERT
+              action: 'UPDATE', 
               data: {
                 'id': ingredient.id,
                 'quantity': ingredient.quantity, // Only sending the new value
@@ -71,32 +69,115 @@ class StockLogic {
     }
   }
 
+  /// ✅ FIXED: Robust check for availability.
+  /// Returns TRUE if at least ONE variant of the product can be made with current stock.
+  /// Returns FALSE only if ALL variants are impossible to make.
   static bool isProductAvailable(ProductModel product) {
-    // If no ingredients, it's always available (e.g. plain water)
+    // If no ingredients are tracked, it's always available (e.g. Service fee, Water)
     if (product.ingredientUsage.isEmpty) return true;
 
     final ingredientBox = HiveService.ingredientBox;
+    final availableVariants = product.prices.keys.toList();
 
-    // Iterate through all ingredients used by this product
-    for (var entry in product.ingredientUsage.entries) {
-      final ingredientName = entry.key;
-      final variantMap = entry.value;
+    // If no variants defined but ingredients exist, we assume it's one generic item.
+    // We check if we can make at least 1 unit of the "default" or any defined usage.
+    if (availableVariants.isEmpty) return true;
 
-      // 1. Find the ingredient
-      // Note: This naive lookup by name matches your current architecture. 
-      // Ideally we'd use ID in future.
-      final ingredient = ingredientBox.values.firstWhere(
-        (i) => i.name == ingredientName,
-        orElse: () => IngredientModel(id: 'missing', name: '', category: '', unit: '', quantity: -1, updatedAt: DateTime.now(), reorderLevel: 0),
-      );
+    // We check availability for EACH variant. 
+    // If we find AT LEAST ONE makeable variant, the product is "Available".
+    for (String variant in availableVariants) {
+      bool canMakeThisVariant = true;
 
-      // 2. If ingredient doesn't exist (was deleted) OR quantity is 0/negative
-      if (ingredient.quantity <= 0) {
-        return false; // Sold Out
+      // Check all ingredients required for THIS variant
+      for (var entry in product.ingredientUsage.entries) {
+        final ingredientName = entry.key;
+        final usageMap = entry.value;
+
+        // Does this variant use this ingredient?
+        if (usageMap.containsKey(variant)) {
+          final requiredAmount = usageMap[variant]!;
+
+          // Find the ingredient in DB
+          final ingredient = ingredientBox.values.firstWhere(
+            (i) => i.name == ingredientName,
+            orElse: () => IngredientModel(id: 'missing', name: '', category: '', unit: '', quantity: -1, updatedAt: DateTime.now(), reorderLevel: 0),
+          );
+
+          // If ingredient missing or insufficient stock for THIS variant
+          if (ingredient.quantity < requiredAmount) {
+            canMakeThisVariant = false;
+            break; // Stop checking ingredients for this variant, it's dead
+          }
+        }
+      }
+
+      if (canMakeThisVariant) {
+        return true; // Found a valid variant, so Product is Available!
       }
     }
 
-    return true; // All ingredients have > 0 stock
+    // If we finished the loop and found NO makeable variants, it is Sold Out.
+    return false;
+  }
+
+  static Future<void> restoreStock(List<CartItemModel> cart, String orderId) async {
+    final ingredientBox = HiveService.ingredientBox;
+    
+    // 1. AGGREGATION PHASE
+    final Map<String, double> restorationMap = {}; 
+
+    for (final item in cart) {
+      if (item.product.ingredientUsage.isEmpty) continue;
+
+      for (final entry in item.product.ingredientUsage.entries) {
+        final ingredientName = entry.key;
+        final usageMap = entry.value;
+
+        if (usageMap.containsKey(item.variant)) {
+          final amountPerUnit = usageMap[item.variant]!;
+          final totalToRestore = amountPerUnit * item.quantity;
+          
+          restorationMap[ingredientName] = (restorationMap[ingredientName] ?? 0) + totalToRestore;
+        }
+      }
+    }
+
+    // 2. EXECUTION PHASE
+    for (final entry in restorationMap.entries) {
+      final ingredientName = entry.key;
+      final amount = entry.value;
+
+      try {
+        final ingredient = ingredientBox.values.firstWhere(
+          (i) => i.name == ingredientName
+        );
+
+        ingredient.quantity += amount;
+        ingredient.updatedAt = DateTime.now();
+        await ingredient.save();
+
+        SupabaseSyncService.addToQueue(
+          table: 'ingredients',
+          action: 'UPDATE',
+          data: {
+            'id': ingredient.id,
+            'quantity': ingredient.quantity,
+            'updated_at': ingredient.updatedAt.toIso8601String(),
+          },
+        );
+
+        await InventoryLogService.log(
+          ingredientName: ingredient.name,
+          action: "Void",
+          quantity: amount, 
+          unit: ingredient.baseUnit,
+          reason: "Void Order #$orderId",
+        );
+
+      } catch (e) {
+        LoggerService.warning("⚠️ Restore Stock Error: Ingredient '$ingredientName' not found, skipping restore.");
+      }
+    }
   }
 
   static int calculateMaxStock({
@@ -107,34 +188,27 @@ class StockLogic {
     final ingredientBox = HiveService.ingredientBox;
     
     // 1. Calculate "Committed" Stock (Usage by items ALREADY in cart)
-    // Map<IngredientName, TotalUsedAmount>
     final Map<String, double> committedStock = {};
 
     for (final item in currentCart) {
-      // Skip if product has no recipe
       if (item.product.ingredientUsage.isEmpty) continue;
 
-      // Loop through the recipe of the CART ITEM
       for (final entry in item.product.ingredientUsage.entries) {
         final ingName = entry.key;
         final usageMap = entry.value;
 
-        // If this cart item uses this ingredient for its variant
         if (usageMap.containsKey(item.variant)) {
           final usagePerUnit = usageMap[item.variant]!;
           final totalUsed = usagePerUnit * item.quantity;
-
-          // Add to accumulator
           committedStock[ingName] = (committedStock[ingName] ?? 0) + totalUsed;
         }
       }
     }
 
-    // 2. Determine Bottleneck for the NEW item
+    // 2. Determine Bottleneck
     double minYield = double.infinity;
     bool hasTrackedIngredients = false;
 
-    // Loop through the recipe of the TARGET item (the one we want to add)
     for (var entry in product.ingredientUsage.entries) {
       final ingredientName = entry.key;
       final usageMap = entry.value;
@@ -143,20 +217,14 @@ class StockLogic {
         hasTrackedIngredients = true;
         final requiredPerUnit = usageMap[variant]!;
         
-        // Get Real Stock from DB
         final ingredient = ingredientBox.values.firstWhere(
           (i) => i.name == ingredientName,
           orElse: () => IngredientModel(id: 'missing', name: '', category: '', unit: '', quantity: 0, updatedAt: DateTime.now(), reorderLevel: 0),
         );
 
-        // Get Committed Stock from Cart
         final usedAmount = committedStock[ingredientName] ?? 0;
-
-        // Calculate "Free" Stock
         final freeStock = ingredient.quantity - usedAmount;
 
-        // How many can we make with the FREE stock?
-        // If free stock is negative (error state), yield is 0
         final possible = freeStock <= 0 ? 0.0 : (freeStock / requiredPerUnit).floorToDouble();
         
         if (possible < minYield) {
@@ -165,14 +233,8 @@ class StockLogic {
       }
     }
 
-    // If no recipe, return unlimited
     if (!hasTrackedIngredients) return 999;
     if (minYield == double.infinity) return 999;
-
-    // 3. Return Absolute Limit
-    // We don't subtract 'alreadyInCart' here because we already subtracted
-    // the usage of the items in the cart from the 'freeStock' calculation above.
-    // The result 'minYield' IS the remaining capacity.
     
     return minYield.toInt(); 
   }

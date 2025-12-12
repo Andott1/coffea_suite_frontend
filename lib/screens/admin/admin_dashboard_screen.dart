@@ -11,143 +11,175 @@ import '../../core/models/transaction_model.dart';
 import '../../core/models/user_model.dart';
 import '../../core/services/hive_service.dart';
 import '../../core/utils/format_utils.dart';
-import '../../core/widgets/container_card.dart';
 
-class AdminDashboardScreen extends StatelessWidget {
+// ✅ Reuse standard widgets for consistency
+import 'widgets/flat_dropdown.dart';
+
+class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
 
   @override
+  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  String _timeRange = "Last 7 Days"; // Placeholder for filter logic
+
+  @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder(
-      valueListenable: HiveService.transactionBox.listenable(),
-      builder: (context, Box<TransactionModel> txnBox, _) {
-        return ValueListenableBuilder(
-          valueListenable: HiveService.ingredientBox.listenable(),
-          builder: (context, Box<IngredientModel> ingBox, _) {
-            return ValueListenableBuilder(
-              valueListenable: HiveService.attendanceBox.listenable(),
-              builder: (context, Box<AttendanceLogModel> attBox, _) {
-                
-                // ──────────────── CALCULATION ENGINE ────────────────
-                final now = DateTime.now();
-                final todayStart = DateTime(now.year, now.month, now.day);
-                
-                // 1. SALES METRICS (TODAY)
-                final todayTxns = txnBox.values.where((t) => 
-                  !t.isVoid && 
-                  t.dateTime.isAfter(todayStart)
-                ).toList();
-
-                double totalSalesToday = 0;
-                for (var t in todayTxns) totalSalesToday += t.totalAmount;
-                int orderCountToday = todayTxns.length;
-
-                // 2. INVENTORY HEALTH
-                int lowStockCount = 0;
-                int outOfStockCount = 0;
-                for (var i in ingBox.values) {
-                  if (i.quantity <= 0) {
-                    outOfStockCount++;
-                  } else if (i.quantity <= i.reorderLevel) {
-                    lowStockCount++;
-                  }
-                }
-
-                // 3. ATTENDANCE SNAPSHOT
-                final activeStaffIds = attBox.values.where((l) => 
-                  l.date.year == now.year && 
-                  l.date.month == now.month && 
-                  l.date.day == now.day
-                ).map((l) => l.userId).toSet();
-                
-                final totalStaff = HiveService.userBox.values.where((u) => u.isActive && u.role != UserRoleLevel.admin).length;
-                final presentCount = activeStaffIds.length;
-
-                // 4. WEEKLY SALES CHART DATA
-                final List<_DailySales> weeklyData = [];
-                for (int i = 6; i >= 0; i--) {
-                  final date = now.subtract(Duration(days: i));
-                  final startOfDay = DateTime(date.year, date.month, date.day);
-                  final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
-
-                  final daySales = txnBox.values.where((t) => 
+    return Scaffold(
+      backgroundColor: ThemeConfig.lightGray, // Standard Admin Background
+      body: ValueListenableBuilder(
+        valueListenable: HiveService.transactionBox.listenable(),
+        builder: (context, Box<TransactionModel> txnBox, _) {
+          return ValueListenableBuilder(
+            valueListenable: HiveService.ingredientBox.listenable(),
+            builder: (context, Box<IngredientModel> ingBox, _) {
+              return ValueListenableBuilder(
+                valueListenable: HiveService.attendanceBox.listenable(),
+                builder: (context, Box<AttendanceLogModel> attBox, _) {
+                  
+                  // ──────────────── CALCULATION ENGINE ────────────────
+                  final now = DateTime.now();
+                  final todayStart = DateTime(now.year, now.month, now.day);
+                  
+                  // 1. SALES METRICS (TODAY)
+                  final todayTxns = txnBox.values.where((t) => 
                     !t.isVoid && 
-                    t.dateTime.isAfter(startOfDay) && 
-                    t.dateTime.isBefore(endOfDay)
-                  ).fold(0.0, (sum, t) => sum + t.totalAmount);
+                    t.dateTime.isAfter(todayStart)
+                  ).toList();
 
-                  weeklyData.add(_DailySales(
-                    dayLabel: DateFormat('E').format(date),
-                    amount: daySales
-                  ));
-                }
+                  double totalSalesToday = 0;
+                  for (var t in todayTxns) {
+                    totalSalesToday += t.totalAmount;
+                  }
+                  int orderCountToday = todayTxns.length;
 
-                // Safe MaxY calculation
-                double maxChartY = 100;
-                if (weeklyData.isNotEmpty) {
-                  final maxVal = weeklyData.map((e) => e.amount).reduce((a, b) => a > b ? a : b);
-                  if (maxVal > 0) maxChartY = maxVal * 1.2;
-                }
+                  // 2. INVENTORY HEALTH
+                  int lowStockCount = 0;
+                  int outOfStockCount = 0;
+                  for (var i in ingBox.values) {
+                    if (i.quantity <= 0) {
+                      outOfStockCount++;
+                    } else if (i.quantity <= i.reorderLevel) {
+                      lowStockCount++;
+                    }
+                  }
 
-                // ──────────────── UI RENDERING ────────────────
-                return Scaffold(
-                  backgroundColor: ThemeConfig.lightGray,
-                  body: SingleChildScrollView(
-                    padding: const EdgeInsets.all(20),
+                  // 3. ATTENDANCE SNAPSHOT
+                  final activeStaffIds = attBox.values.where((l) => 
+                    l.date.year == now.year && 
+                    l.date.month == now.month && 
+                    l.date.day == now.day &&
+                    l.timeOut == null // Still clocked in
+                  ).map((l) => l.userId).toSet();
+                  
+                  final totalStaff = HiveService.userBox.values.where((u) => u.isActive && u.role != UserRoleLevel.admin).length;
+                  final presentCount = activeStaffIds.length;
+
+                  // 4. WEEKLY SALES CHART DATA
+                  final List<_DailySales> weeklyData = [];
+                  for (int i = 6; i >= 0; i--) {
+                    final date = now.subtract(Duration(days: i));
+                    final startOfDay = DateTime(date.year, date.month, date.day);
+                    final endOfDay = DateTime(date.year, date.month, date.day, 23, 59, 59);
+
+                    final daySales = txnBox.values.where((t) => 
+                      !t.isVoid && 
+                      t.dateTime.isAfter(startOfDay) && 
+                      t.dateTime.isBefore(endOfDay)
+                    ).fold(0.0, (sum, t) => sum + t.totalAmount);
+
+                    weeklyData.add(_DailySales(
+                      dayLabel: DateFormat('E').format(date),
+                      amount: daySales
+                    ));
+                  }
+
+                  double maxChartY = 100;
+                  if (weeklyData.isNotEmpty) {
+                    final maxVal = weeklyData.map((e) => e.amount).reduce((a, b) => a > b ? a : b);
+                    if (maxVal > 0) maxChartY = maxVal * 1.2;
+                  }
+
+                  // ──────────────── UI RENDERING ────────────────
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // TITLE & DATE
-                        ContainerCard(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text("Store Overview", style: FontConfig.h3(context)),
-                              Text(
-                                DateFormat('MMMM dd, yyyy (EEEE)').format(now),
-                                style: const TextStyle(color: ThemeConfig.secondaryGreen, fontWeight: FontWeight.bold),
+                        // ─── 1. HEADER ───
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text("Store Overview", style: FontConfig.h2(context).copyWith(fontSize: 28, fontWeight: FontWeight.w800)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  DateFormat('EEEE, MMMM d, yyyy').format(now),
+                                  style: TextStyle(color: Colors.grey[600], fontSize: 14, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                            SizedBox(
+                              width: 200,
+                              child: FlatDropdown<String>(
+                                value: _timeRange,
+                                items: const ["Last 7 Days", "Last 30 Days", "This Month"],
+                                label: "Range",
+                                icon: Icons.calendar_today,
+                                onChanged: (v) => setState(() => _timeRange = v!),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                         
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
 
-                        // ─── KPI ROW ───
-                        // Fixed height ensures consistent layout
-                        SizedBox(
-                          height: 110,
-                          child: Row(
-                            children: [
-                              Expanded(child: _buildStatCard(context, "Today's Sales", FormatUtils.formatCurrency(totalSalesToday), Icons.payments, ThemeConfig.primaryGreen)),
-                              const SizedBox(width: 16),
-                              Expanded(child: _buildStatCard(context, "Active Orders", "$orderCountToday", Icons.receipt_long, Colors.blue)),
-                              const SizedBox(width: 16),
-                              Expanded(child: _buildStatCard(context, "Staff Present", "$presentCount / $totalStaff", Icons.people, Colors.purple)),
-                              const SizedBox(width: 16),
-                              Expanded(child: _buildStatCard(context, "Inventory Alerts", "${lowStockCount + outOfStockCount}", Icons.warning_amber, Colors.orange)),
-                            ],
-                          ),
+                        // ─── 2. KPI ROW ───
+                        Row(
+                          children: [
+                            _buildKpiCard("Today's Sales", FormatUtils.formatCurrency(totalSalesToday), Icons.payments, ThemeConfig.primaryGreen),
+                            const SizedBox(width: 16),
+                            _buildKpiCard("Orders", "$orderCountToday", Icons.receipt_long, Colors.blue),
+                            const SizedBox(width: 16),
+                            _buildKpiCard("Staff Active", "$presentCount / $totalStaff", Icons.people, Colors.purple),
+                            const SizedBox(width: 16),
+                            _buildKpiCard("Alerts", "${lowStockCount + outOfStockCount}", Icons.notifications_active, Colors.orange),
+                          ],
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
 
-                        // ─── CHARTS AREA ───
+                        // ─── 3. MAIN CONTENT (SPLIT) ───
                         SizedBox(
-                          height: 400,
+                          height: 450, // Fixed height for alignment
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              // LEFT: WEEKLY TREND
+                              // LEFT: CHART (65%)
                               Expanded(
-                                flex: 3,
-                                // ✅ FIX: Use _buildChartContainer instead of ContainerCard to allow Expanded children
-                                child: _buildChartContainer(
+                                flex: 65,
+                                child: Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: _flatDecoration(),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text("Sales Trend (Last 7 Days)", style: FontConfig.h3(context)),
-                                      const SizedBox(height: 30),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text("Revenue Trend", style: FontConfig.h3(context)),
+                                          Row(
+                                            children: [
+                                              _legendItem("Sales", ThemeConfig.primaryGreen),
+                                            ],
+                                          )
+                                        ],
+                                      ),
+                                      const SizedBox(height: 32),
                                       Expanded(
                                         child: BarChart(
                                           BarChartData(
@@ -155,7 +187,7 @@ class AdminDashboardScreen extends StatelessWidget {
                                             maxY: maxChartY,
                                             barTouchData: BarTouchData(
                                               touchTooltipData: BarTouchTooltipData(
-                                                getTooltipColor: (group) => ThemeConfig.primaryGreen,
+                                                getTooltipColor: (group) => Colors.black87,
                                                 getTooltipItem: (group, groupIndex, rod, rodIndex) {
                                                   return BarTooltipItem(
                                                     FormatUtils.formatCurrency(rod.toY),
@@ -169,11 +201,15 @@ class AdminDashboardScreen extends StatelessWidget {
                                               bottomTitles: AxisTitles(
                                                 sideTitles: SideTitles(
                                                   showTitles: true,
+                                                  reservedSize: 40,
                                                   getTitlesWidget: (val, meta) {
                                                     if (val.toInt() >= 0 && val.toInt() < weeklyData.length) {
                                                       return Padding(
-                                                        padding: const EdgeInsets.only(top: 8.0),
-                                                        child: Text(weeklyData[val.toInt()].dayLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                                        padding: const EdgeInsets.only(top: 12.0),
+                                                        child: Text(
+                                                          weeklyData[val.toInt()].dayLabel, 
+                                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[600])
+                                                        ),
                                                       );
                                                     }
                                                     return const SizedBox.shrink();
@@ -185,7 +221,16 @@ class AdminDashboardScreen extends StatelessWidget {
                                               rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                                             ),
                                             borderData: FlBorderData(show: false),
-                                            gridData: const FlGridData(show: false),
+                                            gridData: FlGridData(
+                                              show: true,
+                                              drawVerticalLine: false,
+                                              horizontalInterval: maxChartY / 5,
+                                              getDrawingHorizontalLine: (value) => FlLine(
+                                                color: Colors.grey[100], 
+                                                strokeWidth: 1,
+                                                dashArray: [5, 5]
+                                              ),
+                                            ),
                                             barGroups: weeklyData.asMap().entries.map((e) {
                                               return BarChartGroupData(
                                                 x: e.key,
@@ -193,8 +238,13 @@ class AdminDashboardScreen extends StatelessWidget {
                                                   BarChartRodData(
                                                     toY: e.value.amount,
                                                     color: e.key == 6 ? ThemeConfig.primaryGreen : ThemeConfig.primaryGreen.withValues(alpha: 0.3),
-                                                    width: 24,
-                                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                                                    width: 32, // Thicker, modern bars
+                                                    borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                                                    backDrawRodData: BackgroundBarChartRodData(
+                                                      show: true,
+                                                      toY: maxChartY,
+                                                      color: Colors.grey[50],
+                                                    ),
                                                   )
                                                 ]
                                               );
@@ -207,134 +257,175 @@ class AdminDashboardScreen extends StatelessWidget {
                                 ),
                               ),
 
-                              const SizedBox(width: 20),
+                              const SizedBox(width: 24),
 
-                              // RIGHT: ALERTS LIST
+                              // RIGHT: STORE PULSE (35%)
                               Expanded(
-                                flex: 2,
-                                // ✅ FIX: Use _buildChartContainer here too
-                                child: _buildChartContainer(
+                                flex: 35,
+                                child: Container(
+                                  padding: const EdgeInsets.all(24),
+                                  decoration: _flatDecoration(),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text("Needs Attention", style: FontConfig.h3(context)),
-                                      const SizedBox(height: 16),
-                                      Expanded(
-                                        child: ListView(
+                                      Text("Store Status", style: FontConfig.h3(context)),
+                                      const SizedBox(height: 20),
+                                      
+                                      // Inventory Section
+                                      _sectionHeader("INVENTORY"),
+                                      if (outOfStockCount > 0)
+                                        _alertTile("$outOfStockCount items Out of Stock", Icons.error_outline, Colors.red)
+                                      else if (lowStockCount > 0)
+                                        _alertTile("$lowStockCount items Low Stock", Icons.warning_amber, Colors.orange)
+                                      else
+                                        _statusTile("Inventory Healthy", Icons.check_circle_outline, Colors.green),
+
+                                      const SizedBox(height: 20),
+
+                                      // Staff Section
+                                      _sectionHeader("STAFF"),
+                                      _statusTile("$presentCount Active on Floor", Icons.badge_outlined, Colors.blue),
+                                      
+                                      const Spacer(),
+                                      const Divider(),
+                                      
+                                      // System Info
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 10),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            if (outOfStockCount > 0)
-                                              _buildAlertTile("$outOfStockCount items OUT OF STOCK", Icons.error, Colors.red),
-                                            if (lowStockCount > 0)
-                                              _buildAlertTile("$lowStockCount items running low", Icons.warning, Colors.orange),
-                                            if (outOfStockCount == 0 && lowStockCount == 0)
-                                              const Padding(
-                                                padding: EdgeInsets.all(20.0),
-                                                child: Center(child: Text("Inventory looks good! ✅", style: TextStyle(color: Colors.grey))),
-                                              ),
-                                            
-                                            const Divider(),
-                                            const SizedBox(height: 8),
-                                            
-                                            Text("Quick Stats", style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold)),
-                                            const SizedBox(height: 8),
-                                            _buildMiniRow("Total Staff", "$totalStaff registered"),
-                                            _buildMiniRow("Avg Order Value", FormatUtils.formatCurrency(orderCountToday > 0 ? totalSalesToday / orderCountToday : 0)),
+                                            Text("System Status", style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold)),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6)),
+                                              child: const Text("OPERATIONAL", style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                                            )
                                           ],
                                         ),
                                       )
                                     ],
                                   ),
                                 ),
-                              )
+                              ),
                             ],
                           ),
-                        )
+                        ),
                       ],
                     ),
-                  ),
-                );
-              }
-            );
-          }
-        );
-      }
-    );
-  }
-
-  // ✅ NEW: Custom container to avoid the Column wrapper in ContainerCard
-  Widget _buildChartContainer({required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
+                  );
+                }
+              );
+            }
+          );
+        }
       ),
-      child: child,
     );
   }
 
-  Widget _buildStatCard(BuildContext context, String label, String value, IconData icon, Color color) {
-    return ContainerCard(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-            child: Icon(icon, color: color, size: 32),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
+  // ──────────────── WIDGET HELPERS ────────────────
+
+  BoxDecoration _flatDecoration() {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.grey.shade200),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.02),
+          blurRadius: 4,
+          offset: const Offset(0, 2),
+        )
+      ],
+    );
+  }
+
+  Widget _buildKpiCard(String label, String value, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: _flatDecoration(),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(label, style: FontConfig.caption(context), maxLines: 1, overflow: TextOverflow.ellipsis),
-                Text(value, style: FontConfig.h2(context).copyWith(fontSize: 24, fontWeight: FontWeight.w800, color: color)),
+                Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(value, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.black87)),
               ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildAlertTile(String msg, IconData icon, Color color) {
+  Widget _sectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        title, 
+        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Colors.grey, letterSpacing: 1.0)
+      ),
+    );
+  }
+
+  Widget _alertTile(String msg, IconData icon, Color color) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
           Icon(icon, color: color, size: 20),
           const SizedBox(width: 12),
-          Expanded(child: Text(msg, style: TextStyle(color: color, fontWeight: FontWeight.bold))),
+          Text(msg, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 14)),
         ],
       ),
     );
   }
 
-  Widget _buildMiniRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
+  Widget _statusTile(String msg, IconData icon, Color color) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 12),
+          Text(msg, style: TextStyle(color: Colors.grey[800], fontWeight: FontWeight.w600, fontSize: 14)),
         ],
       ),
+    );
+  }
+
+  Widget _legendItem(String label, Color color) {
+    return Row(
+      children: [
+        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey)),
+      ],
     );
   }
 }
