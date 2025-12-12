@@ -7,7 +7,7 @@ import 'package:uuid/uuid.dart';
 import '../../../core/models/transaction_model.dart';
 import '../../../core/services/hive_service.dart';
 import '../../../core/services/session_user.dart';
-import 'stock_logic.dart'; // ✅ Import the logic
+import 'stock_logic.dart';
 
 class PosBloc extends Bloc<PosEvent, PosState> {
   PosBloc() : super(const PosState()) {
@@ -15,8 +15,9 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     on<PosUpdateQuantity>(_onUpdateQuantity);
     on<PosRemoveItem>(_onRemoveItem);
     on<PosClearCart>(_onClearCart);
-    on<PosToggleOrderType>(_onToggleOrderType); // ✅ Register handler
+    on<PosToggleOrderType>(_onToggleOrderType);
     on<PosConfirmPayment>(_onConfirmPayment);
+    on<PosEditCartItem>(_onEditCartItem);
   }
 
   void _onAddToCart(PosAddToCart event, Emitter<PosState> emit) {
@@ -28,7 +29,6 @@ class PosBloc extends Bloc<PosEvent, PosState> {
 
     if (existingIndex != -1) {
       final existing = currentCart[existingIndex];
-      // ✅ Add the specified quantity, not just +1
       currentCart[existingIndex] = existing.copyWith(
         quantity: existing.quantity + event.quantity 
       );
@@ -37,7 +37,7 @@ class PosBloc extends Bloc<PosEvent, PosState> {
         product: event.product,
         variant: event.variant,
         price: event.price,
-        quantity: event.quantity, // ✅ Use event quantity
+        quantity: event.quantity,
       ));
     }
 
@@ -69,9 +69,27 @@ class PosBloc extends Bloc<PosEvent, PosState> {
     emit(const PosState(cart: []));
   }
 
-  // ✅ NEW: Handle Toggle
   void _onToggleOrderType(PosToggleOrderType event, Emitter<PosState> emit) {
     emit(state.copyWith(orderType: event.type));
+  }
+
+  void _onEditCartItem(PosEditCartItem event, Emitter<PosState> emit) {
+    if (event.quantity <= 0) {
+      add(PosRemoveItem(event.cartItemId));
+      return;
+    }
+
+    final currentCart = List<CartItemModel>.from(state.cart);
+    final index = currentCart.indexWhere((i) => i.id == event.cartItemId);
+    
+    if (index != -1) {
+      currentCart[index] = currentCart[index].copyWith(
+        quantity: event.quantity,
+        discount: event.discount,
+        note: event.note,
+      );
+      emit(state.copyWith(cart: currentCart));
+    }
   }
 
   void _onConfirmPayment(PosConfirmPayment event, Emitter<PosState> emit) async {
@@ -79,7 +97,6 @@ class PosBloc extends Bloc<PosEvent, PosState> {
 
     final transactionId = const Uuid().v4().substring(0, 8).toUpperCase();
 
-    // 1. Create Transaction Record
     final transaction = TransactionModel(
       id: transactionId,
       dateTime: DateTime.now(),
@@ -89,8 +106,6 @@ class PosBloc extends Bloc<PosEvent, PosState> {
       paymentMethod: event.paymentMethod,
       cashierName: SessionUser.current?.username ?? "Unknown",
       referenceNo: event.referenceNo,
-      
-      // ✅ SAVE ORDER TYPE FROM STATE
       orderType: state.orderType.name, // "dineIn" or "takeOut"
     );
 
@@ -120,6 +135,8 @@ class PosBloc extends Bloc<PosEvent, PosState> {
           'variant': i.variant,
           'qty': i.quantity,
           'price': i.price,
+          'discount': i.discount,
+          'note': i.note ?? '',
           'total': i.total
         }).toList(), 
       }

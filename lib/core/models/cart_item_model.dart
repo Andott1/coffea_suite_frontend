@@ -24,6 +24,9 @@ class CartItemModel {
   @HiveField(5)
   final double discount;
 
+  @HiveField(6)
+  final String? note;
+
   CartItemModel({
     String? id,
     required this.product,
@@ -31,6 +34,7 @@ class CartItemModel {
     required this.price,
     this.quantity = 1,
     this.discount = 0.0,
+    this.note,
   }) : id = id ?? const Uuid().v4();
 
   double get total => (price * quantity) - discount;
@@ -38,6 +42,7 @@ class CartItemModel {
   CartItemModel copyWith({
     int? quantity,
     double? discount,
+    String? note,
   }) {
     return CartItemModel(
       id: id,
@@ -46,6 +51,7 @@ class CartItemModel {
       price: price,
       quantity: quantity ?? this.quantity,
       discount: discount ?? this.discount,
+      note: note ?? this.note,
     );
   }
 }

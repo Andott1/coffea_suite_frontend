@@ -71,3 +71,19 @@ class PosConfirmPayment extends PosEvent {
   List<Object?> get props => [totalAmount, tenderedAmount, paymentMethod, referenceNo];
 }
 
+class PosEditCartItem extends PosEvent {
+  final String cartItemId;
+  final int quantity;
+  final double discount;
+  final String note;
+
+  const PosEditCartItem({
+    required this.cartItemId,
+    required this.quantity,
+    required this.discount,
+    required this.note,
+  });
+
+  @override
+  List<Object?> get props => [cartItemId, quantity, discount, note];
+}

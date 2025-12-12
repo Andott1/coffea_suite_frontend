@@ -103,7 +103,7 @@ class POSDashboardScreen extends StatelessWidget {
                       const SizedBox(width: 16),
                       Expanded(
                         child: _buildStatCard(
-                          context, "Avg. Ticket", FormatUtils.formatCurrency(avgTicket), 
+                          context, "Avg. Order Amount", FormatUtils.formatCurrency(avgTicket), 
                           Icons.analytics, Colors.blue
                         ),
                       ),
