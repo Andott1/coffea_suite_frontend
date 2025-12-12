@@ -1,0 +1,50 @@
+name: Deploy to Web
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        channel: 'stable'
+
+    - name: Install Dependencies
+      run: flutter pub get
+
+    - name: Build Web App
+      # Replace 'YOUR_REPO_NAME' with your actual repository name!
+      # Example: if your repo is 'my-app', use '/my-app/'
+      run: |
+        flutter build web --release \
+          --base-href "/coffea_manager/" \
+          --dart-define=SUPABASE_URL=https://vvbjuezcwyakrnkrmgon.supabase.co \
+          --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2Ymp1ZXpjd3lha3Jua3JtZ29uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMzI1ODUsImV4cCI6MjA3ODYwODU4NX0.MBloBPZdwfjit4N5heAxdWwRMOGHF3mPHsTkk-zZkWM
+
+    - name: Upload Pages Artifact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: build/web
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
