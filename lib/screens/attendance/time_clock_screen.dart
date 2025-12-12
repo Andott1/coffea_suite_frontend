@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart'; // ✅ 1. IMPORT FOR kIsWeb
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:collection/collection.dart';
-import 'package:camera/camera.dart'; // ✅ KEEPING OFFICIAL PACKAGE
+import 'package:camera/camera.dart'; 
 import 'package:path_provider/path_provider.dart';
 
 import '../../config/font_config.dart';
@@ -20,7 +21,7 @@ import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/container_card.dart';
 import '../../core/widgets/numeric_pad.dart';
 
-import '../../main.dart'; // To access global 'cameras' list
+import '../../main.dart'; 
 
 class TimeClockScreen extends StatefulWidget {
   const TimeClockScreen({super.key});
@@ -46,9 +47,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // ✅ Register Observer
+    WidgetsBinding.instance.addObserver(this); 
     
-    // Defer init to ensure context is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initCamera();
     });
@@ -56,29 +56,26 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // ✅ Unregister Observer
+    WidgetsBinding.instance.removeObserver(this);
     _inactivityTimer?.cancel();
-    _cameraController?.dispose(); // ✅ Dispose Camera
+    _cameraController?.dispose(); 
     super.dispose();
   }
 
-  // ──────────────── LIFECYCLE MANAGEMENT (CRITICAL FIX) ────────────────
+  // ──────────────── LIFECYCLE MANAGEMENT ────────────────
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final CameraController? cameraController = _cameraController;
 
-    // App state changed before we got the chance to initialize.
     if (cameraController == null || !cameraController.value.isInitialized) {
       return;
     }
 
     if (state == AppLifecycleState.inactive) {
-      // App entering background: Free up camera resources immediately
       _isCameraInitialized = false;
       cameraController.dispose();
-      if (mounted) setState(() {}); // Update UI to hide preview
+      if (mounted) setState(() {}); 
     } else if (state == AppLifecycleState.resumed) {
-      // App came back: Re-initialize with the same description
       _initializeCameraController(cameraController.description);
     }
   }
@@ -86,11 +83,19 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   Future<void> _initCamera() async {
     if (cameras.isEmpty) return;
 
-    // Select Front Camera
-    final description = cameras.firstWhere(
-      (c) => c.lensDirection == CameraLensDirection.front,
-      orElse: () => cameras.first,
-    );
+    CameraDescription description;
+
+    // ✅ 2. ADAPTATION: Web browsers often don't label 'front' correctly.
+    // If on web, just take the first camera to be safe.
+    if (kIsWeb) {
+      description = cameras.first; 
+    } else {
+      // Original Logic for Mobile/Tablet
+      description = cameras.firstWhere(
+        (c) => c.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+    }
 
     await _initializeCameraController(description);
   }
@@ -98,9 +103,12 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   Future<void> _initializeCameraController(CameraDescription description) async {
     final controller = CameraController(
       description,
-      ResolutionPreset.medium, // 'medium' is stable across most Androids
+      ResolutionPreset.medium,
       enableAudio: false,
-      imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.jpeg : ImageFormatGroup.bgra8888,
+      // ✅ 3. ADAPTATION: Prevent crash by avoiding Platform.isAndroid on Web
+      imageFormatGroup: kIsWeb 
+          ? ImageFormatGroup.jpeg 
+          : (Platform.isAndroid ? ImageFormatGroup.jpeg : ImageFormatGroup.bgra8888),
     );
 
     _cameraController = controller;
@@ -114,9 +122,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
       });
     } catch (e) {
       LoggerService.error("Camera Init Error: $e");
-      if (e is CameraException) {
-        // Handle specific camera access errors if needed
-      }
     }
   }
 
@@ -221,13 +226,17 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     
     String? proofImagePath;
 
-    // ✅ CHECK: Only take picture if controller is actually ready
-    if (actionType == 'Time In' && _cameraController != null && _cameraController!.value.isInitialized) {
+    // ✅ 4. ADAPTATION: Only attempt file saving on Mobile
+    // Web cameras work for preview, but saving to file system (getApplicationDocumentsDirectory)
+    // is not supported the same way. We skip the photo SAVE step on web for now to prevent crashes.
+    if (actionType == 'Time In' && 
+        _cameraController != null && 
+        _cameraController!.value.isInitialized && 
+        !kIsWeb) { // Check !kIsWeb
       try {
         final image = await _cameraController!.takePicture();
         final appDir = await getApplicationDocumentsDirectory();
         
-        // Ensure directory exists
         if (!await appDir.exists()) await appDir.create(recursive: true);
 
         final fileName = "proof_${_activeUser!.username}_${now.millisecondsSinceEpoch}.jpg";
@@ -236,7 +245,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
         LoggerService.info("📸 Photo Captured: $proofImagePath");
       } catch (e) {
         LoggerService.error("Camera Capture Failed: $e");
-        // Proceed without photo if camera fails, don't block user
       }
     }
 
@@ -397,7 +405,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // TOP SECTION
         Expanded(
           child: Center(
             child: _selectedUser == null
