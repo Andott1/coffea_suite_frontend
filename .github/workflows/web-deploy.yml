@@ -29,7 +29,7 @@ jobs:
       # Example: if your repo is 'my-app', use '/my-app/'
       run: |
         flutter build web --release \
-          --base-href "/coffea_manager/" \
+          --base-href "/coffea_suite/" \
           --dart-define=SUPABASE_URL=https://vvbjuezcwyakrnkrmgon.supabase.co \
           --dart-define=SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ2Ymp1ZXpjd3lha3Jua3JtZ29uIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwMzI1ODUsImV4cCI6MjA3ODYwODU4NX0.MBloBPZdwfjit4N5heAxdWwRMOGHF3mPHsTkk-zZkWM
 
