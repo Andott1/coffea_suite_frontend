@@ -475,7 +475,7 @@ class SupabaseSyncService {
         'proof_image': item.proofImage,
         'is_verified': item.isVerified,
         'rejection_reason': item.rejectionReason,
-        'payroll_id': item.payrollId, // ✅ Push payrollId
+        'payroll_id': item.payrollId,
       });
     }
 

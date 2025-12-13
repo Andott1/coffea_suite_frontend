@@ -20,6 +20,9 @@ import 'product_builder_dialog.dart';
 import 'payment_screen.dart';
 import 'widgets/cart_item_edit_dialog.dart';
 
+import '../../core/config/permissions_config.dart'; //
+import '../../core/widgets/access_control_wrapper.dart'; //
+
 class CashierScreen extends StatefulWidget {
   const CashierScreen({super.key});
 
@@ -31,7 +34,7 @@ class _CashierScreenState extends State<CashierScreen> {
   // ──────────────── STATE ────────────────
   String _selectedCategory = ""; 
   String _selectedSubCategory = ""; 
-  String _searchQuery = "";
+  final String _searchQuery = "";
   
   bool _isQueueOpen = false; // Controls Mode A vs Mode B
   TransactionModel? _selectedOrder;
@@ -620,8 +623,14 @@ class _CashierScreenState extends State<CashierScreen> {
 
     final t = _selectedOrder!;
     final timeElapsed = DateTime.now().difference(t.dateTime);
-    String timeStr = "${timeElapsed.inMinutes}m ago";
-    if (timeElapsed.inMinutes > 60) timeStr = "${timeElapsed.inHours}h ago";
+    
+    String timeStr;
+
+    if (timeElapsed.inMinutes < 60) {
+      timeStr = "${timeElapsed.inMinutes}m ago";
+    } else {
+      timeStr = "${timeElapsed.inHours}h ago";
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -788,10 +797,16 @@ class _CashierScreenState extends State<CashierScreen> {
               const SizedBox(height: 16),
               
               // UNIVERSAL VOID (Small & Safe at bottom)
-              TextButton.icon(
-                onPressed: () => _confirmVoid(t),
-                icon: const Icon(Icons.delete_forever, color: Colors.red, size: 20),
-                label: const Text("Void Transaction", style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+              AccessControlWrapper(
+                permission: AppPermission.voidTransaction, //
+                child: TextButton.icon(
+                  onPressed: () => _confirmVoid(t),
+                  icon: const Icon(Icons.delete_forever, color: Colors.red, size: 20),
+                  label: const Text(
+                    "Void Transaction", 
+                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)
+                  ),
+                ),
               )
             ],
           ),

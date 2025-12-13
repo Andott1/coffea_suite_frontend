@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../config/theme_config.dart';
 import '../config/permissions_config.dart';
 import '../services/session_user.dart';
 import '../utils/dialog_utils.dart';

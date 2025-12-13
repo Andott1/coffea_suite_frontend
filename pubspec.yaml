@@ -1,7 +1,7 @@
 name: coffea_suite
 description: "Coffea Suite"
 publish_to: 'none'
-version: 0.5.0+14
+version: 0.6.2+18
 
 environment:
   sdk: ^3.8.0

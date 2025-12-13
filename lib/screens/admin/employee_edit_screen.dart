@@ -68,6 +68,26 @@ class _EmployeeEditScreenState extends State<EmployeeEditScreen> {
   void _save() async {
     if (!_formKey.currentState!.validate()) return;
 
+    //TODO: Move to new HiveService method
+    final usernameInput = _usernameCtrl.text.trim();
+    final currentUserId = widget.user?.id; // Will be null if creating new
+
+    final isTaken = _userBox.values.any((u) {
+      final nameMatches = u.username.toLowerCase() == usernameInput.toLowerCase();
+      final isNotSelf = u.id != currentUserId; // Critical: Don't block our own existing name
+      return nameMatches && isNotSelf;
+    });
+
+    if (isTaken) {
+      DialogUtils.showToast(
+        context, 
+        "Username '$usernameInput' is already taken.", 
+        icon: Icons.warning, 
+        accentColor: Colors.orange
+      );
+      return; // 🛑 Stop execution
+    }
+
     if (widget.user == null) {
       if (_passwordCtrl.text.isEmpty || _pinCtrl.text.isEmpty) {
         DialogUtils.showToast(context, "Password and PIN are required.", icon: Icons.error, accentColor: Colors.red);

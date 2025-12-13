@@ -30,6 +30,22 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   Future<void> _createAdmin() async {
     if (!_formKey.currentState!.validate()) return;
 
+    final usernameInput = _usernameCtrl.text.trim();
+
+    final isTaken = HiveService.userBox.values.any(
+      (u) => u.username.toLowerCase() == usernameInput.toLowerCase()
+    );
+
+    if (isTaken) {
+      DialogUtils.showToast(
+        context, 
+        "Username '$usernameInput' is already taken.", 
+        icon: Icons.error, 
+        accentColor: Colors.red
+      );
+      return; // 🛑 Stop execution
+    }
+
     try {
       final uuid = const Uuid().v4();
       

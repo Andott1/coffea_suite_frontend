@@ -19,8 +19,8 @@ import '../../core/services/logger_service.dart';
 import '../../core/widgets/basic_button.dart';
 import '../../core/widgets/container_card.dart';
 import '../../core/widgets/numeric_pad.dart';
+import '../../core/widgets/basic_input_field.dart';
 
-//TODO: Separate camera logic into its own service/class
 import '../../main.dart'; // To access global 'cameras' list
 
 class TimeClockScreen extends StatefulWidget {
@@ -33,7 +33,7 @@ class TimeClockScreen extends StatefulWidget {
 class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingObserver {
   // ──────────────── STATE ────────────────
   String _pinCode = "";
-  bool _isLoading = false; //TODO: Refactor: Track loading state for async ops
+  bool _isLoading = false; 
   
   UserModel? _selectedUser; 
   UserModel? _activeUser;   
@@ -47,9 +47,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this); // ✅ Register Observer
+    WidgetsBinding.instance.addObserver(this); 
     
-    // Defer init to ensure context is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initCamera();
     });
@@ -57,29 +56,26 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this); // ✅ Unregister Observer
+    WidgetsBinding.instance.removeObserver(this); 
     _inactivityTimer?.cancel();
-    _cameraController?.dispose(); // ✅ Dispose Camera
+    _cameraController?.dispose(); 
     super.dispose();
   }
 
-  // ──────────────── LIFECYCLE MANAGEMENT (CRITICAL FIX) ────────────────
+  // ──────────────── LIFECYCLE & CAMERA ────────────────
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final CameraController? cameraController = _cameraController;
 
-    // App state changed before we got the chance to initialize.
     if (cameraController == null || !cameraController.value.isInitialized) {
       return;
     }
 
     if (state == AppLifecycleState.inactive) {
-      // App entering background: Free up camera resources immediately
       _isCameraInitialized = false;
       cameraController.dispose();
-      if (mounted) setState(() {}); // Update UI to hide preview
+      if (mounted) setState(() {}); 
     } else if (state == AppLifecycleState.resumed) {
-      // App came back: Re-initialize with the same description
       _initializeCameraController(cameraController.description);
     }
   }
@@ -87,7 +83,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   Future<void> _initCamera() async {
     if (cameras.isEmpty) return;
 
-    // Select Front Camera
     final description = cameras.firstWhere(
       (c) => c.lensDirection == CameraLensDirection.front,
       orElse: () => cameras.first,
@@ -99,7 +94,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   Future<void> _initializeCameraController(CameraDescription description) async {
     final controller = CameraController(
       description,
-      ResolutionPreset.medium, // 'medium' is stable across most Androids
+      ResolutionPreset.medium, 
       enableAudio: false,
       imageFormatGroup: Platform.isAndroid ? ImageFormatGroup.jpeg : ImageFormatGroup.bgra8888,
     );
@@ -115,14 +110,10 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
       });
     } catch (e) {
       LoggerService.error("Camera Init Error: $e");
-      if (e is CameraException) {
-        // Handle specific camera access errors if needed
-      }
     }
   }
 
-  // ──────────────── LOGIC: SELECTION ────────────────
-
+  // ──────────────── LOGIC: SELECTION & AUTH ────────────────
   void _selectUser(UserModel user) {
     if (_activeUser != null) return; 
     setState(() {
@@ -138,6 +129,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
       _selectedUser = null;
       _activeUser = null;
       _pinCode = "";
+      _isLoading = false; 
     });
   }
 
@@ -145,8 +137,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     _inactivityTimer?.cancel();
     _inactivityTimer = Timer(const Duration(seconds: 30), _cancelSelection);
   }
-
-  // ──────────────── LOGIC: PIN & AUTH ────────────────
   
   void _onKeypadInput(String value) {
     if (_selectedUser == null) {
@@ -211,50 +201,191 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     );
   }
 
-  // ──────────────── LOGIC: ACTIONS ────────────────
+  // ──────────────── LOGIC: ACTIONS & DIALOGS ────────────────
 
+  /// 1. MANAGER OVERRIDE DIALOG
+  Future<String?> _showManagerOverrideDialog() async {
+    final usernameCtrl = TextEditingController();
+    final pinCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.security, color: Colors.orange),
+            SizedBox(width: 8),
+            Text("Manager Authorization"),
+          ],
+        ),
+        // ✅ FIX 1: Make Dialog Content Scrollable
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Authorizing clock-in without photo proof.",
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 20),
+                BasicInputField(label: "Manager Username", controller: usernameCtrl),
+                const SizedBox(height: 12),
+                BasicInputField(label: "Manager PIN", controller: pinCtrl, isPassword: true, maxLength: 4, inputType: TextInputType.number),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: ThemeConfig.primaryGreen),
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+
+              final manager = HiveService.userBox.values.firstWhereOrNull(
+                (u) => u.username.toLowerCase() == usernameCtrl.text.trim().toLowerCase()
+              );
+
+              if (manager == null) {
+                DialogUtils.showToast(context, "Manager not found", icon: Icons.error);
+                return;
+              }
+
+              if (manager.role == UserRoleLevel.employee) {
+                DialogUtils.showToast(context, "Authorization Denied: Insufficient permissions", icon: Icons.lock);
+                return;
+              }
+
+              if (HashingUtils.verifyPin(pinCtrl.text.trim(), manager.pinHash)) {
+                Navigator.pop(ctx, manager.username); 
+              } else {
+                DialogUtils.showToast(context, "Invalid credentials", icon: Icons.error);
+              }
+            },
+            child: const Text("Authorize", style: TextStyle(color: Colors.white)),
+          )
+        ],
+      )
+    );
+  }
+
+  /// 2. CAMERA WARNING DIALOG
+  Future<void> _showCameraWarningDialog() async {
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.camera_alt_outlined, color: Colors.red),
+            SizedBox(width: 8),
+            Text("Camera Access Required"),
+          ],
+        ),
+        content: const Text(
+          "To clock in, you must provide a photo proof.\nThe camera is currently unavailable or blocked.",
+          style: TextStyle(fontSize: 15),
+        ),
+        actions: [
+          // Override Option
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx); 
+              // Proceed to Manager Override
+              final managerName = await _showManagerOverrideDialog();
+              if (managerName != null) {
+                _executeClockIn(
+                  proofImage: "OVERRIDE: Authorized by $managerName",
+                  isVerified: true
+                );
+              } else {
+                setState(() => _isLoading = false);
+              }
+            },
+            child: const Text("Manager Override", style: TextStyle(color: Colors.grey)),
+          ),
+          
+          // Retry Option (Primary)
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: ThemeConfig.primaryGreen),
+            onPressed: () async {
+              // Attempt re-init
+              await _initCamera();
+              
+              if (_isCameraInitialized && mounted) {
+                Navigator.pop(ctx); 
+                DialogUtils.showToast(context, "Camera Initialized!");
+                setState(() => _isLoading = false); 
+              } else {
+                if (mounted) DialogUtils.showToast(context, "Camera failed to initialize.", icon: Icons.error);
+              }
+            },
+            child: const Text("Retry / Enable Camera", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// 3. CORE LOGIC: EXECUTE CLOCK IN (Helper)
+  Future<void> _executeClockIn({String? proofImage, bool isVerified = false}) async {
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+
+    final newLog = AttendanceLogModel(
+      id: "${_activeUser!.id}_${todayDate.millisecondsSinceEpoch}",
+      userId: _activeUser!.id,
+      date: todayDate,
+      timeIn: now,
+      status: AttendanceStatus.onTime,
+      hourlyRateSnapshot: _activeUser!.hourlyRate,
+      proofImage: proofImage,
+      isVerified: isVerified,
+    );
+    
+    await HiveService.attendanceBox.put(newLog.id, newLog);
+    _todayLog = newLog;
+    _syncLog(newLog);
+    _showSuccess("Timed In at ${DateFormat('hh:mm a').format(now)}");
+    
+    await Future.delayed(const Duration(seconds: 2));
+    if(mounted) _cancelSelection();
+  }
+
+  /// 4. MAIN ACTION HANDLER
   Future<void> _performAction(String actionType) async {
     _inactivityTimer?.cancel();
     setState(() => _isLoading = true);
 
     final now = DateTime.now();
-    final todayDate = DateTime(now.year, now.month, now.day);
-    
-    String? proofImagePath;
-
-    // ✅ CHECK: Only take picture if controller is actually ready
-    if (actionType == 'Time In' && _cameraController != null && _cameraController!.value.isInitialized) {
-      try {
-        final image = await _cameraController!.takePicture();
-        final appDir = await getApplicationDocumentsDirectory();
-        
-        // Ensure directory exists
-        if (!await appDir.exists()) await appDir.create(recursive: true);
-
-        final fileName = "proof_${_activeUser!.username}_${now.millisecondsSinceEpoch}.jpg";
-        final savedImage = await File(image.path).copy('${appDir.path}/$fileName');
-        proofImagePath = savedImage.path;
-        LoggerService.info("📸 Photo Captured: $proofImagePath");
-      } catch (e) {
-        LoggerService.error("Camera Capture Failed: $e");
-        // Proceed without photo if camera fails, don't block user
-      }
-    }
 
     if (actionType == 'Time In') {
-      final newLog = AttendanceLogModel(
-        id: "${_activeUser!.id}_${todayDate.millisecondsSinceEpoch}",
-        userId: _activeUser!.id,
-        date: todayDate,
-        timeIn: now,
-        status: AttendanceStatus.onTime,
-        hourlyRateSnapshot: _activeUser!.hourlyRate,
-        proofImage: proofImagePath,
-      );
-      await HiveService.attendanceBox.put(newLog.id, newLog);
-      _todayLog = newLog;
-      _syncLog(newLog);
-      _showSuccess("Timed In at ${DateFormat('hh:mm a').format(now)}");
+      if (_cameraController != null && _cameraController!.value.isInitialized) {
+        // HAPPY PATH: Camera Works
+        try {
+          final image = await _cameraController!.takePicture();
+          final appDir = await getApplicationDocumentsDirectory();
+          if (!await appDir.exists()) await appDir.create(recursive: true);
+
+          final fileName = "proof_${_activeUser!.username}_${now.millisecondsSinceEpoch}.jpg";
+          final savedImage = await File(image.path).copy('${appDir.path}/$fileName');
+          
+          await _executeClockIn(proofImage: savedImage.path, isVerified: false);
+          
+        } catch (e) {
+          LoggerService.error("Camera Capture Failed: $e");
+          if (mounted) _showCameraWarningDialog();
+        }
+      } else {
+        // 🚫 SAD PATH: Camera Broken/Denied -> Warning Dialog
+        _showCameraWarningDialog(); 
+      }
     } 
     else if (_todayLog != null) {
       switch (actionType) {
@@ -268,11 +399,12 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
       await _todayLog!.save();
       _syncLog(_todayLog!);
       _showSuccess("$actionType recorded at ${DateFormat('hh:mm a').format(now)}");
+      
+      await Future.delayed(const Duration(seconds: 2));
+      if(mounted) _cancelSelection();
+    } else {
+      setState(() => _isLoading = false);
     }
-
-    setState(() => _isLoading = false);
-    await Future.delayed(const Duration(seconds: 2));
-    if(mounted) _cancelSelection(); 
   }
 
   void _syncLog(AttendanceLogModel log) {
@@ -290,6 +422,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
         'status': log.status.name,
         'hourly_rate_snapshot': log.hourlyRateSnapshot,
         'proof_image': log.proofImage,
+        'is_verified': log.isVerified,
+        'rejection_reason': log.rejectionReason,
       }
     );
   }
@@ -305,6 +439,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ThemeConfig.lightGray,
+      // ✅ FIX 2: Stop Background Resize
+      resizeToAvoidBottomInset: false, 
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
@@ -356,6 +492,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     );
   }
 
+  // ... [Keep _buildClock, _buildPinEntry, _buildUserGrid, _buildActionGrid, _getStatusText, _buildActionButton, _buildLoggedInProfile] ...
+  
   Widget _buildClock() {
     return StreamBuilder(
       stream: Stream.periodic(const Duration(seconds: 1)),
@@ -367,21 +505,12 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
           children: [
             Text(
               DateFormat('hh:mm').format(DateTime.now()),
-              style: const TextStyle(
-                fontSize: 64, 
-                fontWeight: FontWeight.w200, 
-                color: ThemeConfig.primaryGreen, 
-                height: 1
-              ),
+              style: const TextStyle(fontSize: 64, fontWeight: FontWeight.w200, color: ThemeConfig.primaryGreen, height: 1),
             ),
             const SizedBox(width: 8), 
             Text(
               DateFormat('a').format(DateTime.now()),
-              style: const TextStyle(
-                fontSize: 24, 
-                fontWeight: FontWeight.bold, 
-                color: ThemeConfig.secondaryGreen
-              ),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: ThemeConfig.secondaryGreen),
             ),
             const SizedBox(width: 24), 
             Text(
@@ -398,7 +527,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // TOP SECTION
         Expanded(
           child: Center(
             child: _selectedUser == null
@@ -415,10 +543,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
                     children: [
                       Container(
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          shape: BoxShape.circle,
-                        ),
+                        decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
                         child: const Icon(Icons.lock_outline, size: 28, color: Colors.grey),
                       ),
                       const SizedBox(width: 16),
@@ -427,13 +552,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            "Hello, ${_selectedUser!.fullName.split(' ').first}", 
-                            style: FontConfig.h2(context).copyWith(fontSize: 20)
-                          ),
+                          Text("Hello, ${_selectedUser!.fullName.split(' ').first}", style: FontConfig.h2(context).copyWith(fontSize: 20)),
                           const SizedBox(height: 6),
-                          
-                          // PIN Dots
                           SizedBox(
                             height: 12,
                             child: Row(
@@ -442,10 +562,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
                                 return Container(
                                   margin: const EdgeInsets.only(right: 8),
                                   width: 12, height: 12,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: filled ? ThemeConfig.primaryGreen : Colors.grey[300],
-                                  ),
+                                  decoration: BoxDecoration(shape: BoxShape.circle, color: filled ? ThemeConfig.primaryGreen : Colors.grey[300]),
                                 );
                               }),
                             ),
@@ -456,8 +573,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
                   ),
           ),
         ),
-
-        // KEYPAD
         SizedBox(
           width: 400,
           height: 320,
@@ -467,9 +582,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
             onBackspace: _onBackspace,
           ),
         ),
-
         const SizedBox(height: 20),
-        
         SizedBox(
           height: 40,
           child: _selectedUser != null 
@@ -484,7 +597,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Live Camera Feed (Safe Check)
         if (_cameraController != null && _isCameraInitialized)
           Expanded(
             child: Container(
@@ -493,32 +605,28 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: ThemeConfig.primaryGreen, width: 3),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))
-                ],
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 12, offset: const Offset(0, 4))],
                 color: Colors.black,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: CameraPreview(_cameraController!),
-              ),
+              child: ClipRRect(borderRadius: BorderRadius.circular(20), child: CameraPreview(_cameraController!)),
             ),
           )
         else
-          const Expanded(
+          Expanded(
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.no_photography, size: 50, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text("Camera Loading...", style: TextStyle(color: Colors.grey)),
+                  const Icon(Icons.no_photography, size: 50, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  const Text("Camera Unavailable", style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text("Manager Authorization Required", style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
                 ],
               ),
             ),
           ),
 
-        // Profile Info
         Row(
           mainAxisAlignment: MainAxisAlignment.center,   
           crossAxisAlignment: CrossAxisAlignment.center, 
@@ -535,20 +643,11 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
             ),
           ],
         ),
-        
         const SizedBox(height: 24),
-        
-        // Logout Button
-        BasicButton(
-          label: "Logout",
-          type: AppButtonType.secondary,
-          onPressed: _cancelSelection,
-        )
+        BasicButton(label: "Logout", type: AppButtonType.secondary, onPressed: _cancelSelection)
       ],
     );
   }
-
-  // ─── RIGHT PANEL WIDGETS ───
 
   Widget _buildUserGrid() {
     return Column(
@@ -561,9 +660,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
             valueListenable: HiveService.userBox.listenable(),
             builder: (context, Box<UserModel> box, _) {
               final users = box.values.where((u) => u.isActive).toList();
-              
               if (users.isEmpty) return const Center(child: Text("No active users found."));
-
               return GridView.builder(
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 3, 
@@ -575,7 +672,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
                 itemBuilder: (context, index) {
                   final user = users[index];
                   final isSelected = _selectedUser?.id == user.id;
-
                   return Material(
                     color: isSelected ? ThemeConfig.primaryGreen : Colors.white,
                     borderRadius: BorderRadius.circular(16),
@@ -589,35 +685,12 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
                           CircleAvatar(
                             radius: 32,
                             backgroundColor: isSelected ? Colors.white : ThemeConfig.primaryGreen.withValues(alpha: 0.1),
-                            child: Text(
-                              user.fullName[0].toUpperCase(),
-                              style: TextStyle(
-                                fontSize: 26, 
-                                fontWeight: FontWeight.bold, 
-                                color: isSelected ? ThemeConfig.primaryGreen : ThemeConfig.primaryGreen
-                              ),
-                            ),
+                            child: Text(user.fullName[0].toUpperCase(), style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: isSelected ? ThemeConfig.primaryGreen : ThemeConfig.primaryGreen)),
                           ),
                           const SizedBox(height: 16),
-                          Text(
-                            user.fullName, 
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold, 
-                              fontSize: 16,
-                              color: isSelected ? Colors.white : Colors.black87
-                            ),
-                            textAlign: TextAlign.center, 
-                            maxLines: 1, 
-                            overflow: TextOverflow.ellipsis
-                          ),
+                          Text(user.fullName, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isSelected ? Colors.white : Colors.black87), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 4),
-                          Text(
-                            user.role.name.toUpperCase(), 
-                            style: TextStyle(
-                              fontSize: 12, 
-                              color: isSelected ? Colors.white70 : Colors.grey
-                            ),
-                          ),
+                          Text(user.role.name.toUpperCase(), style: TextStyle(fontSize: 12, color: isSelected ? Colors.white70 : Colors.grey)),
                         ],
                       ),
                     ),
@@ -645,7 +718,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Status Header
         ContainerCard(
           padding: const EdgeInsets.all(24),
           child: Row(
@@ -656,31 +728,19 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
                   children: [
                     Text("Current Status", style: FontConfig.caption(context)),
                     const SizedBox(height: 8),
-                    Text(
-                      _getStatusText(hasTimeIn, hasTimeOut, isOnBreak),
-                      style: FontConfig.h2(context).copyWith(fontSize: 28),
-                    ),
+                    Text(_getStatusText(hasTimeIn, hasTimeOut, isOnBreak), style: FontConfig.h2(context).copyWith(fontSize: 28)),
                   ],
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isOnBreak ? Colors.orange : (hasTimeIn && !hasTimeOut ? Colors.green : Colors.grey),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  isOnBreak ? "ON BREAK" : (hasTimeIn && !hasTimeOut ? "WORKING" : "OFF DUTY"),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                ),
+                decoration: BoxDecoration(color: isOnBreak ? Colors.orange : (hasTimeIn && !hasTimeOut ? Colors.green : Colors.grey), borderRadius: BorderRadius.circular(20)),
+                child: Text(isOnBreak ? "ON BREAK" : (hasTimeIn && !hasTimeOut ? "WORKING" : "OFF DUTY"), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               )
             ],
           ),
         ),
-        
         const SizedBox(height: 30),
-
-        // Buttons Grid
         Expanded(
           child: GridView.count(
             crossAxisCount: 2,
