@@ -136,7 +136,9 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
   Widget _buildBoxContent() {
     switch (_selectedBox) {
       case 'users': return _buildTable<UserModel>(
-        box: HiveService.userBox, 
+        box: HiveService.userBox,
+        // Normal Sorting (A-Z)
+        sorter: (a, b) => a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()),
         columns: ["ID", "FULL NAME", "USERNAME", "ROLE", "RATE", "STATUS"],
         rowBuilder: (u) => [
           _mono(u.id.substring(0, 8)),
@@ -150,6 +152,8 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
       
       case 'products': return _buildTable<ProductModel>(
         box: HiveService.productBox,
+        // Normal Sorting (A-Z)
+        sorter: (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
         columns: ["NAME", "CATEGORY", "SUB-CAT", "TYPE", "PRICES", "STATUS"],
         rowBuilder: (p) => [
           _text(p.name, bold: true),
@@ -163,6 +167,8 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
 
       case 'ingredients': return _buildTable<IngredientModel>(
         box: HiveService.ingredientBox,
+        // Normal Sorting (A-Z)
+        sorter: (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
         columns: ["NAME", "STOCK", "UNIT", "REORDER @", "COST/UNIT", "LAST UPDATED"],
         rowBuilder: (i) => [
           _text(i.name, bold: true),
@@ -178,6 +184,9 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
 
       case 'transactions': return _buildTable<TransactionModel>(
         box: HiveService.transactionBox,
+        // ✅ SORTING: Descending (Newest First)
+        // b.compareTo(a) puts 'b' (later time) before 'a' (earlier time)
+        sorter: (a, b) => b.dateTime.compareTo(a.dateTime),
         columns: ["ID", "DATE / TIME", "TOTAL", "PAYMENT", "CASHIER", "STATUS"],
         rowBuilder: (t) => [
           _mono(t.id),
@@ -191,6 +200,8 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
 
       case 'attendance_logs': return _buildTable<AttendanceLogModel>(
         box: HiveService.attendanceBox,
+        // ✅ SORTING: Descending (Newest First)
+        sorter: (a, b) => b.timeIn.compareTo(a.timeIn),
         columns: ["DATE", "USER ID", "TIME IN", "TIME OUT", "HOURS", "STATUS"],
         rowBuilder: (l) => [
           _text(DateFormat('yyyy-MM-dd').format(l.date)),
@@ -204,6 +215,8 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
 
       case 'inventory_logs': return _buildTable<InventoryLogModel>(
         box: HiveService.logsBox,
+        // ✅ SORTING: Descending (Newest First)
+        sorter: (a, b) => b.dateTime.compareTo(a.dateTime),
         columns: ["TIME", "ACTION", "ITEM", "CHANGE", "USER", "REASON"],
         rowBuilder: (l) => [
           _date(l.dateTime),
@@ -221,6 +234,8 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
 
       case 'payroll_records': return _buildTable<PayrollRecordModel>(
         box: HiveService.payrollBox,
+        // ✅ SORTING: Descending (Newest First)
+        sorter: (a, b) => b.generatedAt.compareTo(a.generatedAt),
         columns: ["GENERATED", "USER ID", "PERIOD", "GROSS", "NET PAY", "BY"],
         rowBuilder: (p) => [
           _date(p.generatedAt),
@@ -251,18 +266,22 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
     required Box<T> box,
     required List<String> columns,
     required List<Widget> Function(T item) rowBuilder,
+    int Function(T a, T b)? sorter, 
   }) {
     return ValueListenableBuilder(
       valueListenable: box.listenable(),
       builder: (context, Box<T> box, _) {
         final items = box.values.toList(); 
         
+        // 1. Sort the list if a sorter is provided
+        if (sorter != null) {
+          items.sort(sorter);
+        }
+        
         if (items.isEmpty) {
           return _buildEmptyState();
         }
 
-        // ✅ KEY FIX: LayoutBuilder + ConstrainedBox(minWidth)
-        // This ensures the table stretches to fill the screen width
         return LayoutBuilder(
           builder: (context, constraints) {
             return Scrollbar(
@@ -290,8 +309,9 @@ class _DatabaseViewerScreenState extends State<DatabaseViewerScreen> {
                         )
                       )).toList(),
                       rows: List.generate(items.length, (index) {
-                        // Show newest items at the top
-                        final item = items[items.length - 1 - index];
+                        // ✅ CRITICAL FIX: Use direct index.
+                        // Since 'items' is already sorted Descending, items[0] is the Newest.
+                        final item = items[index];
                         final cells = rowBuilder(item);
                         
                         return DataRow(
