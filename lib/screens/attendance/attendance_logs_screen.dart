@@ -12,7 +12,6 @@ import '../../core/services/session_user.dart';
 import '../../core/services/supabase_sync_service.dart';
 import '../../core/utils/dialog_utils.dart';
 import '../../core/widgets/basic_button.dart';
-import '../../core/widgets/basic_dropdown_button.dart';
 import '../../core/widgets/basic_search_box.dart';
 import '../../core/widgets/container_card.dart';
 import '../../core/widgets/dialog_box_titled.dart';
@@ -25,14 +24,11 @@ class AttendanceLogsScreen extends StatefulWidget {
 }
 
 class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
+  // ... [Keep existing state and methods unchanged] ...
   String _searchQuery = "";
   String? _selectedEmployeeId;
   DateTime? _startDate;
   DateTime? _endDate;
-
-  // ──────────────────────────────────────────────────────────────────────────
-  // FILTER LOGIC
-  // ──────────────────────────────────────────────────────────────────────────
 
   List<AttendanceLogModel> _getFilteredLogs(Box<AttendanceLogModel> box) {
     List<AttendanceLogModel> logs = box.values.toList();
@@ -85,9 +81,7 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
     }
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // DIALOG HANDLERS
-  // ──────────────────────────────────────────────────────────────────────────
+  // ──────────────── DIALOG HANDLERS ────────────────
   
   void _showDetailDialog(AttendanceLogModel log) {
     showDialog(
@@ -155,9 +149,7 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
     );
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // MAIN UI BUILD
-  // ──────────────────────────────────────────────────────────────────────────
+  // ──────────────── MAIN UI BUILD ────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -321,10 +313,15 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
                                           child: Row(
                                             mainAxisAlignment: MainAxisAlignment.end,
                                             children: [
+                                              // ✅ Support Override String check in list too (optional but consistent)
                                               if (log.proofImage != null && log.proofImage!.isNotEmpty)
                                                 Padding(
                                                   padding: const EdgeInsets.only(right: 4),
-                                                  child: Icon(Icons.photo_camera, size: 16, color: Colors.grey[400]),
+                                                  child: Icon(
+                                                    log.proofImage!.startsWith("OVERRIDE:") ? Icons.security : Icons.photo_camera,
+                                                    size: 16, 
+                                                    color: Colors.grey[400]
+                                                  ),
                                                 ),
                                             ],
                                           ),
@@ -349,10 +346,7 @@ class _AttendanceLogsScreenState extends State<AttendanceLogsScreen> {
     );
   }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // TABLE HELPERS
-  // ──────────────────────────────────────────────────────────────────────────
-
+  // ... [Keep _headerCell, _textCell, _buildVerificationBadge] ...
   Widget _headerCell(String label, int flex) {
     return Expanded(
       flex: flex,
@@ -421,11 +415,38 @@ class _LogDetailDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = HiveService.userBox.get(log.userId);
     final bool hasProof = log.proofImage != null && log.proofImage!.isNotEmpty;
+    
+    // ✅ NEW: Check lock status
+    final bool isLocked = log.payrollId != null;
 
-    // Image Loader Logic
+    // Image Loader Logic (Updated for Override)
     Widget imageWidget;
     if (hasProof) {
-      if (log.proofImage!.startsWith('http')) {
+      if (log.proofImage!.startsWith('OVERRIDE:')) {
+        // Show Override Badge
+        imageWidget = Container(
+          color: Colors.orange.shade50,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.security, size: 64, color: Colors.orange),
+              const SizedBox(height: 16),
+              Text(
+                "Authorized Override", 
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.orange.shade900)
+              ),
+              const SizedBox(height: 8),
+              Text(
+                log.proofImage!.replaceAll('OVERRIDE: ', ''), // "Authorized by admin"
+                style: TextStyle(color: Colors.orange.shade800, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      } else if (log.proofImage!.startsWith('http')) {
         imageWidget = Image.network(log.proofImage!, fit: BoxFit.cover);
       } else {
         imageWidget = Image.file(File(log.proofImage!), fit: BoxFit.cover);
@@ -447,12 +468,12 @@ class _LogDetailDialog extends StatelessWidget {
 
     return DialogBoxTitled(
       title: "Log Details",
-      width: 900, // ✅ Wide split view
+      width: 900,
       actions: [
         IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context))
       ],
       child: SizedBox(
-        height: 420, // Fixed height container for consistent layout
+        height: 420,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -461,7 +482,6 @@ class _LogDetailDialog extends StatelessWidget {
               flex: 5,
               child: Column(
                 children: [
-                  // Photo Container
                   Expanded(
                     child: Container(
                       width: double.infinity,
@@ -476,7 +496,6 @@ class _LogDetailDialog extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Date Caption
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -488,7 +507,7 @@ class _LogDetailDialog extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8), // Bottom padding
+                  const SizedBox(height: 8),
                 ],
               ),
             ),
@@ -501,7 +520,6 @@ class _LogDetailDialog extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. User Header
                   Row(
                     children: [
                       CircleAvatar(
@@ -522,7 +540,6 @@ class _LogDetailDialog extends StatelessWidget {
                   
                   const Divider(height: 40),
 
-                  // 2. Time Card Section
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
@@ -547,22 +564,21 @@ class _LogDetailDialog extends StatelessWidget {
 
                   const SizedBox(height: 12),
 
-                  // 3. Modify Button (Contextual)
+                  // ✅ FIX: Disable Modify if Locked
                   if (SessionUser.isManager)
                     SizedBox(
                       width: double.infinity,
                       child: BasicButton(
-                        label: "Modify Times",
+                        label: isLocked ? "Locked (Payroll Generated)" : "Modify Times",
                         type: AppButtonType.secondary,
                         height: 40,
-                        icon: Icons.edit,
-                        onPressed: onEdit,
+                        icon: isLocked ? Icons.lock : Icons.edit,
+                        onPressed: isLocked ? null : onEdit, // Disable if locked
                       ),
                     ),
 
                   const Spacer(),
 
-                  // 4. Status & Verification
                   if (log.rejectionReason != null)
                     _statusBanner("REJECTED: ${log.rejectionReason}", Colors.red)
                   else if (log.isVerified)
@@ -577,7 +593,7 @@ class _LogDetailDialog extends StatelessWidget {
                             label: "Reject",
                             icon: Icons.close,
                             type: AppButtonType.danger,
-                            onPressed: SessionUser.isManager ? onReject : null,
+                            onPressed: SessionUser.isManager && !isLocked ? onReject : null, // Also lock rejection
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -586,7 +602,7 @@ class _LogDetailDialog extends StatelessWidget {
                             label: "Approve",
                             icon: Icons.check,
                             type: AppButtonType.primary,
-                            onPressed: SessionUser.isManager ? onApprove : null,
+                            onPressed: SessionUser.isManager && !isLocked ? onApprove : null, // Also lock approval
                           ),
                         ),
                       ],
@@ -637,9 +653,8 @@ class _LogDetailDialog extends StatelessWidget {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────
-// REJECTION REASON DIALOG
-// ──────────────────────────────────────────────────────────────────────────
+// ... [Keep _RejectionReasonDialog and _EditLogDialog classes unchanged] ...
+// (Included here for completeness)
 
 class _RejectionReasonDialog extends StatefulWidget {
   final Function(String) onConfirm;
@@ -725,10 +740,6 @@ class _RejectionReasonDialogState extends State<_RejectionReasonDialog> {
     );
   }
 }
-
-// ──────────────────────────────────────────────────────────────────────────
-// EDIT TIME DIALOG (Existing)
-// ──────────────────────────────────────────────────────────────────────────
 
 class _EditLogDialog extends StatefulWidget {
   final AttendanceLogModel log;

@@ -129,7 +129,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
       _selectedUser = null;
       _activeUser = null;
       _pinCode = "";
-      _isLoading = false; // Ensure loading is reset
+      _isLoading = false; 
     });
   }
 
@@ -220,21 +220,24 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
             Text("Manager Authorization"),
           ],
         ),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Authorizing clock-in without photo proof.",
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-              const SizedBox(height: 20),
-              BasicInputField(label: "Manager Username", controller: usernameCtrl),
-              const SizedBox(height: 12),
-              BasicInputField(label: "Manager PIN", controller: pinCtrl, isPassword: true, maxLength: 4, inputType: TextInputType.number),
-            ],
+        // ✅ FIX 1: Make Dialog Content Scrollable
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Authorizing clock-in without photo proof.",
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 20),
+                BasicInputField(label: "Manager Username", controller: usernameCtrl),
+                const SizedBox(height: 12),
+                BasicInputField(label: "Manager PIN", controller: pinCtrl, isPassword: true, maxLength: 4, inputType: TextInputType.number),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -271,7 +274,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     );
   }
 
-  /// 2. CAMERA WARNING DIALOG (The new gatekeeper)
+  /// 2. CAMERA WARNING DIALOG
   Future<void> _showCameraWarningDialog() async {
     await showDialog(
       context: context,
@@ -293,7 +296,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
           // Override Option
           TextButton(
             onPressed: () async {
-              Navigator.pop(ctx); // Close warning
+              Navigator.pop(ctx); 
               // Proceed to Manager Override
               final managerName = await _showManagerOverrideDialog();
               if (managerName != null) {
@@ -318,7 +321,7 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
               if (_isCameraInitialized && mounted) {
                 Navigator.pop(ctx); 
                 DialogUtils.showToast(context, "Camera Initialized!");
-                setState(() => _isLoading = false); // Let them click "Time In" again
+                setState(() => _isLoading = false); 
               } else {
                 if (mounted) DialogUtils.showToast(context, "Camera failed to initialize.", icon: Icons.error);
               }
@@ -363,7 +366,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
     final now = DateTime.now();
 
     if (actionType == 'Time In') {
-      // ✅ Check Camera Status FIRST
       if (_cameraController != null && _cameraController!.value.isInitialized) {
         // HAPPY PATH: Camera Works
         try {
@@ -374,22 +376,17 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
           final fileName = "proof_${_activeUser!.username}_${now.millisecondsSinceEpoch}.jpg";
           final savedImage = await File(image.path).copy('${appDir.path}/$fileName');
           
-          // Proceed to save with photo
           await _executeClockIn(proofImage: savedImage.path, isVerified: false);
           
         } catch (e) {
           LoggerService.error("Camera Capture Failed: $e");
-          // If camera crashes mid-shot, treat as unavailable
           if (mounted) _showCameraWarningDialog();
         }
       } else {
         // 🚫 SAD PATH: Camera Broken/Denied -> Warning Dialog
         _showCameraWarningDialog(); 
-        // Note: The dialog handles the rest (Retry or Override->Execute)
-        // We don't set isLoading=false here because the dialog is modal and we want to block the UI behind it
       }
     } 
-    // ... Existing Out/Break Logic ...
     else if (_todayLog != null) {
       switch (actionType) {
         case 'Break Out': _todayLog!.breakStart = now; break;
@@ -406,7 +403,6 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
       await Future.delayed(const Duration(seconds: 2));
       if(mounted) _cancelSelection();
     } else {
-      // Fallback if logic state is weird
       setState(() => _isLoading = false);
     }
   }
@@ -443,6 +439,8 @@ class _TimeClockScreenState extends State<TimeClockScreen> with WidgetsBindingOb
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: ThemeConfig.lightGray,
+      // ✅ FIX 2: Stop Background Resize
+      resizeToAvoidBottomInset: false, 
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Row(
